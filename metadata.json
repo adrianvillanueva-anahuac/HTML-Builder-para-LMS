@@ -1,0 +1,9 @@
+{
+  "name": "Academic Template Builder Anáhuac",
+  "description": "Un constructor de plantillas dinámico para el LMS de la Red de Universidades Anáhuac, con soporte para fondos parallax, efectos glass y personalización de footer.",
+  "requestFramePermissions": [
+    "clipboard-read",
+    "clipboard-write"
+  ],
+  "majorCapabilities": []
+}

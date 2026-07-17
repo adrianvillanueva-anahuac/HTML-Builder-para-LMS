@@ -1,0 +1,173 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+    --color-anahuac-orange: #ff5900;
+    --color-anahuac-purple: #5d428c;
+    --color-anahuac-light: #f7f7f7;
+    --color-anahuac-gray: #cdd5dc;
+    --color-anahuac-dark: #646464;
+    --font-sans: "Roboto", sans-serif;
+    --font-serif: "Zilla Slab", serif;
+    --font-lato: "Lato", sans-serif;
+}
+
+[contenteditable="true"][data-placeholder]:empty:before {
+    content: attr(data-placeholder);
+    color: #9ca3af;
+    pointer-events: none;
+    display: block;
+}
+
+html, body, #root {
+    height: 100%;
+    overflow: hidden;
+}
+
+body { 
+    background-color: var(--color-bg, #f3f4f6); 
+}
+html.dark body {
+    --color-bg: #0f172a;
+    color: #e2e8f0;
+}
+
+.catalog-item { user-select: none; -webkit-user-select: none; }
+
+.ghost-element { 
+    opacity: 0.4 !important; background-color: #f8fafc !important; border: 2px dashed #94a3b8 !important; 
+    border-radius: 0.25rem; position: relative; overflow: hidden;
+}
+body.layout-intent-active .ghost-element {
+    display: none !important;
+}
+.drag-item { opacity: 0.9 !important; transform: scale(0.99) rotate(0.5deg); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); cursor: grabbing !important; pointer-events: none !important; }
+
+body.is-dragging .block-toolbar { opacity: 0 !important; pointer-events: none !important; }
+body.is-dragging iframe { pointer-events: none !important; }
+
+.block-toolbar { opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 50; }
+.block-toolbar.-translate-y-full {
+    padding-bottom: 12px;
+    --tw-translate-y: calc(-100% + 12px);
+}
+.lms-element { position: relative; border-radius: 4px; outline: 2px solid transparent; outline-offset: 2px; transition: outline 0.2s; }
+
+.lms-element:hover { outline: 2px dashed #cdd5dc; z-index: 30; }
+.lms-element:hover > .block-toolbar { opacity: 1; pointer-events: auto; }
+.lms-element:hover > .block-toolbar > div { pointer-events: auto !important; }
+.lms-element:hover:has(.lms-element:hover) { outline: 2px solid transparent; z-index: auto; }
+.lms-element:hover:has(.lms-element:hover) > .block-toolbar { opacity: 0; pointer-events: none; }
+
+.drag-handle { cursor: grab; }
+.drag-handle:active { cursor: grabbing; }
+
+.tab-content { display: none; }
+.tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+.editable-text { transition: background-color 0.2s; min-height: 1.5rem; }
+.editable-text:hover { outline: 2px dotted #cbd5e1; outline-offset: 2px; border-radius: 2px; cursor: text; background-color: rgba(248, 250, 252, 0.5); }
+.editable-text[contenteditable="true"] { outline: 2px dashed #ff5900; outline-offset: 2px; background: #fff3ed; cursor: text; }
+.editable-text.drag-over { background-color: #ffebd6 !important; outline: 2px dashed #ff5900; }
+
+.editorial-image { transition: all 0.3s ease; cursor: grab; outline: 2px solid transparent; outline-offset: 2px; user-select: none; }
+.editorial-image:active { cursor: grabbing; opacity: 0.8; }
+.editorial-image:hover { outline: 2px dashed #ff5900; }
+.editorial-image.selected-img { outline: 2px solid #ff5900; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); z-index: 10; position: relative;}
+
+.uploaded-image { transition: width 0.1s linear, transform 0.3s ease; transform-origin: center; margin: 0 auto; }
+.uploaded-image.hidden { display: none !important; }
+.editable-icon { cursor: pointer; transition: transform 0.2s, color 0.2s; display: inline-block;}
+.editable-icon:hover { outline: 2px dashed #ff5900; outline-offset: 4px; transform: scale(1.1); color: #5d428c; border-radius: 4px;}
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+
+.list-custom, .list-custom ul, .list-custom ol { list-style: none !important; margin-top: 0; margin-bottom: 0; }
+.list-custom { padding-left: 2rem; }
+.list-custom ul, .list-custom ol { padding-left: 2.5rem; margin-top: 0.5rem;}
+.list-custom li, .list-custom ul li, .list-custom ol li { position: relative; margin-bottom: 0.5rem; }
+.list-custom li::before, .list-custom ul li::before, .list-custom ol li::before { position: absolute; left: -2rem; top: 0; width: 1.5rem; text-align: right; color: #ff5900; font-weight: bold; font-family: 'Zilla Slab', serif; }
+.list-custom.list-color-purple li::before, .list-custom.list-color-purple ul li::before, .list-custom.list-color-purple ol li::before { color: #5d428c; }
+.list-custom.list-color-gray li::before, .list-custom.list-color-gray ul li::before, .list-custom.list-color-gray ol li::before { color: #646464; }
+.list-custom ul li::before { content: "○"; font-family: 'Roboto', sans-serif; font-size: 1.2em; top: -0.1rem; }
+.list-custom ul ul li::before { content: "■"; font-size: 0.8em; top: 0.15rem; }
+.list-custom ol { counter-reset: anahuac-sub; }
+.list-custom ol li::before { counter-increment: anahuac-sub; content: counter(anahuac-sub, lower-alpha) "."; }
+
+.list-numbers { counter-reset: anahuac-num; }
+.list-numbers > li::before { counter-increment: anahuac-num; content: counter(anahuac-num, decimal-leading-zero) "."; }
+.list-letters { counter-reset: anahuac-alpha; }
+.list-letters > li::before { counter-increment: anahuac-alpha; content: counter(anahuac-alpha, lower-alpha) "."; }
+.list-disc > li::before { content: "•"; font-size: 1.4em; font-family: 'Roboto', sans-serif; top: -0.2rem; }
+.list-circle > li::before { content: "○"; font-size: 1.2em; font-family: 'Roboto', sans-serif; top: -0.1rem; }
+.list-triangle > li::before { content: "▶"; font-size: 0.8em; font-family: 'Roboto', sans-serif; top: 0.15rem; }
+.list-plus > li::before { content: "+"; font-size: 1.3em; font-family: 'Roboto', sans-serif; top: -0.15rem; }
+.list-minus > li::before { content: "—"; font-size: 1.2em; font-family: 'Roboto', sans-serif; top: -0.1rem; }
+
+details > summary { list-style: none; outline: none; cursor: pointer; }
+details > summary::-webkit-details-marker { display: none; }
+details[open] summary ~ * { animation: fadeIn 0.3s ease-in-out; }
+
+.parallax-container { position: relative; z-index: 1; }
+.parallax-bg-wrapper { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; z-index: -1; }
+.parallax-layer { position: absolute; width: 100%; height: 100%; left: 0; top: 0; pointer-events: none; z-index: 0; background-size: 100% auto; background-repeat: repeat; background-position: top center; }
+
+/* Background image automatic full-screen scaling and positioning */
+[data-bg="imagen"] .bg-layer {
+    background-size: 100% auto !important;
+    background-position: top center !important;
+    background-repeat: no-repeat !important;
+    background-color: #ffffff !important;
+}
+
+/* Scroll container and table boundary locks to completely prevent horizontal scrolling */
+#scroll-container {
+    overflow-x: hidden !important;
+}
+
+.table-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+}
+
+.table-container table {
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+}
+
+.modal-bg { backdrop-filter: blur(4px); }
+.lms-dropzone { min-height: 60px; transition: background 0.3s ease; display: flex; flex-direction: column; gap: 1.5rem; }
+.lms-dropzone.hidden { display: none !important; }
+.lms-dropzone > .lms-element { margin-bottom: 0 !important; margin-top: 0 !important; }
+
+#canvas-container-outer:has(#canvas > .lms-element) #canvas-placeholder {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* Flipcards */
+.flipcard-item.force-flip .flipcard-inner,
+.flipcard-item.is-flipped .flipcard-inner {
+    transform: rotateY(180deg);
+}
+.flipcard-front, .flipcard-back {
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+}
+.flipcard-item.is-flipped .flipcard-front,
+.flipcard-item.force-flip .flipcard-front {
+    pointer-events: none;
+}
+.flipcard-item.is-flipped .flipcard-back,
+.flipcard-item.force-flip .flipcard-back {
+    pointer-events: auto;
+}
+.flipcard-item:not(.is-flipped):not(.force-flip) .flipcard-back {
+    pointer-events: none;
+}
+
+.accordion-wrapper > details:first-child .accordion-delete-btn { display: none !important; }

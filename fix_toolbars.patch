@@ -1,0 +1,15 @@
+--- src/index.css
++++ src/index.css
+@@ -51,8 +51,19 @@
+ .block-toolbar { opacity: 0; pointer-events: none; transition: opacity 0.2s ease; z-index: 50; }
++.block-toolbar.-translate-y-full {
++    /* Bridge gap between toolbar and element to prevent hover from dropping */
++    padding-bottom: 8px;
++    --tw-translate-y: calc(-100% + 8px);
++}
+ .lms-element { position: relative; border-radius: 4px; outline: 2px solid transparent; outline-offset: 2px; transition: outline 0.2s; }
+ .lms-element:hover { outline: 2px dashed #cdd5dc; z-index: 30; }
+ .lms-element:hover > .block-toolbar { opacity: 1; pointer-events: auto; }
++.lms-element:hover > .block-toolbar * { pointer-events: auto !important; }
+ .lms-element:hover:has(.lms-element:hover) { outline: 2px solid transparent; z-index: auto; }
+ .lms-element:hover:has(.lms-element:hover) > .block-toolbar { opacity: 0; pointer-events: none; }
