@@ -2,6 +2,11 @@ import { useEffect, useState, useRef, memo } from 'react';
 import Sortable from 'sortablejs';
 import { setupVanillaGlobals } from './vanilla-setup';
 
+const GITHUB_REPOSITORY = 'adrianvillanueva-anahuac/HTML-Builder-para-LMS';
+const GITHUB_IMAGES_API_URL = `https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/public/imagenes`;
+const LOCAL_IMAGES_URL = `${import.meta.env.BASE_URL}imagenes`;
+const ASSET_CACHE_PREFIX = 'html_builder_para_lms';
+
 const TIPS = [
   "Consejo: Arrastra y suelta componentes desde la barra lateral izquierda.",
   "Consejo: Haz doble clic en cualquier texto para editarlo directamente.",
@@ -88,8 +93,8 @@ export default function App() {
     // Fetch logs from github
     const fetchLogos = async () => {
         try {
-            const cached = localStorage.getItem('github_footer_logos');
-            const cacheTime = localStorage.getItem('github_footer_logos_time');
+            const cached = localStorage.getItem(`${ASSET_CACHE_PREFIX}_footer_logos`);
+            const cacheTime = localStorage.getItem(`${ASSET_CACHE_PREFIX}_footer_logos_time`);
             if (cached && cacheTime && Date.now() - parseInt(cacheTime) < 1000 * 60 * 60) {
                 const logos = JSON.parse(cached);
                 setFooterLogos(logos);
@@ -97,7 +102,7 @@ export default function App() {
                 return;
             }
 
-            const res = await fetch("https://api.github.com/repos/adrianvillanueva-anahuac/HTML-Builder-para-TE/contents/public/imagenes/Logotipos");
+            const res = await fetch(`${GITHUB_IMAGES_API_URL}/Logotipos`);
             const data = await res.json();
             if (Array.isArray(data)) {
                 const imageFiles = data.filter((f: any) => f.type === 'file' && f.name.match(/\.(png|svg|jpg)$/i)).sort((a:any, b:any) => a.name.localeCompare(b.name));
@@ -110,8 +115,8 @@ export default function App() {
                 setFooterLogos(logos);
                 (window as any).footerLogoUrls = logos.reduce((acc: any, curr: FooterLogo) => { acc[curr.id] = curr.url; return acc; }, {});
                 
-                localStorage.setItem('github_footer_logos', JSON.stringify(logos));
-                localStorage.setItem('github_footer_logos_time', Date.now().toString());
+                localStorage.setItem(`${ASSET_CACHE_PREFIX}_footer_logos`, JSON.stringify(logos));
+                localStorage.setItem(`${ASSET_CACHE_PREFIX}_footer_logos_time`, Date.now().toString());
             }
         } catch (err) {
             console.error("Error fetching logos", err);
@@ -123,13 +128,13 @@ export default function App() {
     const fetchBgs = async () => {
         let githubBgs = [];
         try {
-            const cached = localStorage.getItem('github_bg_images');
-            const cacheTime = localStorage.getItem('github_bg_images_time');
+            const cached = localStorage.getItem(`${ASSET_CACHE_PREFIX}_bg_images`);
+            const cacheTime = localStorage.getItem(`${ASSET_CACHE_PREFIX}_bg_images_time`);
             // Cache muy reducido a 1 minuto para ver actualizaciones casi instantáneas
             if (cached && cacheTime && Date.now() - parseInt(cacheTime) < 1000 * 60 * 1) {
                 githubBgs = JSON.parse(cached);
             } else {
-                const res = await fetch("https://api.github.com/repos/adrianvillanueva-anahuac/HTML-Builder-para-TE/contents/public/imagenes/fondos");
+                const res = await fetch(`${GITHUB_IMAGES_API_URL}/fondos`);
                 const data = await res.json();
                 if (Array.isArray(data)) {
                     const imageFiles = data.filter((f: any) => f.type === 'file' && f.name.match(/\.(png|svg|jpg|jpeg|webp)$/i)).sort((a:any, b:any) => a.name.localeCompare(b.name));
@@ -139,8 +144,8 @@ export default function App() {
                         cleanName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
                         return { name: cleanName, url: f.download_url };
                     });
-                    localStorage.setItem('github_bg_images', JSON.stringify(githubBgs));
-                    localStorage.setItem('github_bg_images_time', Date.now().toString());
+                    localStorage.setItem(`${ASSET_CACHE_PREFIX}_bg_images`, JSON.stringify(githubBgs));
+                    localStorage.setItem(`${ASSET_CACHE_PREFIX}_bg_images_time`, Date.now().toString());
                 }
             }
         } catch (err) {
@@ -153,7 +158,7 @@ export default function App() {
         let found = true;
         while(found && index <= 30) {
             try {
-                const url = `/imagenes/fondos/fondo${index}.jpg`;
+                const url = `${LOCAL_IMAGES_URL}/fondos/fondo${index}.jpg`;
                 const res = await fetch(url, { method: 'HEAD' });
                 if (res.ok) {
                     localBgs.push({ name: `Fondo ${index}`, url });
@@ -174,7 +179,7 @@ export default function App() {
             setBgImages(uniqueBgs.sort((a,b) => a.name.localeCompare(b.name)));
         } else {
             setBgImages([
-                { name: 'Fondo 1', url: '/imagenes/fondos/fondo1.jpg'}
+                { name: 'Fondo 1', url: `${LOCAL_IMAGES_URL}/fondos/fondo1.jpg`}
             ]);
         }
     };

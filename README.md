@@ -4,7 +4,7 @@
 
 Bienvenid@s a la herramienta de creación de contenido para Brightspace D2L. Hemos creado este espacio para que puedan diseñar experiencias de aprendizaje hermosas, interactivas y minimalistas **sin necesidad de saber una sola línea de código**.
 
- ##  (https://adrianvillanueva-anahuac.github.io/HTML-Builder-para-TE/)
+ ## [Abrir la aplicación web](https://adrianvillanueva-anahuac.github.io/HTML-Builder-para-LMS/)
 
 ---
 

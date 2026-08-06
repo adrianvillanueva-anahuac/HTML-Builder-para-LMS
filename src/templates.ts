@@ -1,6 +1,5 @@
-// Configura aquí la URL absoluta de tu repositorio de GitHub Pages o en raw
-// Para el repositorio HTML-Builder-para-TE en la rama main:
-const GITHUB_REQ_IMAGES_URL = "https://raw.githubusercontent.com/adrianvillanueva-anahuac/HTML-Builder-para-TE/main/public/imagenes/requerimientos";
+// URL absoluta de los recursos que deben seguir funcionando en el HTML exportado.
+const GITHUB_REQ_IMAGES_URL = "https://raw.githubusercontent.com/adrianvillanueva-anahuac/HTML-Builder-para-LMS/main/public/imagenes/requerimientos";
 
 
 // Plantillas y bloques HTML en crudo

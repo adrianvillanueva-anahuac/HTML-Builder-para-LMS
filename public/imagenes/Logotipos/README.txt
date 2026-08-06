@@ -5,7 +5,7 @@ This folder contains images.
 
 Bienvenid@s a la herramienta de creación de contenido para Brightspace D2L. Hemos creado este espacio para que puedan diseñar experiencias de aprendizaje hermosas, interactivas y minimalistas **sin necesidad de saber una sola línea de código**.
 
- **[CLIC AQUÍ PARA ABRIR LA APLICACIÓN WEB]**(Aquí_pondras_el_link_de_tu_github_pages)
+ **[CLIC AQUÍ PARA ABRIR LA APLICACIÓN WEB](https://adrianvillanueva-anahuac.github.io/HTML-Builder-para-LMS/)**
 
 ---
 
