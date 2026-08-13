@@ -675,8 +675,8 @@ export function getProfesorHTML() {
         <div class="relative w-full rounded-lg flex flex-col items-center lms-element is-rendered mb-8">
             <div class="block-toolbar absolute top-4 right-4 z-40 flex gap-2"><div class="drag-handle cursor-grab bg-white text-gray-500 p-2 rounded shadow-md border border-gray-200 hover:text-anahuac-orange flex items-center justify-center"><span class="material-symbols-outlined pointer-events-none">drag_indicator</span></div><button type="button" class="bg-red-500 text-white w-10 h-10 rounded flex items-center justify-center shadow-md hover:bg-red-600" onclick="deleteBlock(this)"><span class="material-symbols-outlined">delete</span></button></div>
             <div class="lms-dropzone bg-white rounded-xl shadow-2xl z-20 w-full p-10 md:p-16 relative min-h-[400px] flex flex-col">
-                <div class="grid gap-10 w-full mb-10" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));">
-                    <div class="col-span-1 flex flex-col items-center lms-dropzone" style="min-height: 200px;">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-10 w-full mb-10">
+                    <div class="min-w-0 flex flex-col items-center lms-dropzone" style="min-height: 200px;">
                         <div class="relative mb-6 lms-element is-rendered w-full overflow-visible" tabindex="0" onpaste="handleImagePaste(event, this)" data-type="profesor_img">
                             ${getBlockToolbar('profesor_img')}
                             <input type="file" accept="image/*" class="hidden" onchange="handleStandaloneImage(this)">
@@ -686,7 +686,7 @@ export function getProfesorHTML() {
                         <div class="relative lms-element is-rendered w-full mb-4">${getBlockToolbar('titulo_basico')}<h2 class="text-3xl font-serif text-anahuac-orange text-center font-bold editable-text leading-tight">Nombre del<br>profesor</h2></div>
                         ${getProfesorDatosHTML()}
                     </div>
-                    <div class="col-span-2 flex flex-col gap-6 lms-dropzone" style="min-height: 200px;">
+                    <div class="min-w-0 flex flex-col gap-6 lms-dropzone" style="min-height: 200px;">
                         ${getParrafoBasicoHTML()}
                         ${getParrafoBasicoHTML()}
                     </div>
