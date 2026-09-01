@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, memo } from 'react';
 import Sortable from 'sortablejs';
-import { setupVanillaGlobals } from './vanilla-setup';
+import { setupVanillaGlobals, upgradeTitleImageElements } from './vanilla-setup';
 
 const GITHUB_REPOSITORY = 'adrianvillanueva-anahuac/HTML-Builder-para-LMS';
 const GITHUB_IMAGES_API_URL = `https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/public/imagenes`;
@@ -83,6 +83,7 @@ export default function App() {
   const [showPreviewMenu, setShowPreviewMenu] = useState(false);
   const [footerLogos, setFooterLogos] = useState<FooterLogo[]>([]);
   const [bgImages, setBgImages] = useState<{name: string, url: string}[]>([]);
+  const [titleBgImages, setTitleBgImages] = useState<{name: string, url: string}[]>([]);
   const [user, setUser] = useState<any | null>(null);
   const isInitialized = useRef(false);
 
@@ -184,6 +185,48 @@ export default function App() {
         }
     };
     fetchBgs();
+
+    // Los fondos de títulos se descubren desde una carpeta dedicada. Al agregar
+    // nuevas imágenes en GitHub, el selector se actualiza sin cambios de código.
+    const fetchTitleBgs = async () => {
+        const localDefault = {
+            name: 'Fondo naranja escolar',
+            url: `${LOCAL_IMAGES_URL}/titulos/Fondo_naranja_escolar.png`
+        };
+        let githubTitleBgs: {name: string, url: string}[] = [];
+
+        try {
+            const cached = localStorage.getItem(`${ASSET_CACHE_PREFIX}_title_bg_images`);
+            const cacheTime = localStorage.getItem(`${ASSET_CACHE_PREFIX}_title_bg_images_time`);
+            if (cached && cacheTime && Date.now() - parseInt(cacheTime) < 1000 * 60) {
+                githubTitleBgs = JSON.parse(cached);
+            } else {
+                const res = await fetch(`${GITHUB_IMAGES_API_URL}/titulos`);
+                const data = await res.json();
+                if (Array.isArray(data)) {
+                    githubTitleBgs = data
+                        .filter((file: any) => file.type === 'file' && file.name.match(/\.(png|svg|jpg|jpeg|webp)$/i))
+                        .sort((a: any, b: any) => a.name.localeCompare(b.name))
+                        .map((file: any) => {
+                            const cleanName = file.name
+                                .replace(/\.[^/.]+$/, '')
+                                .replace(/[_-]+/g, ' ')
+                                .replace(/^./, (letter: string) => letter.toUpperCase());
+                            return { name: cleanName, url: file.download_url };
+                        });
+                    localStorage.setItem(`${ASSET_CACHE_PREFIX}_title_bg_images`, JSON.stringify(githubTitleBgs));
+                    localStorage.setItem(`${ASSET_CACHE_PREFIX}_title_bg_images_time`, Date.now().toString());
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching title backgrounds from GitHub API:', err);
+        }
+
+        const combined = [...githubTitleBgs, localDefault];
+        const unique = Array.from(new Map(combined.map(item => [item.name.toLowerCase(), item])).values());
+        setTitleBgImages(unique);
+    };
+    fetchTitleBgs();
   }, []);
 
   useEffect(() => {
@@ -254,6 +297,7 @@ export default function App() {
 
   useEffect(() => {
     if (window.updateHistoryButtons) window.updateHistoryButtons();
+    upgradeTitleImageElements();
   });
 
   useEffect(() => {
@@ -665,6 +709,10 @@ export default function App() {
                           </summary>
                           <div className="space-y-3 catalog-list pt-1">
                               <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab" data-type="titulo_basico"><span className="material-symbols-outlined text-anahuac-purple dark:text-white">title</span> <span className="text-sm font-medium">Título Suelto</span></div>
+                              <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center justify-between gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab group" data-type="titulo_imagen">
+                                  <div className="flex items-center gap-3"><span className="material-symbols-outlined text-anahuac-orange">image</span> <span className="text-sm font-medium">Título con Imagen</span></div>
+                                  <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); window.insertTemplate('titulo_imagen'); }} className="text-gray-400 hover:text-anahuac-orange transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100" title="Añadir al final del documento"><span className="material-symbols-outlined">add_circle</span></button>
+                              </div>
                               <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab" data-type="parrafo_basico"><span className="material-symbols-outlined text-anahuac-purple dark:text-white">segment</span> <span className="text-sm font-medium">Párrafo Suelto</span></div>
                               <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab" data-type="cuadro_naranja"><span className="material-symbols-outlined text-anahuac-orange">crop_square</span> <span className="text-sm font-medium">Cuadro Naranja Sólido</span></div>
                               <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab" data-type="caja_texto"><span className="material-symbols-outlined text-anahuac-purple dark:text-white">article</span> <span className="text-sm font-medium">Caja Destacada (Línea)</span></div>
@@ -872,6 +920,31 @@ export default function App() {
                       }
                   }} className="px-8 py-2 bg-anahuac-orange text-white font-bold rounded hover:bg-orange-600 shadow-lg transition-all active:scale-95 flex items-center gap-2"><span className="material-symbols-outlined text-[18px]">check_circle</span> Procesar e Insertar</button>
               </div>
+          </div>
+      </div>
+
+      <div id="title-image-modal" className="modal-bg fixed inset-0 bg-black/60 hidden z-[60] flex items-center justify-center">
+          <div className="bg-white dark:bg-[#323232] dark:text-gray-200 rounded-xl shadow-2xl p-6 w-[95%] sm:w-[90%] max-w-[760px] max-h-[90vh] overflow-y-auto transition-colors">
+              <div className="flex items-start justify-between gap-4 mb-6">
+                  <div>
+                      <h2 className="text-xl font-bold text-anahuac-purple dark:text-white font-serif">Imagen para el título</h2>
+                      <p className="text-sm text-gray-500 dark:text-gray-300 mt-1">El color y la sombra del texto se ajustan automáticamente al fondo.</p>
+                  </div>
+                  <button type="button" onClick={() => document.getElementById('title-image-modal')?.classList.add('hidden')} className="text-gray-400 hover:text-gray-700 dark:hover:text-white p-1 rounded" title="Cerrar"><span className="material-symbols-outlined">close</span></button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {titleBgImages.map((bg, idx) => (
+                      <button key={`${bg.name}-${idx}`} type="button" onClick={() => window.selectTitleBackground(bg.url)} className="group text-left p-3 rounded-xl border-2 border-gray-200 hover:border-anahuac-orange focus:border-anahuac-orange focus:outline-none transition-colors">
+                          <div className="w-full aspect-[4.6/1] min-h-[90px] bg-cover bg-center rounded-lg shadow-inner border border-gray-100" style={{backgroundImage: `url('${bg.url}')`}}></div>
+                          <span className="block mt-3 text-sm font-bold text-gray-700 dark:text-white group-hover:text-anahuac-orange transition-colors">{bg.name}</span>
+                      </button>
+                  ))}
+              </div>
+
+              {titleBgImages.length === 0 && (
+                  <div className="py-12 text-center text-gray-400">No hay fondos de título disponibles.</div>
+              )}
           </div>
       </div>
 

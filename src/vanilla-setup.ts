@@ -2,10 +2,10 @@ import Sortable from 'sortablejs';
 import {
     getBienvenidaHTML, getReferenciasHTML, getRequerimientosHTML,
     getIndiceHTML, getConclusionesHTML, getProfesorHTML, getTabsHTML,
-    getCajaTextoHTML, getTituloBasicoHTML, getParrafoBasicoHTML,
+    getCajaTextoHTML, getTituloBasicoHTML, getTituloImagenHTML, getParrafoBasicoHTML,
     getImagenSueltaHTML, getGrid2x2HTML, getCuadroNaranjaHTML,
     getAcordeonHTML, getEmbedHTML, getSeparadorHTML, getPaginaBasicaHTML, getTablaDinamicaHTML, getIconoSueltoHTML, getProfesorDatosHTML, getFlipcardHTML, getSingleFlipcardItemHTML,
-    getReferenciaItemHTML, getReferenciasImporterHTML, getCalculadoraHTML
+    getReferenciaItemHTML, getReferenciasImporterHTML, getCalculadoraHTML, getBlockToolbar
 } from './templates';
 
 declare global {
@@ -20,7 +20,105 @@ let isHistoryAction: boolean = false;
 let historyTimeout: any = null;
 const MAX_HISTORY = 20;
 
+const getTitleImageElement = (target: HTMLElement | null): HTMLElement | null => {
+    if (!target) return null;
+    if (target.matches('[data-type="titulo_imagen"]')) return target;
+    return target.closest('[data-type="titulo_imagen"]') as HTMLElement | null;
+};
+
+const normalizeExistingTitleImage = (element: HTMLElement) => {
+    const surface = element.querySelector('.title-image-surface') as HTMLElement | null;
+    const title = element.querySelector('.title-image-text') as HTMLElement | null;
+    if (!surface || !title) return;
+
+    if (!element.querySelector('.title-image-height-control')) {
+        const currentToolbar = element.querySelector(':scope > .block-toolbar');
+        const template = document.createElement('template');
+        template.innerHTML = getBlockToolbar('titulo_imagen').trim();
+        const updatedToolbar = template.content.firstElementChild;
+        if (currentToolbar && updatedToolbar) currentToolbar.replaceWith(updatedToolbar);
+    }
+
+    surface.classList.remove('min-h-[160px]', 'py-10', 'md:py-14');
+    const storedMinHeight = Number.parseInt(element.dataset.titleMinHeight || surface.style.minHeight, 10);
+    const minHeight = Number.isFinite(storedMinHeight) ? Math.max(0, storedMinHeight) : 0;
+    const storedPadding = Number.parseInt(element.dataset.titlePadding || surface.style.paddingTop, 10);
+    const padding = Number.isFinite(storedPadding) ? Math.min(80, Math.max(8, storedPadding)) : 40;
+
+    element.dataset.titleMinHeight = String(minHeight);
+    element.dataset.titlePadding = String(padding);
+    surface.style.minHeight = `${minHeight}px`;
+    surface.style.height = 'auto';
+    surface.style.paddingTop = `${padding}px`;
+    surface.style.paddingBottom = `${padding}px`;
+
+    title.classList.remove('text-4xl', 'md:text-5xl');
+    title.classList.add('text-[32px]');
+    title.style.fontSize = '32px';
+
+    const heightControl = element.querySelector('.title-image-height-control') as HTMLInputElement | null;
+    const paddingControl = element.querySelector('.title-image-padding-control') as HTMLInputElement | null;
+    if (heightControl) {
+        heightControl.value = String(minHeight);
+        heightControl.setAttribute('value', String(minHeight));
+    }
+    if (paddingControl) {
+        paddingControl.value = String(padding);
+        paddingControl.setAttribute('value', String(padding));
+    }
+    const heightValue = element.querySelector('.title-image-height-value');
+    const paddingValue = element.querySelector('.title-image-padding-value');
+    if (heightValue) heightValue.textContent = minHeight === 0 ? 'Auto' : `${minHeight} px`;
+    if (paddingValue) paddingValue.textContent = `${padding} px`;
+};
+
+const installTitleImageControlGlobals = () => {
+    window.updateTitleImageHeight = function(slider: HTMLInputElement) {
+        const element = getTitleImageElement(slider);
+        const surface = element?.querySelector('.title-image-surface') as HTMLElement | null;
+        if (!element || !surface) return;
+
+        const minHeight = Math.max(0, Number.parseInt(slider.value, 10) || 0);
+        element.dataset.titleMinHeight = String(minHeight);
+        surface.style.minHeight = `${minHeight}px`;
+        surface.style.height = 'auto';
+        slider.setAttribute('value', String(minHeight));
+        const value = element.querySelector('.title-image-height-value');
+        if (value) value.textContent = minHeight === 0 ? 'Auto' : `${minHeight} px`;
+    };
+
+    window.toggleTitleImageSizePanel = function(button: HTMLElement) {
+        const control = button.closest('.title-image-size-control');
+        if (!control) return;
+        const shouldOpen = !control.classList.contains('is-open');
+        document.querySelectorAll('.title-image-size-control.is-open').forEach(item => item.classList.remove('is-open'));
+        if (shouldOpen) control.classList.add('is-open');
+    };
+
+    window.updateTitleImagePadding = function(slider: HTMLInputElement) {
+        const element = getTitleImageElement(slider);
+        const surface = element?.querySelector('.title-image-surface') as HTMLElement | null;
+        if (!element || !surface) return;
+
+        const padding = Math.min(80, Math.max(8, Number.parseInt(slider.value, 10) || 40));
+        element.dataset.titlePadding = String(padding);
+        surface.style.paddingTop = `${padding}px`;
+        surface.style.paddingBottom = `${padding}px`;
+        slider.setAttribute('value', String(padding));
+        const value = element.querySelector('.title-image-padding-value');
+        if (value) value.textContent = `${padding} px`;
+    };
+};
+
+export function upgradeTitleImageElements(root: ParentNode = document) {
+    installTitleImageControlGlobals();
+    root.querySelectorAll('.title-image-element[data-type="titulo_imagen"]').forEach(element => {
+        normalizeExistingTitleImage(element as HTMLElement);
+    });
+}
+
 export function setupVanillaGlobals() {
+    installTitleImageControlGlobals();
     // FIX: Protect SortableJS from complaining about detached nodes or null references.
     const preventDetachedEvent = (e: Event) => {
         if (e.target instanceof Node && !document.contains(e.target)) {
@@ -36,6 +134,7 @@ export function setupVanillaGlobals() {
     window.currentEditableText = null; 
     window.lastKnownRange = null; 
     window.currentBgTarget = null;
+    window.currentTitleImageTarget = null;
     window.draggedEditorialImage = null;
     window.selectedEditorialImage = null; 
     window.tempFooterType = 'lineas';
@@ -355,6 +454,7 @@ export function setupVanillaGlobals() {
         else if(type === 'conclusiones') newHTML = getConclusionesHTML();
         else if(type === 'profesor') newHTML = getProfesorHTML();
         else if(type === 'pagina_basica') newHTML = getPaginaBasicaHTML();
+        else if(type === 'titulo_imagen') newHTML = getTituloImagenHTML();
         
         if (!newHTML) return;
         
@@ -363,8 +463,12 @@ export function setupVanillaGlobals() {
 
         const template = document.createElement('template'); 
         template.innerHTML = newHTML.trim(); 
-        if(template.content.firstChild) { 
-            canvas.appendChild(template.content.firstChild); 
+        const renderedElement = template.content.firstElementChild as HTMLElement | null;
+        if(renderedElement) {
+            canvas.appendChild(renderedElement);
+            if (type === 'titulo_imagen') {
+                window.updateTitleImageContrast(renderedElement);
+            }
         }
         
         window.checkEmptyState();
@@ -405,6 +509,102 @@ export function setupVanillaGlobals() {
             title.classList.add('text-2xl', 'text-left');
         }
     }
+
+    const normalizeTitleImageLayout = (element: HTMLElement) => {
+        normalizeExistingTitleImage(element);
+    };
+
+    const applyTitleContrastFallback = (element: HTMLElement) => {
+        const title = element.querySelector('.title-image-text') as HTMLElement | null;
+        if (!title) return;
+        element.dataset.titleContrast = 'light-text';
+        title.style.color = '#ffffff';
+        title.style.textShadow = '0 2px 2px rgba(0,0,0,0.9), 0 4px 8px rgba(0,0,0,0.72), 0 0 18px rgba(0,0,0,0.58)';
+    };
+
+    window.updateTitleImageContrast = function(target: HTMLElement) {
+        const element = getTitleImageElement(target);
+        if (!element) return;
+        normalizeTitleImageLayout(element);
+
+        const surface = element.querySelector('.title-image-surface') as HTMLElement | null;
+        const title = element.querySelector('.title-image-text') as HTMLElement | null;
+        const imageUrl = surface?.dataset.backgroundUrl;
+        if (!surface || !title || !imageUrl) {
+            applyTitleContrastFallback(element);
+            return;
+        }
+
+        const image = new Image();
+        image.crossOrigin = 'anonymous';
+        image.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = 64;
+                canvas.height = 20;
+                const context = canvas.getContext('2d', { willReadFrequently: true });
+                if (!context) throw new Error('Canvas no disponible');
+
+                context.drawImage(image, 0, 0, canvas.width, canvas.height);
+                const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+                let perceivedBrightness = 0;
+                let samples = 0;
+
+                // La zona central es donde se ubica el título.
+                for (let y = 3; y < canvas.height - 3; y++) {
+                    for (let x = 12; x < canvas.width - 12; x++) {
+                        const index = (y * canvas.width + x) * 4;
+                        if (pixels[index + 3] < 32) continue;
+                        perceivedBrightness += (pixels[index] * 299 + pixels[index + 1] * 587 + pixels[index + 2] * 114) / 1000;
+                        samples++;
+                    }
+                }
+
+                const averageBrightness = samples ? perceivedBrightness / samples : 0;
+                const useDarkText = averageBrightness >= 158;
+                element.dataset.titleContrast = useDarkText ? 'dark-text' : 'light-text';
+
+                if (useDarkText) {
+                    title.style.color = '#30243d';
+                    title.style.textShadow = '0 1px 0 rgba(255,255,255,0.95), 0 3px 6px rgba(255,255,255,0.82), 0 0 18px rgba(255,255,255,0.7)';
+                } else {
+                    title.style.color = '#ffffff';
+                    title.style.textShadow = '0 2px 2px rgba(0,0,0,0.9), 0 4px 8px rgba(0,0,0,0.72), 0 0 18px rgba(0,0,0,0.58)';
+                }
+            } catch (error) {
+                console.warn('No fue posible calcular el contraste del título:', error);
+                applyTitleContrastFallback(element);
+            }
+        };
+        image.onerror = () => applyTitleContrastFallback(element);
+        image.src = imageUrl;
+    };
+
+    window.openTitleImageModal = function(btn: HTMLElement) {
+        const element = getTitleImageElement(btn);
+        if (!element) return;
+        window.currentTitleImageTarget = element;
+        document.getElementById('title-image-modal')?.classList.remove('hidden');
+    };
+
+    window.selectTitleBackground = function(imageUrl: string) {
+        const element = getTitleImageElement(window.currentTitleImageTarget);
+        if (!element || !imageUrl) return;
+        const surface = element.querySelector('.title-image-surface') as HTMLElement | null;
+        if (!surface) return;
+
+        window.saveHistoryState();
+        surface.dataset.backgroundUrl = imageUrl;
+        surface.style.backgroundImage = `url('${imageUrl}')`;
+        window.updateTitleImageContrast(element);
+        document.getElementById('title-image-modal')?.classList.add('hidden');
+        window.showToast('Fondo del título actualizado');
+    };
+
+    window.refreshTitleImageContrast = function(btn: HTMLElement) {
+        const element = getTitleImageElement(btn);
+        if (element) window.updateTitleImageContrast(element);
+    };
 
     window.toggleColumns = function(btn: HTMLElement) { 
         const el = btn.closest('.lms-element')?.querySelector('.editable-text'); 
@@ -810,6 +1010,7 @@ export function setupVanillaGlobals() {
             else if(type === 'pestanas') draggedTemplateHTML = getTabsHTML();
             else if(type === 'caja_texto') draggedTemplateHTML = getCajaTextoHTML();
             else if(type === 'titulo_basico') draggedTemplateHTML = getTituloBasicoHTML();
+            else if(type === 'titulo_imagen') draggedTemplateHTML = getTituloImagenHTML();
             else if(type === 'parrafo_basico') draggedTemplateHTML = getParrafoBasicoHTML();
             else if(type === 'imagen_suelta') draggedTemplateHTML = getImagenSueltaHTML();
             else if(type === 'grid_2x2') draggedTemplateHTML = getGrid2x2HTML();
@@ -936,6 +1137,9 @@ export function setupVanillaGlobals() {
         if(window.initNestedDropzones) {
             window.initNestedDropzones();
         }
+        newLayout.querySelectorAll('[data-type="titulo_imagen"]').forEach(element => {
+            window.updateTitleImageContrast(element as HTMLElement);
+        });
     };
 
     window.updateColumnGap = function(input: HTMLInputElement, val: string) {
@@ -3467,6 +3671,24 @@ export function setupVanillaGlobals() {
             const content = el.querySelector('.footer-content'); if(content) content.classList.remove('pointer-events-none');
         });
 
+        // Convierte los fondos locales de título en recursos permanentes para
+        // que el HTML descargado también funcione fuera del Builder.
+        const titleImageExportBase = 'https://raw.githubusercontent.com/adrianvillanueva-anahuac/HTML-Builder-para-LMS/main/public/imagenes/titulos/';
+        clone.querySelectorAll('.title-image-surface').forEach(el => {
+            const surface = el as HTMLElement;
+            const currentUrl = surface.dataset.backgroundUrl;
+            if (!currentUrl) return;
+
+            let exportUrl = currentUrl;
+            if (!/^https?:\/\//i.test(currentUrl) && !currentUrl.startsWith('data:')) {
+                const fileName = currentUrl.split(/[\\/]/).pop();
+                if (fileName) exportUrl = `${titleImageExportBase}${encodeURIComponent(fileName)}`;
+            }
+
+            surface.dataset.backgroundUrl = exportUrl;
+            surface.style.backgroundImage = `url('${exportUrl}')`;
+        });
+
         // Basic wrapper with tailwind CDN to ensure output works standalone.
         const customStyles = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,300;0,400;0,700;1,400&family=Roboto:wght@300;400;500;700&family=Zilla+Slab:wght@400;600;700&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" /><script src="https://cdn.tailwindcss.com"><\/script><script>tailwind.config={theme:{extend:{colors:{anahuac:{orange:'#ff5900',purple:'#5d428c',light:'#f7f7f7',gray:'#cdd5dc',dark:'#646464'}},fontFamily:{sans:['Roboto','sans-serif'],serif:['Zilla Slab','serif'],lato:['Lato','sans-serif']}}}}<\/script><style>body { background-color: #f3f4f6; padding: 2rem; margin: 0; } .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; } .list-custom, .list-custom ul, .list-custom ol { list-style: none !important; margin-top: 0; margin-bottom: 0; } .list-custom { padding-left: 2rem; } .list-custom ul, .list-custom ol { padding-left: 2.5rem; margin-top: 0.5rem;} .list-custom li, .list-custom ul li, .list-custom ol li { position: relative; margin-bottom: 0.5rem; } .list-custom li::before, .list-custom ul li::before, .list-custom ol li::before { position: absolute; left: -2rem; top: 0; width: 1.5rem; text-align: right; color: #ff5900; font-weight: bold; font-family: 'Zilla Slab', serif; } .list-custom ul li::before { content: "○"; font-family: 'Roboto', sans-serif; font-size: 1.2em; top: -0.1rem; } .list-custom ul ul li::before { content: "■"; font-size: 0.8em; top: 0.15rem; } .list-custom ol { counter-reset: anahuac-sub; } .list-custom ol li::before { counter-increment: anahuac-sub; content: counter(anahuac-sub, lower-alpha) "."; } .list-numbers { counter-reset: anahuac-num; } .list-numbers > li::before { counter-increment: anahuac-num; content: counter(anahuac-num, decimal-leading-zero) "."; } .list-letters { counter-reset: anahuac-alpha; } .list-letters > li::before { counter-increment: anahuac-alpha; content: counter(anahuac-alpha, lower-alpha) "."; } .list-disc > li::before { content: "•"; font-size: 1.4em; font-family: 'Roboto', sans-serif; top: -0.2rem; } .list-circle > li::before { content: "○"; font-size: 1.2em; font-family: 'Roboto', sans-serif; top: -0.1rem; } .list-triangle > li::before { content: "▶"; font-size: 0.8em; font-family: 'Roboto', sans-serif; top: 0.15rem; } .list-plus > li::before { content: "+"; font-size: 1.3em; font-family: 'Roboto', sans-serif; top: -0.15rem; } .list-minus > li::before { content: "—"; font-size: 1.2em; font-family: 'Roboto', sans-serif; top: -0.1rem; } .parallax-container { position: relative; z-index: 1; } .parallax-bg-wrapper { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; z-index: -1; } .parallax-layer { position: absolute; width: 100%; height: 100%; left: 0%; top: 0%; pointer-events: none; z-index: 0; background-size: 100% auto; background-repeat: repeat; background-position: top center; } [data-bg="imagen"] .bg-layer { background-size: 100% auto !important; background-position: top center !important; background-repeat: no-repeat !important; background-color: #ffffff !important; } .table-container { width: 100% !important; max-width: 100% !important; overflow-x: auto !important; overflow-y: hidden !important; } .table-container table { width: 100% !important; max-width: 100% !important; table-layout: fixed !important; word-wrap: break-word !important; overflow-wrap: break-word !important; } .tab-content { display: none; } .tab-content.active { display: block; animation: fadeIn 0.3s ease; } details > summary { list-style: none; outline: none; cursor: pointer; } details > summary::-webkit-details-marker { display: none; } details[open] summary ~ * { animation: fadeIn 0.3s ease-in-out; } @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } } .flipcard-item.force-flip .flipcard-inner, .flipcard-item.is-flipped .flipcard-inner { transform: rotateY(180deg); } .flipcard-front, .flipcard-back { -webkit-backface-visibility: hidden; backface-visibility: hidden; } .flipcard-item.is-flipped .flipcard-front, .flipcard-item.force-flip .flipcard-front { pointer-events: none; } .flipcard-item.is-flipped .flipcard-back, .flipcard-item.force-flip .flipcard-back { pointer-events: auto; } .flipcard-item:not(.is-flipped):not(.force-flip) .flipcard-back { pointer-events: none; } .accordion-wrapper > details:first-child .accordion-delete-btn { display: none !important; }</style>`;
         const finalJS = `<script>
@@ -3703,6 +3925,9 @@ export function setupVanillaGlobals() {
                 if (window.initParallax) {
                     window.initParallax();
                 }
+                document.querySelectorAll('[data-type="titulo_imagen"]').forEach(element => {
+                    window.updateTitleImageContrast(element as HTMLElement);
+                });
 
                 // Re-init sortables
                 window.initNestedDropzones();
@@ -3926,6 +4151,7 @@ export function setupVanillaGlobals() {
                     else if(type === 'pestanas') newHTML = getTabsHTML();
                     else if(type === 'caja_texto') newHTML = getCajaTextoHTML();
                     else if(type === 'titulo_basico') newHTML = getTituloBasicoHTML();
+                    else if(type === 'titulo_imagen') newHTML = getTituloImagenHTML();
                     else if(type === 'parrafo_basico') newHTML = getParrafoBasicoHTML();
                     else if(type === 'imagen_suelta') newHTML = getImagenSueltaHTML();
                     else if(type === 'grid_2x2') newHTML = getGrid2x2HTML();
@@ -3945,8 +4171,12 @@ export function setupVanillaGlobals() {
 
                     const template = document.createElement('template'); 
                     template.innerHTML = newHTML.trim(); 
-                    if(item.parentNode && template.content.firstChild) { 
-                        item.parentNode.replaceChild(template.content.firstChild, item); 
+                    const renderedElement = template.content.firstElementChild as HTMLElement | null;
+                    if(item.parentNode && renderedElement) {
+                        item.parentNode.replaceChild(renderedElement, item);
+                        if (type === 'titulo_imagen') {
+                            window.updateTitleImageContrast(renderedElement);
+                        }
                     }
                     
                     window.checkEmptyState();

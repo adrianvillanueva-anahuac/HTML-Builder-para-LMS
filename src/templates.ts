@@ -1,5 +1,6 @@
 // URL absoluta de los recursos que deben seguir funcionando en el HTML exportado.
 const GITHUB_REQ_IMAGES_URL = "https://raw.githubusercontent.com/adrianvillanueva-anahuac/HTML-Builder-para-LMS/main/public/imagenes/requerimientos";
+const DEFAULT_TITLE_IMAGE_URL = `${import.meta.env.BASE_URL}imagenes/titulos/Fondo_naranja_escolar.png`;
 
 
 // Plantillas y bloques HTML en crudo
@@ -52,6 +53,27 @@ export function getBlockToolbar(type: string) {
             <div class="flex items-center gap-1 border border-gray-100 rounded bg-gray-50 p-0.5">
                 <button type="button" class="px-2 py-0.5 text-[10px] font-bold rounded transition-colors hover:bg-white hover:shadow-sm text-gray-500" onclick="switchTitleType(this, 'T1')" title="Título 1 (Centrado)">T1</button>
                 <button type="button" class="px-2 py-0.5 text-[10px] font-bold rounded transition-colors hover:bg-white hover:shadow-sm text-gray-500" onclick="switchTitleType(this, 'T2')" title="Título 2 (Izquierda)">T2</button>
+            </div>
+            <div class="w-px h-4 bg-gray-200 mx-1"></div>
+        `;
+    } else if (type === 'titulo_imagen') {
+        extraButtons = `
+            <button type="button" class="text-gray-400 hover:text-anahuac-orange p-1 rounded hover:bg-orange-50 transition-colors flex items-center justify-center" onclick="openTitleImageModal(this)" title="Elegir imagen de fondo"><span class="material-symbols-outlined text-[18px]">photo_library</span></button>
+            <button type="button" class="text-gray-400 hover:text-anahuac-purple p-1 rounded hover:bg-purple-50 transition-colors flex items-center justify-center" onclick="refreshTitleImageContrast(this)" title="Recalcular contraste"><span class="material-symbols-outlined text-[18px]">contrast</span></button>
+            <div class="title-image-size-control flex items-center px-1 relative group/title-size">
+                <button type="button" class="text-gray-400 hover:text-anahuac-orange p-1 rounded hover:bg-orange-50 transition-colors flex items-center justify-center" onclick="toggleTitleImageSizePanel(this)" title="Ajustar alto y espacio del texto"><span class="material-symbols-outlined text-[18px]">height</span></button>
+                <div class="title-image-size-panel absolute bottom-full left-1/2 -translate-x-1/2 pb-1 opacity-0 invisible group-hover/title-size:visible group-hover/title-size:opacity-100 transition-all duration-200 delay-300 group-hover/title-size:delay-0 z-50">
+                    <div class="bg-white shadow-xl border border-gray-200 rounded-lg p-3 w-56 space-y-3 text-gray-600">
+                        <label class="block">
+                            <span class="flex items-center justify-between text-[11px] font-semibold mb-1"><span>Alto mínimo</span><output class="title-image-height-value text-anahuac-orange">Auto</output></span>
+                            <input type="range" min="0" max="360" step="10" value="0" class="title-image-height-control w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer" oninput="updateTitleImageHeight(this)">
+                        </label>
+                        <label class="block">
+                            <span class="flex items-center justify-between text-[11px] font-semibold mb-1"><span>Espacio del texto</span><output class="title-image-padding-value text-anahuac-orange">40 px</output></span>
+                            <input type="range" min="8" max="80" step="4" value="40" class="title-image-padding-control w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer" oninput="updateTitleImagePadding(this)">
+                        </label>
+                    </div>
+                </div>
             </div>
             <div class="w-px h-4 bg-gray-200 mx-1"></div>
         `;
@@ -388,6 +410,15 @@ export function getIconoSueltoHTML() { return `<div class="relative lms-element 
 export function getTabsHTML() { const uid = Date.now().toString(36); return `<div class="relative mb-8 lms-element is-rendered" data-type="pestanas" data-orientation="horizontal">${getBlockToolbar('pestanas')}<div class="w-full bg-white border border-gray-200 rounded-xl shadow-sm p-3 md:p-5 tabs-main-container flex flex-col"><div class="flex border-b border-gray-200 mb-3 overflow-x-auto tab-buttons-container"><button type="button" class="px-3 py-1.5 border-b-2 border-anahuac-orange text-anahuac-orange font-bold font-serif text-base transition-colors focus:outline-none flex-shrink-0" onclick="toggleLmsTab(this, 'tab-${uid}-1')"><span class="editable-text inline-block min-w-[30px]">Pestaña 1</span></button><button type="button" class="px-3 py-1.5 border-b-2 border-transparent text-gray-500 font-bold font-serif text-base hover:text-anahuac-orange transition-colors focus:outline-none flex-shrink-0" onclick="toggleLmsTab(this, 'tab-${uid}-2')"><span class="editable-text inline-block min-w-[30px]">Pestaña 2</span></button></div><div class="relative min-h-[120px] flex-1 tabs-panes-wrapper"><div id="tab-${uid}-1" class="lms-tab-pane flex flex-col gap-4 animate-fade-in lms-dropzone min-h-[80px]" style="display: flex;"><div class="text-gray-700 leading-relaxed editable-text font-sans text-left text-[15px]"><p>Contenido pestaña 1.</p></div></div><div id="tab-${uid}-2" class="lms-tab-pane hidden flex-col gap-4 animate-fade-in lms-dropzone min-h-[80px]" style="display: none;"><div class="text-gray-700 leading-relaxed editable-text font-sans text-left text-[15px]"><p>Contenido pestaña 2.</p></div></div></div></div></div>`; }
 export function getCajaTextoHTML() { return `<div class="relative mb-6 lms-element is-rendered" data-type="caja_texto">${getBlockToolbar('caja_texto')}<div class="w-full bg-white border border-gray-200 border-l-4 border-l-anahuac-orange rounded-lg shadow-sm pt-6 pl-8 pb-[23px] pr-6 md:p-8 lms-dropzone min-h-[100px] flex flex-col gap-2" data-sortable-active="false"><h3 class="text-xl font-serif text-anahuac-purple dark:text-white font-bold mb-3 editable-text relative group/h3"><button class="absolute -right-2 -top-2 w-4 h-4 bg-red-500 text-white rounded-full hidden group-hover/h3:flex items-center justify-center z-50 shadow-sm hover:bg-red-600 transition-colors" onclick="this.parentElement.remove()" title="Eliminar texto"><span class="material-symbols-outlined text-[10px]">close</span></button>Título de la Caja (Opcional)</h3><div class="text-gray-700 leading-relaxed editable-text font-sans text-left text-[15px] relative group/p -mt-[9px]"><button class="absolute -right-2 -top-2 w-4 h-4 bg-red-500 text-white rounded-full hidden group-hover/p:flex items-center justify-center z-50 shadow-sm hover:bg-red-600 transition-colors" onclick="this.parentElement.remove()" title="Eliminar texto"><span class="material-symbols-outlined text-[10px]">close</span></button><p style="padding-top: 0px; margin-left: 0px; margin-top: 0px;">Escribe aquí el contenido destacado. Usa esta caja para notas importantes.</p></div></div></div>`; }
 export function getTituloBasicoHTML() { return `<div class="relative mb-6 lms-element is-rendered">${getBlockToolbar('titulo_basico')}<h2 class="text-4xl font-serif text-anahuac-orange text-center font-bold editable-text">Escribe tu título aquí</h2></div>`; }
+export function getTituloImagenHTML() {
+    return `<div class="relative mb-8 lms-element is-rendered title-image-element" data-type="titulo_imagen" data-title-contrast="dark" data-title-min-height="0" data-title-padding="40">
+        ${getBlockToolbar('titulo_imagen')}
+        <div class="title-image-surface relative w-full rounded-xl overflow-hidden bg-cover bg-center flex items-center justify-center px-8 md:px-12" data-background-url="${DEFAULT_TITLE_IMAGE_URL}" style="background-image: url('${DEFAULT_TITLE_IMAGE_URL}'); background-size: cover; background-position: center; min-height: 0px; height: auto; padding-top: 40px; padding-bottom: 40px;">
+            <div class="absolute inset-0 pointer-events-none" style="background: linear-gradient(90deg, rgba(0,0,0,0.04), transparent 30%, transparent 70%, rgba(0,0,0,0.04));"></div>
+            <h2 class="title-image-text relative z-10 text-[32px] font-serif text-center font-bold editable-text leading-tight" style="color: #ffffff; font-size: 32px; text-shadow: 0 2px 2px rgba(0,0,0,0.9), 0 4px 8px rgba(0,0,0,0.72), 0 0 18px rgba(0,0,0,0.58);">Escribe tu título aquí</h2>
+        </div>
+    </div>`;
+}
 export function getParrafoBasicoHTML() { return `<div class="relative mb-6 lms-element is-rendered">${getBlockToolbar('parrafo_basico')}<div class="text-gray-700 leading-relaxed editable-text font-sans text-left text-[15px]"><p>Escribe tu párrafo aquí. Haz doble clic para editar o añadir viñetas.</p></div></div>`; }
 export function getFlipcardHTML() {
     return `<div class="relative lms-element is-rendered mb-10 w-full flex justify-center" data-type="flipcard">

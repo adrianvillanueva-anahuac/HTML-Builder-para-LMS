@@ -72,6 +72,27 @@ body.is-dragging iframe { pointer-events: none !important; }
 .editable-text[contenteditable="true"] { outline: 2px dashed #ff5900; outline-offset: 2px; background: #fff3ed; cursor: text; }
 .editable-text.drag-over { background-color: #ffebd6 !important; outline: 2px dashed #ff5900; }
 
+/* Los títulos con imagen crecen con el texto, incluso al abrir diseños guardados
+   que todavía conservan las clases de tamaño de la primera versión. */
+.title-image-surface {
+    height: auto;
+}
+.title-image-text {
+    font-size: 32px !important;
+}
+.title-image-size-control:hover .title-image-size-panel,
+.title-image-size-control:focus-within .title-image-size-panel,
+.title-image-size-control.is-open .title-image-size-panel {
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0ms;
+}
+.title-image-element:focus-within > .block-toolbar,
+.title-image-element > .block-toolbar:has(.title-image-size-control.is-open) {
+    opacity: 1;
+    pointer-events: auto;
+}
+
 .editorial-image { transition: all 0.3s ease; cursor: grab; outline: 2px solid transparent; outline-offset: 2px; user-select: none; }
 .editorial-image:active { cursor: grabbing; opacity: 0.8; }
 .editorial-image:hover { outline: 2px dashed #ff5900; }
