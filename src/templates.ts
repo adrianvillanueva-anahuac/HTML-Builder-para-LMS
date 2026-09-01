@@ -384,8 +384,11 @@ export function getDynamicFooterHTML(defaultType = 'lineas') {
     }
 
     const displaySvg = (window as any).footerLogoUrls?.[logoIdx] || (window as any).footerLogoUrls?.['1'] || '';
+    const logoVisual = String(logoIdx) === '6'
+        ? `<img src="${displaySvg}" alt="Anáhuac Querétaro en colaboración con Coventry University" class="footer-logo-image" style="width: 100%; height: 100%; object-fit: contain;">`
+        : `<div class="footer-logo-mask" style="width: 100%; height: 100%; mask-image: url('${displaySvg}'); -webkit-mask-image: url('${displaySvg}'); mask-size: contain; -webkit-mask-size: contain; mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat; mask-position: center; -webkit-mask-position: center; background-color: ${displayColor}"></div>`;
     const logoHtml = `<div class="inline-block mx-2 footer-logo flex items-center justify-center overflow-visible" data-logo-idx="${logoIdx}" style="width: 280px; height: 60px;">
-        <div style="width: 100%; height: 100%; mask-image: url('${displaySvg}'); -webkit-mask-image: url('${displaySvg}'); mask-size: contain; -webkit-mask-size: contain; mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat; mask-position: center; -webkit-mask-position: center; background-color: ${displayColor}"></div>
+        ${logoVisual}
     </div>`;
 
     if (type === 'lineas') {

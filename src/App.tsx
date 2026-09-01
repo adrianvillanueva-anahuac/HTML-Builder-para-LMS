@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, memo } from 'react';
 import Sortable from 'sortablejs';
 import { setupVanillaGlobals, upgradeTitleImageElements } from './vanilla-setup';
+import { TUTORIAL_TOPICS, startTutorial, type TutorialTopicId } from './tutorial';
 
 const GITHUB_REPOSITORY = 'adrianvillanueva-anahuac/HTML-Builder-para-LMS';
 const GITHUB_IMAGES_API_URL = `https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/public/imagenes`;
@@ -22,7 +23,7 @@ const TIPS = [
 const EditorCanvas = memo(() => {
   console.log("EditorCanvas rendering!");
   return (
-    <div className="relative flex-1 flex flex-col justify-start parallax-container ring-1 ring-gray-900/5 dark:ring-white/10 mx-auto" id="canvas-container-outer" data-bg="blanco">
+    <div className="relative flex-1 flex flex-col justify-start parallax-container ring-1 ring-gray-900/5 dark:ring-white/10 mx-auto" id="canvas-container-outer" data-bg="blanco" data-tour="canvas">
       <div className="absolute inset-0 overflow-hidden pointer-events-none parallax-bg-wrapper" style={{ borderRadius: 'inherit', zIndex: -1 }}>
         <div className="parallax-layer bg-layer" style={{ backgroundColor: '#f3f4f6' }}></div>
         <div className="parallax-layer layer-1" data-speed="0.05"></div>
@@ -55,7 +56,25 @@ EditorCanvas.displayName = 'EditorCanvas';
 export interface FooterLogo {
     id: string;
     url: string;
+    preserveColors?: boolean;
 }
+
+const LOCAL_COLLABORATION_LOGO: FooterLogo = {
+    id: '6',
+    url: `${LOCAL_IMAGES_URL}/Logotipos/logo6.png`,
+    preserveColors: true
+};
+
+const includeLocalFooterLogos = (logos: FooterLogo[]): FooterLogo[] => {
+    const normalized: FooterLogo[] = logos.map(logo => ({
+        ...logo,
+        preserveColors: logo.id === '6' || logo.preserveColors
+    }));
+    if (!normalized.some(logo => logo.id === LOCAL_COLLABORATION_LOGO.id)) {
+        normalized.push(LOCAL_COLLABORATION_LOGO);
+    }
+    return normalized.sort((a, b) => Number(a.id) - Number(b.id));
+};
 
 const TipOfTheDay = memo(() => {
     const [currentTipIndex, setCurrentTipIndex] = useState(0);
@@ -81,6 +100,7 @@ export default function App() {
   const [previewMode, setPreviewMode] = useState<'lms' | 'mobile_v' | 'mobile_h' | 'custom' | 'fullscreen'>('lms');
   const [customWidth, setCustomWidth] = useState<number>(600);
   const [showPreviewMenu, setShowPreviewMenu] = useState(false);
+  const [showTutorialMenu, setShowTutorialMenu] = useState(false);
   const [footerLogos, setFooterLogos] = useState<FooterLogo[]>([]);
   const [bgImages, setBgImages] = useState<{name: string, url: string}[]>([]);
   const [titleBgImages, setTitleBgImages] = useState<{name: string, url: string}[]>([]);
@@ -97,7 +117,7 @@ export default function App() {
             const cached = localStorage.getItem(`${ASSET_CACHE_PREFIX}_footer_logos`);
             const cacheTime = localStorage.getItem(`${ASSET_CACHE_PREFIX}_footer_logos_time`);
             if (cached && cacheTime && Date.now() - parseInt(cacheTime) < 1000 * 60 * 60) {
-                const logos = JSON.parse(cached);
+                const logos = includeLocalFooterLogos(JSON.parse(cached));
                 setFooterLogos(logos);
                 (window as any).footerLogoUrls = logos.reduce((acc: any, curr: FooterLogo) => { acc[curr.id] = curr.url; return acc; }, {});
                 return;
@@ -107,20 +127,27 @@ export default function App() {
             const data = await res.json();
             if (Array.isArray(data)) {
                 const imageFiles = data.filter((f: any) => f.type === 'file' && f.name.match(/\.(png|svg|jpg)$/i)).sort((a:any, b:any) => a.name.localeCompare(b.name));
-                const logos = imageFiles.map((f: any, i: number) => { 
+                const logos = includeLocalFooterLogos(imageFiles.map((f: any, i: number) => {
                     // try to extract number if logo1.png, logo2.png
                     const m = f.name.match(/\d+/);
                     const id = m ? m[0] : (i+1).toString();
-                    return { id, url: f.download_url };
-                });
+                    return { id, url: f.download_url, preserveColors: id === '6' };
+                }));
                 setFooterLogos(logos);
                 (window as any).footerLogoUrls = logos.reduce((acc: any, curr: FooterLogo) => { acc[curr.id] = curr.url; return acc; }, {});
                 
                 localStorage.setItem(`${ASSET_CACHE_PREFIX}_footer_logos`, JSON.stringify(logos));
                 localStorage.setItem(`${ASSET_CACHE_PREFIX}_footer_logos_time`, Date.now().toString());
+            } else {
+                const logos = includeLocalFooterLogos([]);
+                setFooterLogos(logos);
+                (window as any).footerLogoUrls = logos.reduce((acc: any, curr: FooterLogo) => { acc[curr.id] = curr.url; return acc; }, {});
             }
         } catch (err) {
             console.error("Error fetching logos", err);
+            const logos = includeLocalFooterLogos([]);
+            setFooterLogos(logos);
+            (window as any).footerLogoUrls = logos.reduce((acc: any, curr: FooterLogo) => { acc[curr.id] = curr.url; return acc; }, {});
         }
     };
     fetchLogos();
@@ -298,6 +325,12 @@ export default function App() {
   useEffect(() => {
     if (window.updateHistoryButtons) window.updateHistoryButtons();
     upgradeTitleImageElements();
+    setFooterLogos(currentLogos => {
+      if (currentLogos.some(logo => logo.id === LOCAL_COLLABORATION_LOGO.id)) return currentLogos;
+      const logos = includeLocalFooterLogos(currentLogos);
+      (window as any).footerLogoUrls = logos.reduce((acc: any, curr: FooterLogo) => { acc[curr.id] = curr.url; return acc; }, {});
+      return logos;
+    });
   });
 
   useEffect(() => {
@@ -521,6 +554,22 @@ export default function App() {
     };
   }, []);
 
+  const handleStartTutorial = (topicId: TutorialTopicId) => {
+    setShowTutorialMenu(false);
+    startTutorial(topicId);
+  };
+
+  useEffect(() => {
+    if (!showTutorialMenu) return;
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowTutorialMenu(false);
+    };
+
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [showTutorialMenu]);
+
   return (
     <div className="h-full flex font-sans text-gray-800 dark:text-gray-200 overflow-hidden relative transition-colors">
       <input type="file" id="rtf-image-input" accept="image/*" className="hidden" onChange={(e) => window.insertRTFImage(e.target)} />
@@ -653,23 +702,35 @@ export default function App() {
       </div>
 
       {/* Panel Lateral: Catálogo */}
-      <aside className="relative w-[340px] bg-white dark:bg-gray-800 border-r border-anahuac-gray dark:border-gray-700 flex flex-col h-full shadow-lg z-20 transition-colors">
-          <div className="p-6 bg-anahuac-purple dark:bg-[#3f2f5b] text-white border-b-4 border-anahuac-orange flex-shrink-0">
-              <h1 className="text-xl font-serif font-bold tracking-wide text-white dark:text-[#9980c3]">HTML Builder para LMS</h1>
-              <p className="text-xs text-white/80 mt-1 font-sans">Diseño Instruccional</p>
+      <aside className="relative w-[340px] bg-white dark:bg-gray-800 border-r border-anahuac-gray dark:border-gray-700 flex flex-col h-full shadow-lg z-20 transition-colors" data-tour="sidebar">
+          <div className="p-6 bg-anahuac-purple dark:bg-[#3f2f5b] text-white border-b-4 border-anahuac-orange flex-shrink-0 flex items-start justify-between gap-3">
+              <div>
+                  <h1 className="text-xl font-serif font-bold tracking-wide text-white dark:text-[#9980c3]">HTML Builder para LMS</h1>
+                  <p className="text-xs text-white/80 mt-1 font-sans">Diseño Instruccional</p>
+              </div>
+              <button
+                  type="button"
+                  onClick={() => setShowTutorialMenu(true)}
+                  className="w-10 h-10 rounded-full border border-white/30 bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/70 flex-shrink-0"
+                  title="Abrir tutorial"
+                  aria-label="Abrir tutorial por temas"
+                  data-tour="tutorial-launcher"
+              >
+                  <span className="material-symbols-outlined text-[23px]">school</span>
+              </button>
           </div>
 
-          <div className="flex border-b border-anahuac-gray dark:border-gray-700 bg-gray-50 dark:bg-[#2f2f2f] flex-shrink-0 px-1 transition-colors">
-              <button onClick={() => window.switchTab('pages')} className="btn-tab flex-1 py-3 px-1 text-[13px] font-bold border-b-2 border-anahuac-orange text-anahuac-orange transition-colors" data-target="pages">Páginas</button>
-              <button onClick={() => window.switchTab('elements')} className="btn-tab flex-1 py-3 px-1 text-[13px] font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors" data-target="elements">Elementos</button>
-              <button onClick={() => window.switchTab('containers')} className="btn-tab flex-1 py-3 px-1 text-[13px] font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors" data-target="containers">Medios</button>
+          <div className="flex border-b border-anahuac-gray dark:border-gray-700 bg-gray-50 dark:bg-[#2f2f2f] flex-shrink-0 px-1 transition-colors" data-tour="catalog-tabs">
+              <button onClick={() => window.switchTab('pages')} className="btn-tab flex-1 py-3 px-1 text-[13px] font-bold border-b-2 border-anahuac-orange text-anahuac-orange transition-colors" data-target="pages" data-tour="pages-tab">Páginas</button>
+              <button onClick={() => window.switchTab('elements')} className="btn-tab flex-1 py-3 px-1 text-[13px] font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors" data-target="elements" data-tour="elements-tab">Elementos</button>
+              <button onClick={() => window.switchTab('containers')} className="btn-tab flex-1 py-3 px-1 text-[13px] font-bold border-b-2 border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors" data-target="containers" data-tour="media-tab">Medios</button>
           </div>
 
           <div className="flex-1 overflow-y-auto relative bg-white dark:bg-[#454545]">
               <div id="tab-pages" className="tab-content active p-5 bg-white dark:bg-[#454545]">
                   <div className="text-xs text-gray-500 dark:text-gray-300 mb-4 leading-tight">Plantillas maestras completas.</div>
-                  <div id="catalog-pages" className="space-y-3">
-                      <div className="p-3 bg-anahuac-light dark:bg-[#2f2f2f] dark:text-gray-200 text-gray-800 border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center justify-between hover:border-anahuac-orange transition-colors cursor-grab shadow-sm group" data-type="bienvenida">
+                  <div id="catalog-pages" className="space-y-3" data-tour="pages-catalog">
+                      <div className="p-3 bg-anahuac-light dark:bg-[#2f2f2f] dark:text-gray-200 text-gray-800 border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center justify-between hover:border-anahuac-orange transition-colors cursor-grab shadow-sm group" data-type="bienvenida" data-tour="page-template">
                           <div className="flex items-center gap-3"><span className="material-symbols-outlined text-anahuac-orange">home</span> <span className="text-sm font-medium">Bienvenida</span></div>
                           <button onClick={() => window.insertTemplate('bienvenida')} className="text-gray-400 hover:text-anahuac-orange transition-colors opacity-0 group-hover:opacity-100" title="Añadir al final del documento"><span className="material-symbols-outlined">add_circle</span></button>
                       </div>
@@ -708,7 +769,7 @@ export default function App() {
                               Textos <span className="material-symbols-outlined text-[18px] transform group-open:rotate-180 transition-transform">expand_more</span>
                           </summary>
                           <div className="space-y-3 catalog-list pt-1">
-                              <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab" data-type="titulo_basico"><span className="material-symbols-outlined text-anahuac-purple dark:text-white">title</span> <span className="text-sm font-medium">Título Suelto</span></div>
+                              <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab" data-type="titulo_basico" data-tour="element-template"><span className="material-symbols-outlined text-anahuac-purple dark:text-white">title</span> <span className="text-sm font-medium">Título Suelto</span></div>
                               <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center justify-between gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab group" data-type="titulo_imagen">
                                   <div className="flex items-center gap-3"><span className="material-symbols-outlined text-anahuac-orange">image</span> <span className="text-sm font-medium">Título con Imagen</span></div>
                                   <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); window.insertTemplate('titulo_imagen'); }} className="text-gray-400 hover:text-anahuac-orange transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100" title="Añadir al final del documento"><span className="material-symbols-outlined">add_circle</span></button>
@@ -758,7 +819,7 @@ export default function App() {
 
               <div id="tab-containers" className="tab-content p-5">
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-4 leading-tight">Recursos externos por URL o Iframe.</div>
-                  <div id="catalog-containers" className="space-y-3">
+                  <div id="catalog-containers" className="space-y-3" data-tour="media-catalog">
                       <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab" data-type="calculadora_html"><span className="material-symbols-outlined text-green-600">functions</span> <span className="text-sm font-medium">Funciones externas</span></div>
                       <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab" data-type="embed_youtube"><span className="material-symbols-outlined text-[#FF0000]">smart_display</span> <span className="text-sm font-medium">YouTube</span></div>
                       <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab" data-type="embed_vimeo"><span className="material-symbols-outlined text-[#1ab7ea]">videocam</span> <span className="text-sm font-medium">Vimeo</span></div>
@@ -770,7 +831,7 @@ export default function App() {
               </div>
           </div>
 
-          <div id="pages-floating-actions" className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center justify-center gap-4">
+          <div id="pages-floating-actions" className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center justify-center gap-4" data-tour="canvas-style-actions">
               <button 
                   onClick={() => window.openBgModal()} 
                   className="bg-anahuac-purple hover:bg-purple-800 text-white w-14 h-14 rounded-full flex items-center justify-center shadow-[0_4px_14px_0_rgba(93,66,140,0.39)] hover:shadow-[0_6px_20px_rgba(93,66,140,0.23)] hover:-translate-y-1 transition-all"
@@ -790,7 +851,7 @@ export default function App() {
 
       {/* Área Principal: El Lienzo */}
       <main className="flex-1 flex flex-col relative dark:bg-gray-900 bg-[url('data:image/svg+xml;utf8,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%222%22%20cy%3D%222%22%20r%3D%221%22%20fill%3D%22%23e5e7eb%22%2F%3E%3C%2Fsvg%3E')] dark:bg-[url('data:image/svg+xml;utf8,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%222%22%20cy%3D%222%22%20r%3D%221%22%20fill%3D%22%234b5563%22%2F%3E%3C%2Fsvg%3E')] transition-colors">
-          <header className="h-16 bg-white dark:bg-[#454545] border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-8 shadow-sm z-10 transition-colors">
+          <header className="h-16 bg-white dark:bg-[#454545] border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-8 shadow-sm z-10 transition-colors" data-tour="top-toolbar">
               <TipOfTheDay />
               <div className="flex items-center gap-4">
                   <div className="relative">
@@ -799,6 +860,7 @@ export default function App() {
                         className="flex items-center justify-center w-10 h-10 rounded-full text-white hover:opacity-90 transition-opacity" 
                         style={{backgroundColor: '#646464'}}
                         title="Simulador de Vista Previa"
+                        data-tour="preview"
                       >
                         <span className="material-symbols-outlined text-[20px]">devices</span>
                       </button>
@@ -854,7 +916,7 @@ export default function App() {
                   <button onClick={() => setIsDarkMode(!isDarkMode)} className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 dark:bg-[#2f2f2f] text-gray-600 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-[#3f3f3f] transition-colors" title={isDarkMode ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}>
                       <span className="material-symbols-outlined text-[20px]">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
                   </button>
-                  <button onClick={() => window.importHTML()} className="bg-gray-100 dark:bg-[#2f2f2f] hover:bg-gray-200 dark:hover:bg-[#3f3f3f] text-gray-700 dark:text-gray-200 px-5 py-2 rounded-full font-medium shadow-sm hover:shadow transition-all active:scale-95 flex items-center gap-2 text-sm tracking-wide" title="Subir desde archivo HTML">HTML <span className="material-symbols-outlined text-[18px]">upload</span></button>
+                  <button onClick={() => window.importHTML()} className="bg-gray-100 dark:bg-[#2f2f2f] hover:bg-gray-200 dark:hover:bg-[#3f3f3f] text-gray-700 dark:text-gray-200 px-5 py-2 rounded-full font-medium shadow-sm hover:shadow transition-all active:scale-95 flex items-center gap-2 text-sm tracking-wide" title="Subir desde archivo HTML" data-tour="import-file">HTML <span className="material-symbols-outlined text-[18px]">upload</span></button>
                   <button onClick={() => {
                       const modal = document.getElementById('paste-modal');
                       if (modal) {
@@ -862,21 +924,23 @@ export default function App() {
                           const txt = document.getElementById('paste-html-textarea') as HTMLTextAreaElement;
                           if (txt) { txt.value = ''; txt.focus(); }
                       }
-                  }} className="bg-gray-100 dark:bg-[#2f2f2f] hover:bg-gray-200 dark:hover:bg-[#3f3f3f] text-gray-700 dark:text-gray-200 p-2 w-10 h-10 rounded-full font-medium shadow-sm hover:shadow transition-all active:scale-95 flex items-center justify-center" title="Pegar HTML del portapapeles">
+                  }} className="bg-gray-100 dark:bg-[#2f2f2f] hover:bg-gray-200 dark:hover:bg-[#3f3f3f] text-gray-700 dark:text-gray-200 p-2 w-10 h-10 rounded-full font-medium shadow-sm hover:shadow transition-all active:scale-95 flex items-center justify-center" title="Pegar HTML del portapapeles" data-tour="import-paste">
                       <span className="material-symbols-outlined text-[18px]">content_paste</span>
                   </button>
                   
-                  <button id="btn-undo" onClick={() => window.undo()} className="bg-gray-100 dark:bg-[#2f2f2f] hover:bg-gray-200 dark:hover:bg-[#3f3f3f] text-gray-700 dark:text-gray-200 p-2 w-10 h-10 rounded-full font-medium shadow-sm hover:shadow transition-all active:scale-95 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed" title="Deshacer (Ctrl+Z)">
-                      <span className="material-symbols-outlined text-[18px]">undo</span>
-                  </button>
-                  <button id="btn-redo" onClick={() => window.redo()} className="bg-gray-100 dark:bg-[#2f2f2f] hover:bg-gray-200 dark:hover:bg-[#3f3f3f] text-gray-700 dark:text-gray-200 p-2 w-10 h-10 rounded-full font-medium shadow-sm hover:shadow transition-all active:scale-95 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed" title="Rehacer (Ctrl+Y)">
-                      <span className="material-symbols-outlined text-[18px]">redo</span>
-                  </button>
+                  <div className="flex items-center gap-2" data-tour="history">
+                      <button id="btn-undo" onClick={() => window.undo()} className="bg-gray-100 dark:bg-[#2f2f2f] hover:bg-gray-200 dark:hover:bg-[#3f3f3f] text-gray-700 dark:text-gray-200 p-2 w-10 h-10 rounded-full font-medium shadow-sm hover:shadow transition-all active:scale-95 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed" title="Deshacer (Ctrl+Z)">
+                          <span className="material-symbols-outlined text-[18px]">undo</span>
+                      </button>
+                      <button id="btn-redo" onClick={() => window.redo()} className="bg-gray-100 dark:bg-[#2f2f2f] hover:bg-gray-200 dark:hover:bg-[#3f3f3f] text-gray-700 dark:text-gray-200 p-2 w-10 h-10 rounded-full font-medium shadow-sm hover:shadow transition-all active:scale-95 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed" title="Rehacer (Ctrl+Y)">
+                          <span className="material-symbols-outlined text-[18px]">redo</span>
+                      </button>
+                  </div>
                   
                   <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-2"></div>
 
-                  <button onClick={() => window.exportHTML()} className="bg-anahuac-orange hover:bg-orange-600 text-white px-5 py-2 rounded-full font-medium shadow-sm hover:shadow transition-all active:scale-95 flex items-center gap-2 text-sm tracking-wide" title="Descargar archivo HTML">HTML <span className="material-symbols-outlined text-[18px]">download</span></button>
-                  <button onClick={() => window.copyHTMLToClipboard()} className="bg-anahuac-orange hover:bg-orange-600 text-white p-2 w-10 h-10 rounded-full font-medium shadow-sm hover:shadow transition-all active:scale-95 flex items-center justify-center" title="Copiar HTML al portapapeles">
+                  <button onClick={() => window.exportHTML()} className="bg-anahuac-orange hover:bg-orange-600 text-white px-5 py-2 rounded-full font-medium shadow-sm hover:shadow transition-all active:scale-95 flex items-center gap-2 text-sm tracking-wide" title="Descargar archivo HTML" data-tour="export-file">HTML <span className="material-symbols-outlined text-[18px]">download</span></button>
+                  <button onClick={() => window.copyHTMLToClipboard()} className="bg-anahuac-orange hover:bg-orange-600 text-white p-2 w-10 h-10 rounded-full font-medium shadow-sm hover:shadow transition-all active:scale-95 flex items-center justify-center" title="Copiar HTML al portapapeles" data-tour="export-copy">
                       <span className="material-symbols-outlined text-[18px]">content_copy</span>
                   </button>
               </div>
@@ -886,6 +950,67 @@ export default function App() {
               <EditorCanvas />
           </div>
       </main>
+
+      {showTutorialMenu && (
+          <div
+              className="modal-bg fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="tutorial-menu-title"
+              onMouseDown={(event) => {
+                  if (event.currentTarget === event.target) setShowTutorialMenu(false);
+              }}
+          >
+              <div className="bg-white dark:bg-gray-800 dark:text-gray-200 rounded-2xl shadow-2xl w-full max-w-[820px] max-h-[90vh] overflow-y-auto transition-colors">
+                  <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-start justify-between gap-6">
+                      <div>
+                          <div className="inline-flex items-center gap-2 text-anahuac-orange text-xs font-bold uppercase tracking-[0.14em] mb-2">
+                              <span className="material-symbols-outlined text-[18px]">explore</span>
+                              Centro de aprendizaje
+                          </div>
+                          <h2 id="tutorial-menu-title" className="text-2xl sm:text-3xl font-serif font-bold text-anahuac-purple dark:text-white">¿Qué quieres aprender?</h2>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 max-w-2xl">Elige un recorrido breve. Puedes cerrarlo en cualquier momento y volver a este menú desde el botón de ayuda.</p>
+                      </div>
+                      <button
+                          type="button"
+                          onClick={() => setShowTutorialMenu(false)}
+                          className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center flex-shrink-0 transition-colors"
+                          aria-label="Cerrar selector de tutoriales"
+                      >
+                          <span className="material-symbols-outlined">close</span>
+                      </button>
+                  </div>
+
+                  <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {TUTORIAL_TOPICS.map((topic, index) => (
+                          <button
+                              key={topic.id}
+                              type="button"
+                              onClick={() => handleStartTutorial(topic.id)}
+                              className="group text-left border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-white dark:bg-[#373737] hover:border-anahuac-orange hover:shadow-lg hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-anahuac-orange transition-all"
+                          >
+                              <div className="flex items-start gap-4">
+                                  <span className={`material-symbols-outlined w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 text-[23px] ${index % 2 === 0 ? 'bg-purple-50 dark:bg-purple-950/40 text-anahuac-purple dark:text-purple-200' : 'bg-orange-50 dark:bg-orange-950/40 text-anahuac-orange'}`}>{topic.icon}</span>
+                                  <span className="min-w-0 flex-1">
+                                      <span className="flex items-center justify-between gap-3">
+                                          <span className="font-bold text-gray-800 dark:text-gray-100 group-hover:text-anahuac-orange transition-colors">{topic.title}</span>
+                                          <span className="text-[11px] text-gray-400 whitespace-nowrap">{topic.duration}</span>
+                                      </span>
+                                      <span className="block text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">{topic.description}</span>
+                                  </span>
+                                  <span className="material-symbols-outlined text-gray-300 group-hover:text-anahuac-orange group-hover:translate-x-0.5 transition-all mt-2">arrow_forward</span>
+                              </div>
+                          </button>
+                      ))}
+                  </div>
+
+                  <div className="px-6 sm:px-8 py-4 bg-gray-50 dark:bg-[#303030] border-t border-gray-100 dark:border-gray-700 rounded-b-2xl text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[18px] text-anahuac-purple dark:text-purple-300">info</span>
+                      El tutorial solo señala controles: no cambia ni elimina el contenido de tu diseño.
+                  </div>
+              </div>
+          </div>
+      )}
 
       {/* Modales */}
       <div id="paste-modal" className="modal-bg fixed inset-0 bg-black/60 hidden z-50 flex items-center justify-center">
@@ -1059,7 +1184,11 @@ export default function App() {
                           <div key={logo.id} className={`border-2 rounded p-2 text-center footer-logo-btn cursor-pointer ${
                               (window as any).tempFooterLogo == parseInt(logo.id) ? 'border-anahuac-orange bg-orange-50' : 'border-gray-200 hover:border-anahuac-orange'
                           }`} onClick={() => { (window as any).tempFooterLogo=parseInt(logo.id); (window as any).updateFooterModalUI() }} id={`btn-logo-${logo.id}`} data-id={logo.id}>
-                             <div className="logo-mask inline-block w-full h-[60px]" style={{ maskImage: `url('${logo.url}')`, WebkitMaskImage: `url('${logo.url}')`, maskSize: "contain", WebkitMaskSize: "contain", maskRepeat: "no-repeat", WebkitMaskRepeat: "no-repeat", maskPosition: "center", WebkitMaskPosition: "center", backgroundColor: "currentColor" }}></div>
+                             {logo.preserveColors ? (
+                                 <img src={logo.url} alt="Anáhuac Querétaro en colaboración con Coventry University" className="w-full h-[60px] object-contain" />
+                             ) : (
+                                 <div className="logo-mask inline-block w-full h-[60px]" style={{ maskImage: `url('${logo.url}')`, WebkitMaskImage: `url('${logo.url}')`, maskSize: "contain", WebkitMaskSize: "contain", maskRepeat: "no-repeat", WebkitMaskRepeat: "no-repeat", maskPosition: "center", WebkitMaskPosition: "center", backgroundColor: "currentColor" }}></div>
+                             )}
                           </div>
                       )) : (
                                                     <div className="border-2 border-anahuac-orange rounded p-2 text-center bg-orange-50 footer-logo-btn cursor-pointer" onClick={() => { (window as any).tempFooterLogo=1; (window as any).updateFooterModalUI() }} id="btn-logo-1" data-id="1">

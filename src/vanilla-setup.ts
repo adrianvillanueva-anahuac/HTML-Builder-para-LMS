@@ -2218,7 +2218,7 @@ export function setupVanillaGlobals() {
         const blockColorContainer = document.getElementById('footer-block-color-container');
 
         if(window.tempFooterType === 'lineas') {
-            if(logoColorContainer) logoColorContainer.classList.remove('hidden');
+            if(logoColorContainer) logoColorContainer.classList.toggle('hidden', Number(window.tempFooterLogo) === 6);
             if(blockColorContainer) blockColorContainer.classList.add('hidden');
         } else {
             if(logoColorContainer) logoColorContainer.classList.add('hidden');
@@ -2299,8 +2299,11 @@ export function setupVanillaGlobals() {
         const displaySvg = (window as any).footerLogoUrls?.[window.tempFooterLogo] || (window as any).footerLogoUrls?.['1'] || '';
         
         if(contentDiv) {
+            const logoVisual = Number(window.tempFooterLogo) === 6
+                ? `<img src="${displaySvg}" alt="Anáhuac Querétaro en colaboración con Coventry University" class="footer-logo-image" style="width: 100%; height: 100%; object-fit: contain;">`
+                : `<div class="footer-logo-mask" style="width: 100%; height: 100%; mask-image: url('${displaySvg}'); -webkit-mask-image: url('${displaySvg}'); mask-size: contain; -webkit-mask-size: contain; mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat; mask-position: center; -webkit-mask-position: center; background-color: ${displayColor}"></div>`;
             const logoHtml = `<div class="inline-block mx-2 footer-logo flex items-center justify-center overflow-visible" data-logo-idx="${window.tempFooterLogo}" style="width: 280px; height: 60px;">
-                <div style="width: 100%; height: 100%; mask-image: url('${displaySvg}'); -webkit-mask-image: url('${displaySvg}'); mask-size: contain; -webkit-mask-size: contain; mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat; mask-position: center; -webkit-mask-position: center; background-color: ${displayColor}"></div>
+                ${logoVisual}
             </div>`;
 
             if(window.tempFooterType === 'lineas') {
@@ -3687,6 +3690,16 @@ export function setupVanillaGlobals() {
 
             surface.dataset.backgroundUrl = exportUrl;
             surface.style.backgroundImage = `url('${exportUrl}')`;
+        });
+
+        // Los logotipos locales deben seguir disponibles al llevar el HTML al LMS.
+        const footerLogoExportBase = 'https://raw.githubusercontent.com/adrianvillanueva-anahuac/HTML-Builder-para-LMS/main/public/imagenes/Logotipos/';
+        clone.querySelectorAll('.footer-logo-image').forEach(el => {
+            const logo = el as HTMLImageElement;
+            const currentUrl = logo.getAttribute('src');
+            if (!currentUrl || /^https?:\/\//i.test(currentUrl) || currentUrl.startsWith('data:')) return;
+            const fileName = currentUrl.split(/[\\/]/).pop();
+            if (fileName) logo.src = `${footerLogoExportBase}${encodeURIComponent(fileName)}`;
         });
 
         // Basic wrapper with tailwind CDN to ensure output works standalone.
