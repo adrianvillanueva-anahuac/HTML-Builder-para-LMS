@@ -87,7 +87,7 @@ const TUTORIALS: Record<TutorialTopicId, TutorialDefinition> = {
         title: 'Tu centro de ayuda',
         text: 'Desde este botón puedes abrir el tutorial cuando lo necesites y elegir únicamente el tema que quieras repasar.',
         selector: '[data-tour="tutorial-launcher"]',
-        on: 'right'
+        on: 'bottom'
       },
       {
         id: 'interface-sidebar',

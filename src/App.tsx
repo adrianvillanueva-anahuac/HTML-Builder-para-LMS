@@ -8,17 +8,6 @@ const GITHUB_IMAGES_API_URL = `https://api.github.com/repos/${GITHUB_REPOSITORY}
 const LOCAL_IMAGES_URL = `${import.meta.env.BASE_URL}imagenes`;
 const ASSET_CACHE_PREFIX = 'html_builder_para_lms';
 
-const TIPS = [
-  "Consejo: Arrastra y suelta componentes desde la barra lateral izquierda.",
-  "Consejo: Haz doble clic en cualquier texto para editarlo directamente.",
-  "Consejo: Haz doble clic en el footer para cambiar su diseño y logotipo.",
-  "Consejo: Usa el botón 'Exportar HTML' cuando hayas terminado tu diseño.",
-  "Consejo: Desde el menú lateral puedes agregar iconos de Material Symbols.",
-  "Consejo: Cambia el fondo de los elementos principales usando el botón de 'Fondo'.",
-  "Consejo: Elimina cualquier bloque seleccionando el botón rojo de bote de basura.",
-  "Consejo: Arrastra un elemento desde la agarradera (icono de puntos) para reordenarlo."
-];
-
 // Memoized Canvas component to prevent React re-renders from wiping the DOM
 const EditorCanvas = memo(() => {
   console.log("EditorCanvas rendering!");
@@ -75,25 +64,6 @@ const includeLocalFooterLogos = (logos: FooterLogo[]): FooterLogo[] => {
     }
     return normalized.sort((a, b) => Number(a.id) - Number(b.id));
 };
-
-const TipOfTheDay = memo(() => {
-    const [currentTipIndex, setCurrentTipIndex] = useState(0);
-    
-    useEffect(() => {
-      // Rotar consejos cada 1 minuto (60000ms)
-      const interval = setInterval(() => {
-        setCurrentTipIndex((prev) => (prev + 1) % TIPS.length);
-      }, 60000);
-      return () => clearInterval(interval);
-    }, []);
-
-    return (
-        <div className="text-gray-600 dark:text-gray-300 text-[11px] flex items-center gap-2 font-medium bg-orange-50 dark:bg-gray-700 border border-orange-100 dark:border-gray-600 py-2 pr-4 pl-[14px] mr-7 rounded-lg">
-            <span className="material-symbols-outlined text-anahuac-orange text-[20px]">lightbulb</span>
-            {TIPS[currentTipIndex]}
-        </div>
-    );
-});
 
 export default function App() {
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -703,21 +673,9 @@ export default function App() {
 
       {/* Panel Lateral: Catálogo */}
       <aside className="relative w-[340px] bg-white dark:bg-gray-800 border-r border-anahuac-gray dark:border-gray-700 flex flex-col h-full shadow-lg z-20 transition-colors" data-tour="sidebar">
-          <div className="p-6 bg-anahuac-purple dark:bg-[#3f2f5b] text-white border-b-4 border-anahuac-orange flex-shrink-0 flex items-start justify-between gap-3">
-              <div>
-                  <h1 className="text-xl font-serif font-bold tracking-wide text-white dark:text-[#9980c3]">HTML Builder para LMS</h1>
-                  <p className="text-xs text-white/80 mt-1 font-sans">Diseño Instruccional</p>
-              </div>
-              <button
-                  type="button"
-                  onClick={() => setShowTutorialMenu(true)}
-                  className="w-10 h-10 rounded-full border border-white/30 bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/70 flex-shrink-0"
-                  title="Abrir tutorial"
-                  aria-label="Abrir tutorial por temas"
-                  data-tour="tutorial-launcher"
-              >
-                  <span className="material-symbols-outlined text-[23px]">school</span>
-              </button>
+          <div className="p-6 bg-anahuac-purple dark:bg-[#3f2f5b] text-white border-b-4 border-anahuac-orange flex-shrink-0">
+              <h1 className="text-xl font-serif font-bold tracking-wide text-white dark:text-[#9980c3]">HTML Builder para LMS</h1>
+              <p className="text-xs text-white/80 mt-1 font-sans">Diseño Instruccional</p>
           </div>
 
           <div className="flex border-b border-anahuac-gray dark:border-gray-700 bg-gray-50 dark:bg-[#2f2f2f] flex-shrink-0 px-1 transition-colors" data-tour="catalog-tabs">
@@ -852,7 +810,17 @@ export default function App() {
       {/* Área Principal: El Lienzo */}
       <main className="flex-1 flex flex-col relative dark:bg-gray-900 bg-[url('data:image/svg+xml;utf8,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%222%22%20cy%3D%222%22%20r%3D%221%22%20fill%3D%22%23e5e7eb%22%2F%3E%3C%2Fsvg%3E')] dark:bg-[url('data:image/svg+xml;utf8,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%222%22%20cy%3D%222%22%20r%3D%221%22%20fill%3D%22%234b5563%22%2F%3E%3C%2Fsvg%3E')] transition-colors">
           <header className="h-16 bg-white dark:bg-[#454545] border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-8 shadow-sm z-10 transition-colors" data-tour="top-toolbar">
-              <TipOfTheDay />
+              <button
+                  type="button"
+                  onClick={() => setShowTutorialMenu(true)}
+                  className="h-10 px-4 rounded-full bg-anahuac-purple hover:bg-purple-800 dark:bg-[#3f2f5b] dark:hover:bg-[#513e73] text-white flex items-center gap-2 font-bold text-sm shadow-sm hover:shadow transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-anahuac-purple/40"
+                  title="Abrir tutorial"
+                  aria-label="Abrir tutorial por temas"
+                  data-tour="tutorial-launcher"
+              >
+                  <span className="material-symbols-outlined text-[21px]">school</span>
+                  <span>Tutorial</span>
+              </button>
               <div className="flex items-center gap-4">
                   <div className="relative">
                       <button 
