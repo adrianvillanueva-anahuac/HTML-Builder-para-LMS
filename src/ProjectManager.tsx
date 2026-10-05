@@ -203,9 +203,12 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
   },[]);
   return <div className="project-controls">
     <div className="project-bar" data-tour="project-manager">
-      <button title="Menú del proyecto" onClick={()=>setMenu(!menu)}><span className="material-symbols-outlined">menu</span></button>
+      <div className="project-menu-anchor" onPointerLeave={e=>{if(e.pointerType==='mouse')setMenu(false);}} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setMenu(false);}} onKeyDown={e=>{if(e.key==='Escape'){setMenu(false);(e.currentTarget.querySelector('.project-menu-toggle') as HTMLButtonElement | null)?.focus();}}}>
+        <button className="project-menu-toggle" title="Menú del proyecto" aria-expanded={menu} aria-controls="project-file-menu" onClick={()=>setMenu(!menu)}><span className="material-symbols-outlined">menu</span></button>
+        <div id="project-file-menu" className={`project-menu${menu?' is-open':''}`} inert={!menu} aria-hidden={!menu}><button disabled={busy} onClick={()=>create()}>Nuevo proyecto</button><button disabled={busy} onClick={()=>open()}>Abrir proyecto o HTML</button><button disabled={!project||busy} onClick={()=>save()}>Guardar</button><button disabled={!project||busy} onClick={()=>save(true)}>Guardar como…</button><button data-tour="tutorial-launcher" onClick={()=>{setMenu(false);onTutorial();}}><span className="material-symbols-outlined">school</span>Tutorial</button></div>
+      </div>
       <button className="project-name" title="Doble clic para renombrar proyecto" onDoubleClick={renameProject} onKeyDown={e=>{if(e.key==='F2')void renameProject();}}>{project?.name || 'Sin proyecto'}<small>{saved?'Guardado':'Sin guardar'}</small></button>
-{menu && <div className="project-menu"><button disabled={busy} onClick={()=>create()}>Nuevo proyecto</button><button disabled={busy} onClick={()=>open()}>Abrir proyecto o HTML</button><button disabled={!project||busy} onClick={()=>save()}>Guardar</button><button disabled={!project||busy} onClick={()=>save(true)}>Guardar como…</button><button data-tour="tutorial-launcher" onClick={()=>{setMenu(false);onTutorial();}}><span className="material-symbols-outlined">school</span>Tutorial</button></div>}
+      {project && <button disabled={busy} title="Agregar página" aria-label="Agregar página" onClick={()=>edit('add')}><span className="material-symbols-outlined">note_add</span></button>}
       <div className="project-tabs" role="tablist" aria-label="Espacios de trabajo">{project?.spaces.map(s=><div className="project-tab" key={s.id} draggable={!busy}
         onDragStart={e=>{e.dataTransfer.setData('application/x-lms-space',s.id);e.dataTransfer.effectAllowed='move';}}
         onDragOver={e=>{if(e.dataTransfer.types.includes('application/x-lms-space')){e.preventDefault();e.dataTransfer.dropEffect='move';}}}
@@ -213,7 +216,6 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
         <button role="tab" aria-selected={s.id===project.activeId} disabled={busy} title="Doble clic para renombrar; arrastra para reordenar" onClick={()=>{if(s.id!==project.activeId)change(s.id);}} onDoubleClick={()=>edit('rename',s.id)} onKeyDown={e=>{if(e.key==='F2')void edit('rename',s.id);if(e.altKey&&(e.key==='ArrowLeft'||e.key==='ArrowRight')){e.preventDefault();const i=project.spaces.findIndex(x=>x.id===s.id),next=project.spaces[i+(e.key==='ArrowLeft'?-1:1)];if(next)reorder(s.id,next.id);}}}>{s.name}</button>
         <button className="project-tab-delete" disabled={busy} title={'Eliminar '+s.name} aria-label={'Eliminar '+s.name} onClick={()=>edit('delete',s.id)}><span className="material-symbols-outlined">delete</span></button>
       </div>)}</div>
-      {project && <button disabled={busy} title="Agregar página" aria-label="Agregar página" onClick={()=>edit('add')}><span className="material-symbols-outlined">note_add</span></button>}
       <button className="project-copy" data-tour="export-copy" disabled={!saved||busy} title={saved?'Copiar espacio activo a Brightspace':'Guarda los cambios para copiar a Brightspace'} aria-label="Copiar a Brightspace" onClick={copy}><span className="material-symbols-outlined">content_copy</span></button>
     </div>
     {(busy || message) && <div className="project-status" role="status" onClick={()=>setMessage('')}>{busy?'Guardando…':message}</div>}

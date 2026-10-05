@@ -21,7 +21,13 @@ main.flex-1{min-width:0}
 .project-bar button:disabled{opacity:.45;cursor:not-allowed}
 .project-tabs{display:flex;gap:4px;overflow-x:auto;flex:1;min-width:160px}
 .project-tabs [aria-selected=true]{background:#5d428c;color:white}
-.project-menu{position:absolute;top:100%;left:16px;background:white;box-shadow:0 8px 24px #0003;padding:10px;display:flex;flex-direction:column;gap:6px;border-radius:12px;z-index:100}
+.project-menu-anchor{position:relative;flex-shrink:0}
+.project-menu{position:absolute;top:100%;left:0;min-width:220px;background:white;box-shadow:0 8px 24px #0003;padding:10px;display:flex;flex-direction:column;gap:6px;border-radius:12px;z-index:100;transform-origin:top left;opacity:0;transform:translateY(-6px) scale(.96);visibility:hidden;pointer-events:none;transition:opacity .16s ease,transform .16s ease,visibility 0s linear .16s}
+.project-menu.is-open{opacity:1;transform:translateY(0) scale(1);visibility:visible;pointer-events:auto;transition-delay:0s}
+.project-menu button,.project-menu-toggle{transition:background-color .14s ease,color .14s ease,box-shadow .14s ease,transform .1s ease}
+.project-menu button:not(:disabled):hover,.project-menu button:focus-visible,.project-menu-toggle:hover{background:#f1ebf8;box-shadow:0 2px 5px #5d428c20}
+.project-menu button:not(:disabled):active,.project-menu-toggle:active{transform:scale(.97);background:#e4d9f1}
+@media(prefers-reduced-motion:reduce){.project-menu,.project-menu button,.project-menu-toggle{transition:none;transform:none}}
 .project-status{font-size:12px;padding:3px 16px;background:#f7f7f7;color:#555}
 .project-welcome{position:fixed;inset:0;background:#0008;z-index:10000;display:grid;place-items:center}
 .project-welcome section{background:white;color:#333;padding:32px;border-radius:20px;max-width:580px;margin:20px;box-shadow:0 15px 50px #0003}
