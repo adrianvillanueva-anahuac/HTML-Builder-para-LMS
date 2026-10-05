@@ -211,7 +211,7 @@ const TUTORIALS: Record<TutorialTopicId, TutorialDefinition> = {
       {
         id: 'import-paste',
         title: 'Migra un HTML anterior',
-        text: 'Usa Migrar HTML anterior en el menú. El archivo debe conservar el estado editable del Builder. Después guárdalo como proyecto.',
+        text: 'Usa Abrir proyecto o HTML en el menú. Un HTML anterior con estado editable se añade como una nueva página; un archivo .lmsproject abre el proyecto completo. Guarda el proyecto después de importar.',
         selector: '[data-tour="project-manager"]',
         on: 'bottom'
       },

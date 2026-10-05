@@ -67,14 +67,17 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     baseline.current=null;handle.current=null;histories.current.clear();
     restore(s);publish({format:'lms-builder-project',version:1,name:'Proyecto nuevo',activeId:s.id,spaces:[s]});setMenu(false);return true;
   }
-  async function open(migrate=false) {
-    if (!(await canReplace())) return;
-    const input=document.createElement('input');input.type='file';input.accept=migrate?'.html,.htm':'.lmsproject,.json';
+  async function open() {
+    if (busy) return;
+    if (document.querySelector('iframe[title="Diseñar ejercicio descargable"]')) { setMessage('Guarda y vuelve o cancela la edición del ejercicio primero.'); return; }
+    const input=document.createElement('input');input.type='file';input.accept='.lmsproject,.json,.html,.htm';
     input.hidden=true;document.body.append(input);
     input.addEventListener('cancel',()=>input.remove(),{once:true});
     input.onchange=async()=> {
       const file=input.files?.[0];input.remove();if(!file)return;
       try {
+        const migrate=/\.html?$/i.test(file.name);
+        if(!migrate && !/\.(lmsproject|json)$/i.test(file.name))throw new Error('Selecciona un proyecto .lmsproject o un HTML anterior del Builder.');
         const text=await file.text();
         if(!blank.current)blank.current=emptyWorkspace();
         let p:Project;
@@ -92,15 +95,27 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
             const template=document.createElement('div');template.innerHTML=blank.current.html;
             template.querySelector('#canvas')!.innerHTML=html;html=template.innerHTML;
           }
-          const s={...blank.current,id:crypto.randomUUID(),name:'Página migrada',html};
+          const s={...blank.current,id:crypto.randomUUID(),name:file.name.replace(/\.html?$/i,''),html};
           p={format:'lms-builder-project',version:1,name:file.name.replace(/\.html?$/i,''),activeId:s.id,spaces:[s]};
         } else p={...parseProject(text),name:projectNameFromFile(file.name)};
         // Project files contain executable editor markup: open only trusted local files.
         if(!(await projectDialog('Abre únicamente proyectos y HTML de confianza. ¿Continuar con este archivo?')))return;
+        if(migrate) {
+          const existing=capture();
+          const imported=p.spaces[0];
+          if(existing) {
+            histories.current.set(existing.activeId,takeWorkspaceHistory());
+            p={...existing,activeId:imported.id,spaces:[...existing.spaces,imported]};
+          } else { histories.current.clear();handle.current=null;baseline.current=null; }
+          restore(imported);publish(p);setMenu(false);
+          setMessage('HTML anterior añadido como nueva página. Guarda el proyecto para conservarlo.');
+          return;
+        }
+        if(!(await canReplace()))return;
         histories.current.clear();handle.current=null;
         restore(p.spaces.find(s=>s.id===p.activeId)!);
-        baseline.current=migrate?null:projectContent(p);publish(p);setMenu(false);
-        setMessage(migrate?'HTML migrado: guarda el nuevo proyecto.':'Proyecto abierto. Guardar te permitirá elegir el archivo de destino.');
+        baseline.current=projectContent(p);publish(p);setMenu(false);
+        setMessage('Proyecto abierto. Guardar te permitirá elegir el archivo de destino.');
       }catch(error){setMessage((error as Error).message);}
     };input.click();
   }
@@ -190,7 +205,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     <div className="project-bar" data-tour="project-manager">
       <button title="Menú del proyecto" onClick={()=>setMenu(!menu)}><span className="material-symbols-outlined">menu</span></button>
       <button className="project-name" title="Doble clic para renombrar proyecto" onDoubleClick={renameProject} onKeyDown={e=>{if(e.key==='F2')void renameProject();}}>{project?.name || 'Sin proyecto'}<small>{saved?'Guardado':'Sin guardar'}</small></button>
-      {menu && <div className="project-menu"><button disabled={busy} onClick={()=>create()}>Nuevo proyecto</button><button disabled={busy} onClick={()=>open()}>Abrir proyecto local</button><button disabled={!project||busy} onClick={()=>save()}>Guardar</button><button disabled={!project||busy} onClick={()=>save(true)}>Guardar como…</button><button disabled={busy} onClick={()=>open(true)}>Migrar HTML anterior</button><button data-tour="tutorial-launcher" onClick={()=>{setMenu(false);onTutorial();}}><span className="material-symbols-outlined">school</span>Tutorial</button></div>}
+{menu && <div className="project-menu"><button disabled={busy} onClick={()=>create()}>Nuevo proyecto</button><button disabled={busy} onClick={()=>open()}>Abrir proyecto o HTML</button><button disabled={!project||busy} onClick={()=>save()}>Guardar</button><button disabled={!project||busy} onClick={()=>save(true)}>Guardar como…</button><button data-tour="tutorial-launcher" onClick={()=>{setMenu(false);onTutorial();}}><span className="material-symbols-outlined">school</span>Tutorial</button></div>}
       <div className="project-tabs" role="tablist" aria-label="Espacios de trabajo">{project?.spaces.map(s=><div className="project-tab" key={s.id} draggable={!busy}
         onDragStart={e=>{e.dataTransfer.setData('application/x-lms-space',s.id);e.dataTransfer.effectAllowed='move';}}
         onDragOver={e=>{if(e.dataTransfer.types.includes('application/x-lms-space')){e.preventDefault();e.dataTransfer.dropEffect='move';}}}
@@ -202,6 +217,6 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
       <button className="project-copy" data-tour="export-copy" disabled={!saved||busy} title={saved?'Copiar espacio activo a Brightspace':'Guarda los cambios para copiar a Brightspace'} aria-label="Copiar a Brightspace" onClick={copy}><span className="material-symbols-outlined">content_copy</span></button>
     </div>
     {(busy || message) && <div className="project-status" role="status" onClick={()=>setMessage('')}>{busy?'Guardando…':message}</div>}
-    {!project && <div className="project-welcome" role="dialog" aria-modal="true" aria-label="Comenzar proyecto"><section><h2>Tu proyecto de aprendizaje</h2><p>Diseña varias páginas en un proyecto. Puedes empezar sin guardar; para copiar a Brightspace tendrás que guardar en PC.</p><button onClick={()=>create()}>Nuevo proyecto</button><button onClick={()=>open()}>Abrir proyecto local</button><button onClick={()=>open(true)}>Migrar HTML anterior</button><button onClick={async()=>{if(await create())requestAnimationFrame(()=>startTutorial('interfaz'));}}><span className="material-symbols-outlined">school</span>Tutorial</button></section></div>}
+    {!project && <div className="project-welcome" role="dialog" aria-modal="true" aria-label="Comenzar proyecto"><section><h2>Tu proyecto de aprendizaje</h2><p>Diseña varias páginas en un proyecto. Puedes empezar sin guardar; para copiar a Brightspace tendrás que guardar en PC.</p><button onClick={()=>create()}>Nuevo proyecto</button><button onClick={()=>open()}>Abrir proyecto o HTML</button><button onClick={async()=>{if(await create())requestAnimationFrame(()=>startTutorial('interfaz'));}}><span className="material-symbols-outlined">school</span>Tutorial</button></section></div>}
   </div>;
 }
