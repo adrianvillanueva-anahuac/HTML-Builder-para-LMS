@@ -774,13 +774,13 @@ export function getRequerimientosHTML() {
     `;
 }
 
-export function getPaginaBasicaHTML() {
+export function getPaginaBasicaHTML(exercise = false) {
     return `
         <div class="relative w-full rounded-lg flex flex-col items-center lms-element is-rendered mb-8">
             <div class="block-toolbar absolute top-4 right-4 z-40 flex gap-2"><div class="drag-handle cursor-grab bg-white text-gray-500 p-2 rounded shadow-md border border-gray-200 hover:text-anahuac-orange flex items-center justify-center"><span class="material-symbols-outlined pointer-events-none">drag_indicator</span></div><button type="button" class="bg-red-500 text-white w-10 h-10 rounded flex items-center justify-center shadow-md hover:bg-red-600" onclick="deleteBlock(this)"><span class="material-symbols-outlined">delete</span></button></div>
             <div class="lms-dropzone bg-white rounded-xl shadow-2xl z-20 w-full p-10 md:p-16 relative min-h-[400px] flex flex-col">
-                ${getTituloBasicoHTML().replace('Escribe tu título aquí', 'Título de la Página')}
-                ${getParrafoBasicoHTML()}
+                ${getTituloBasicoHTML().replace('Escribe tu título aquí', exercise ? 'Título del ejercicio' : 'Título de la Página')}
+                ${exercise ? '' : getParrafoBasicoHTML()}
                 ${getDynamicFooterHTML('lineas')}
             </div>
         </div>

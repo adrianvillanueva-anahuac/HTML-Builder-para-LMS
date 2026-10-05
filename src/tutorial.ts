@@ -42,14 +42,14 @@ export const TUTORIAL_TOPICS: TutorialTopic[] = [
   {
     id: 'importa',
     title: 'Importa contenido',
-    description: 'Continúa desde un archivo HTML o desde código copiado.',
+    description: 'Abre un proyecto local o migra un HTML anterior del Builder.',
     icon: 'upload_file',
     duration: '1 min'
   },
   {
     id: 'exporta',
     title: 'Exporta tu trabajo',
-    description: 'Descarga o copia el HTML terminado para usarlo en tu LMS.',
+    description: 'Guarda el proyecto y copia el espacio activo a Brightspace.',
     icon: 'download',
     duration: '1 min'
   },
@@ -85,8 +85,8 @@ const TUTORIALS: Record<TutorialTopicId, TutorialDefinition> = {
       {
         id: 'interface-help',
         title: 'Tu centro de ayuda',
-        text: 'Desde este botón puedes abrir el tutorial cuando lo necesites y elegir únicamente el tema que quieras repasar.',
-        selector: '[data-tour="tutorial-launcher"]',
+        text: 'En el menú de tres líneas encontrarás Tutorial para elegir el tema que quieras repasar. También puedes iniciarlo desde la bienvenida con un proyecto en blanco.',
+        selector: '[data-tour="project-manager"]',
         on: 'bottom'
       },
       {
@@ -203,16 +203,16 @@ const TUTORIALS: Record<TutorialTopicId, TutorialDefinition> = {
     steps: [
       {
         id: 'import-file',
-        title: 'Importa un archivo',
-        text: 'Selecciona un HTML creado previamente con el Builder para recuperar su contenido y continuar editándolo.',
-        selector: '[data-tour="import-file"]',
+        title: 'Abre tu proyecto',
+        text: 'En el menú de tres líneas puedes crear un proyecto, abrir un archivo .lmsproject o guardar tus páginas en PC.',
+        selector: '[data-tour="project-manager"]',
         on: 'bottom'
       },
       {
         id: 'import-paste',
-        title: 'O pega el código',
-        text: 'Si ya tienes el HTML en el portapapeles, abre este cuadro y pégalo sin crear un archivo intermedio.',
-        selector: '[data-tour="import-paste"]',
+        title: 'Migra un HTML anterior',
+        text: 'Usa Migrar HTML anterior en el menú. El archivo debe conservar el estado editable del Builder. Después guárdalo como proyecto.',
+        selector: '[data-tour="project-manager"]',
         on: 'bottom'
       },
       {
@@ -235,15 +235,15 @@ const TUTORIALS: Record<TutorialTopicId, TutorialDefinition> = {
       },
       {
         id: 'export-file',
-        title: 'Descarga el HTML',
-        text: 'Este botón genera un archivo HTML independiente listo para guardar, compartir o subir a la plataforma.',
-        selector: '[data-tour="export-file"]',
+        title: 'Guarda el proyecto',
+        text: 'El archivo de proyecto conserva todos los espacios y sus ejercicios. Guarda los últimos cambios en PC para habilitar la copia.',
+        selector: '[data-tour="project-manager"]',
         on: 'bottom'
       },
       {
         id: 'export-copy',
         title: 'También puedes copiarlo',
-        text: 'Copia el HTML completo al portapapeles cuando tu LMS permita pegar código directamente.',
+        text: 'Copia solo el HTML del espacio activo, con sus ejercicios incorporados y sin el estado del editor. El límite es de 2 millones de caracteres.',
         selector: '[data-tour="export-copy"]',
         on: 'bottom'
       }

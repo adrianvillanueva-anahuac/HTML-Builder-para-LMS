@@ -1,4 +1,6 @@
 import Sortable from 'sortablejs';
+import { externalizeImages } from './published-resources';
+import { getExerciseBlock, prepareExerciseLinks } from './exercise';
 import {
     getBienvenidaHTML, getReferenciasHTML, getRequerimientosHTML,
     getIndiceHTML, getConclusionesHTML, getProfesorHTML, getTabsHTML,
@@ -18,6 +20,19 @@ let historyStack: string[] = [];
 let historyIndex: number = -1;
 let isHistoryAction: boolean = false;
 let historyTimeout: any = null;
+export function takeWorkspaceHistory() {
+    window.saveHistoryState(true);
+    clearTimeout(historyTimeout);
+    return { stack: [...historyStack], index: historyIndex };
+}
+export function loadWorkspaceHistory(history?: {stack: string[]; index: number}) {
+    clearTimeout(historyTimeout);
+    historyStack = history ? [...history.stack] : [];
+    historyIndex = history?.index ?? -1;
+    isHistoryAction = false;
+    window.saveHistoryState(true);
+    window.updateHistoryButtons();
+}
 const MAX_HISTORY = 20;
 
 const getTitleImageElement = (target: HTMLElement | null): HTMLElement | null => {
@@ -118,6 +133,11 @@ export function upgradeTitleImageElements(root: ParentNode = document) {
 }
 
 export function setupVanillaGlobals() {
+    window.resetExerciseHistory = () => {
+        clearTimeout(historyTimeout);
+        historyStack = []; historyIndex = -1; isHistoryAction = false;
+        window.saveHistoryState(true);
+    };
     installTitleImageControlGlobals();
     // FIX: Protect SortableJS from complaining about detached nodes or null references.
     const preventDetachedEvent = (e: Event) => {
@@ -415,6 +435,7 @@ export function setupVanillaGlobals() {
     }
 
     window.checkEmptyState = function() {
+        if (window.isLmsDragging || document.body.classList.contains('is-dragging')) return;
         document.querySelectorAll('.column-layout-wrapper').forEach(wrapper => {
              const colLeft = wrapper.querySelector('.col-left');
              const colRight = wrapper.querySelector('.col-right');
@@ -455,6 +476,7 @@ export function setupVanillaGlobals() {
         else if(type === 'profesor') newHTML = getProfesorHTML();
         else if(type === 'pagina_basica') newHTML = getPaginaBasicaHTML();
         else if(type === 'titulo_imagen') newHTML = getTituloImagenHTML();
+        else newHTML = getExerciseBlock(type);
         
         if (!newHTML) return;
         
@@ -1025,6 +1047,7 @@ export function setupVanillaGlobals() {
             else if(type === 'flipcard') draggedTemplateHTML = getFlipcardHTML();
             else if(type === 'calculadora_html') draggedTemplateHTML = getCalculadoraHTML();
             else if(type?.startsWith('embed_')) { draggedTemplateHTML = getEmbedHTML(type); }
+            else draggedTemplateHTML = getExerciseBlock(type || '');
             
             if (droppedEl.parentElement && droppedEl.closest('.lms-dropzone') || droppedEl.classList.contains('sortable-ghost')) {
                 droppedEl.remove();
@@ -3398,11 +3421,13 @@ export function setupVanillaGlobals() {
     }
     
     window.triggerRtfImageClick = function() {
-        document.getElementById('rtf-image-input')?.click();
+        const url = prompt('Pega la URL HTTPS pública de la imagen. Los archivos locales ya no se incrustan.');
+        if (url && window.currentEditableText) window.insertDOMImage(url.trim(), window.currentEditableText);
     }
     
     window.insertDOMImage = function(src: string, textContainer: HTMLElement) {
         if(!textContainer) return;
+        if (!/^https?:\/\//i.test(src)) { alert('Usa una URL HTTP o HTTPS pública para la imagen.'); return; }
         const img = document.createElement('img');
         img.src = src;
         img.className = 'editorial-image w-1/2 mt-2 transition-all duration-300';
@@ -3411,12 +3436,7 @@ export function setupVanillaGlobals() {
     
     window.insertRTFImage = function(input: HTMLInputElement) {
         if (input.files && input.files[0] && window.currentEditableText) { 
-            const reader = new FileReader(); 
-            reader.onload = function(evt) { 
-                if(evt.target?.result)
-                    window.insertDOMImage(evt.target.result.toString(), window.currentEditableText); 
-            }; 
-            reader.readAsDataURL(input.files[0]); 
+            window.triggerRtfImageClick();
             input.value = ''; 
         }
     }
@@ -3493,11 +3513,17 @@ export function setupVanillaGlobals() {
     }
 
     
-    function generateExportHTML(): string | null {
+    function generateExportHTML(includeEditorState = true): string | null {
         const outerEl = document.getElementById('canvas-container-outer') || document.getElementById('canvas');
         if(!outerEl) return null;
+        if (Array.from(outerEl.querySelectorAll<HTMLElement>('[data-type="ejercicio_descargable"]')).some(block => !block.dataset.exerciseFile)) {
+            alert('Edita y guarda cada ejercicio descargable antes de exportar la página.');
+            return null;
+        }
         const clone = outerEl.cloneNode(true) as HTMLElement;
         if(!clone) return null;
+        try { externalizeImages(clone); prepareExerciseLinks(clone); }
+        catch (error) { alert(error instanceof Error ? error.message : 'No se pudo preparar la exportación.'); return null; }
         
         // Remove the editor placeholder for templates
         clone.querySelectorAll('#canvas-placeholder').forEach(el => el.remove());
@@ -3809,8 +3835,8 @@ export function setupVanillaGlobals() {
         });
 
         const exportedCanvasHtml = clone.innerHTML;
-        const encodedState = btoa(encodeURIComponent(outerEl.innerHTML || ''));
-        const finalHTML = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="generator" content="anahuac-builder-lms"><title>Contenido D2L</title>${customStyles}</head><body><div class="max-w-5xl mx-auto anahuac-builder-export">${exportedCanvasHtml}</div>${finalJS}<div id="lms-state" style="display: none;">"${encodedState}"</div></body></html>`;
+        const editorState = includeEditorState ? `<script type="application/json" id="lms-state" data-encoding="json">${JSON.stringify(outerEl.innerHTML || '').replace(/</g, '\\u003c')}</script>` : '';
+        const finalHTML = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="generator" content="anahuac-builder-lms"><title>Contenido D2L</title>${customStyles}</head><body><div class="max-w-5xl mx-auto anahuac-builder-export">${exportedCanvasHtml}</div>${finalJS}${editorState}</body></html>`;
         
         return finalHTML;
     }
@@ -3830,9 +3856,12 @@ export function setupVanillaGlobals() {
         window.URL.revokeObjectURL(url);
     }
 
+    window.generateExportHTML = generateExportHTML;
+
     window.copyHTMLToClipboard = async function() {
-        const finalHTML = generateExportHTML();
+        const finalHTML = generateExportHTML(false);
         if(!finalHTML) return;
+        if (finalHTML.length > 2000000) { alert(`El código tiene ${finalHTML.length.toLocaleString('es-MX')} caracteres y supera el límite de 2,000,000. Reduce contenido o imágenes antes de copiar.`); return; }
         try {
             await navigator.clipboard.writeText(finalHTML);
             alert("¡Código HTML copiado al portapapeles!");
@@ -3877,7 +3906,7 @@ export function setupVanillaGlobals() {
                  try { rawData = JSON.parse(rawData); } catch(e){}
             }
 
-            const rawCanvasHTML = decodeURIComponent(atob(rawData));
+            const rawCanvasHTML = stateScript.dataset.encoding === 'json' ? JSON.parse(stateScript.textContent || '""') : decodeURIComponent(atob(rawData));
             const restoredHtml = rawCanvasHTML;
             
             const container = document.getElementById('canvas-container-outer') || document.getElementById('canvas');
@@ -4003,12 +4032,16 @@ export function setupVanillaGlobals() {
         document.body.appendChild(layoutIndicator);
     }
     
+    let proposedSlot: {zone: HTMLElement; target: HTMLElement; after: boolean} | null = null;
     window.lmsOnSortableStart = function(evt: any) {
+        proposedSlot = null;
+        clearTimeout(historyTimeout);
         window.isLmsDragging = true;
         window.lmsDraggedItem = evt.item;
     };
     
     window.lmsOnSortableEnd = function(evt: any) {
+        proposedSlot = null;
         document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
         if (window.lmsLayoutIntent && window.lmsLayoutIntentTarget) {
             const item = evt.item;
@@ -4026,7 +4059,10 @@ export function setupVanillaGlobals() {
         document.body.classList.remove('layout-intent-active');
         if (layoutIndicator) layoutIndicator.style.display = 'none';
         
-        setTimeout(() => window.checkEmptyState(), 60);
+        setTimeout(() => {
+            window.checkEmptyState();
+            window.dispatchEvent(new Event('lms-drag-ended'));
+        }, 60);
     };
 
     function updateLayoutIndicator(e: MouseEvent | TouchEvent) {
@@ -4050,8 +4086,8 @@ export function setupVanillaGlobals() {
             // Do not allow left/right side-by-side placements directly in the root #canvas, 
             // nor allow pagina_basica to be split side-by-side or placed side-by-side with anything.
             if ((hoveredLmsEl.parentElement && hoveredLmsEl.parentElement.id === 'canvas') || 
-                hoveredLmsEl.dataset.type === 'pagina_basica' || 
-                window.lmsDraggedItem?.dataset?.type === 'pagina_basica') {
+                ['pagina_basica', 'pagina_ejercicio'].includes(hoveredLmsEl.dataset.type || '') ||
+                ['pagina_basica', 'pagina_ejercicio'].includes(window.lmsDraggedItem?.dataset?.type || '')) {
                 shouldShowIndicator = false;
             } else {
                 const rect = hoveredLmsEl.getBoundingClientRect();
@@ -4109,22 +4145,46 @@ export function setupVanillaGlobals() {
     });
 
     window.lmsOnSortableMove = function(evt: any, originalEvent: MouseEvent) {
-         // Return false to prevent vertical sorting if we are in horizontal zone
-         if (window.lmsLayoutIntent) return false;
+         if (window.lmsLayoutIntent) { proposedSlot = null; return false; }
+         const pointer = (originalEvent as any)?.touches?.[0] || originalEvent;
+         if (!pointer || !Number.isFinite(pointer.clientY)) return true;
+         const zone = evt.to as HTMLElement;
+         const dragged = evt.dragged as HTMLElement;
+         const target = evt.related as HTMLElement;
+         // Keep the existing slot while the pointer is inside its reserved space.
+         // Its dimensions are read after Sortable has placed it, not from the moving clone.
+         if (dragged.parentElement === zone) {
+             const slot = dragged.getBoundingClientRect();
+             if (pointer.clientY >= slot.top - 6 && pointer.clientY <= slot.bottom + 6 &&
+                 pointer.clientX >= slot.left && pointer.clientX <= slot.right) return false;
+         }
+         const after = !!evt.willInsertAfter;
+         if (proposedSlot?.zone === zone && proposedSlot.target === target && proposedSlot.after === after) return false;
+         // A small dead band around the neighbor's center prevents jitter from tiny movements.
+         if (proposedSlot?.zone === zone && proposedSlot.target === target && target !== zone) {
+             const rect = target.getBoundingClientRect();
+             const center = rect.top + rect.height / 2;
+             if (Math.abs(pointer.clientY - center) < 8) return false;
+         }
+         proposedSlot = {zone, target, after};
          return true;
     };
 
     const dropzoneOptions: any = {
         group: 'shared', 
-        animation: 150, 
+        draggable: '.lms-element, .catalog-item',
+        animation: 0,
         ghostClass: 'ghost-element', 
         dragClass: 'drag-item', 
         handle: '.drag-handle', 
         forceFallback: true, 
         fallbackTolerance: 3, 
         fallbackOnBody: true, 
-        swapThreshold: 0.65,
-        easing: "cubic-bezier(1, 0, 0, 1)",
+        swapThreshold: 0.5,
+        invertSwap: true,
+        easing: "cubic-bezier(0.2, 0, 0, 1)",
+        scrollSensitivity: 50,
+        scrollSpeed: 8,
         emptyInsertThreshold: 20, 
         direction: 'vertical',
         
@@ -4179,6 +4239,7 @@ export function setupVanillaGlobals() {
                     else if(type === 'flipcard') newHTML = getFlipcardHTML();
                     else if(type === 'calculadora_html') newHTML = getCalculadoraHTML();
                     else if(type.startsWith('embed_')) newHTML = getEmbedHTML(type);
+                    else newHTML = getExerciseBlock(type);
                     
                     if (!newHTML) return;
 

@@ -2,6 +2,8 @@ import { useEffect, useState, useRef, memo } from 'react';
 import Sortable from 'sortablejs';
 import { setupVanillaGlobals, upgradeTitleImageElements } from './vanilla-setup';
 import { TUTORIAL_TOPICS, startTutorial, type TutorialTopicId } from './tutorial';
+import { exerciseMode, setupExercises, saveExercise } from './exercise';
+import ProjectManager from './ProjectManager';
 
 const GITHUB_REPOSITORY = 'adrianvillanueva-anahuac/HTML-Builder-para-LMS';
 const GITHUB_IMAGES_API_URL = `https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/public/imagenes`;
@@ -66,6 +68,9 @@ const includeLocalFooterLogos = (logos: FooterLogo[]): FooterLogo[] => {
 };
 
 export default function App() {
+  const [sidebarWidth, setSidebarWidth] = useState(340);
+  const [savingExercise, setSavingExercise] = useState(false);
+  const [exerciseError, setExerciseError] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [previewMode, setPreviewMode] = useState<'lms' | 'mobile_v' | 'mobile_h' | 'custom' | 'fullscreen'>('lms');
   const [customWidth, setCustomWidth] = useState<number>(600);
@@ -320,7 +325,7 @@ export default function App() {
     // 2. Iniciar Catálogos Sortable (Menú lateral)
     const catOpts = { 
         group: { name: 'shared', pull: 'clone', put: false }, 
-        animation: 150, 
+        animation: 0,
         sort: false,
         forceFallback: true,
         fallbackOnBody: true,
@@ -347,6 +352,8 @@ export default function App() {
 
     // 3. Iniciar Zonas de Drop
     window.initNestedDropzones();
+
+    setupExercises();
 
     // 4. Iniciar Íconos de Google en el Modal
     const gridContainer = document.getElementById('icon-grid');
@@ -509,11 +516,8 @@ export default function App() {
             if (editableText && e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
                 e.preventDefault(); const file = e.dataTransfer.files[0];
                 if (file.type.startsWith('image/')) { 
-                    const reader = new FileReader(); 
-                    reader.onload = function(evt) { 
-                        if(evt.target?.result) window.insertDOMImage(evt.target.result.toString(), editableText); 
-                    }; 
-                    reader.readAsDataURL(file); 
+                    const url = prompt('Para añadir esta imagen, pega su URL HTTPS pública. No se incrustan imágenes locales.');
+                    if (url) window.insertDOMImage(url.trim(), editableText);
                 }
             }
         });
@@ -672,10 +676,15 @@ export default function App() {
       </div>
 
       {/* Panel Lateral: Catálogo */}
-      <aside className="relative w-[340px] bg-white dark:bg-gray-800 border-r border-anahuac-gray dark:border-gray-700 flex flex-col h-full shadow-lg z-20 transition-colors" data-tour="sidebar">
+      <aside style={{width:sidebarWidth,flexShrink:0}} className="relative bg-white dark:bg-gray-800 border-r border-anahuac-gray dark:border-gray-700 flex flex-col h-full shadow-lg z-20 transition-colors" data-tour="sidebar">
+        <div className="sidebar-resizer" role="separator" tabIndex={0} aria-label="Ancho del catálogo" aria-orientation="vertical" aria-valuemin={220} aria-valuemax={520} aria-valuenow={sidebarWidth}
+          onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);e.preventDefault();}}
+          onPointerMove={e=>{if(e.currentTarget.hasPointerCapture(e.pointerId))setSidebarWidth(Math.max(220,Math.min(520,window.innerWidth-460,e.clientX)));}}
+          onPointerUp={e=>{if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);}}
+          onKeyDown={e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setSidebarWidth(w=>Math.max(220,Math.min(520,w+(e.key==='ArrowLeft'?-10:10))));}}}/>
           <div className="p-6 bg-anahuac-purple dark:bg-[#3f2f5b] text-white border-b-4 border-anahuac-orange flex-shrink-0">
               <h1 className="text-xl font-serif font-bold tracking-wide text-white dark:text-[#9980c3]">HTML Builder para LMS</h1>
-              <p className="text-xs text-white/80 mt-1 font-sans">Diseño Instruccional</p>
+              <p className="text-xs text-white/80 mt-1 font-sans">{exerciseMode ? 'Editor de ejercicio descargable' : 'Diseño Instruccional'}</p>
           </div>
 
           <div className="flex border-b border-anahuac-gray dark:border-gray-700 bg-gray-50 dark:bg-[#2f2f2f] flex-shrink-0 px-1 transition-colors" data-tour="catalog-tabs">
@@ -688,6 +697,12 @@ export default function App() {
               <div id="tab-pages" className="tab-content active p-5 bg-white dark:bg-[#454545]">
                   <div className="text-xs text-gray-500 dark:text-gray-300 mb-4 leading-tight">Plantillas maestras completas.</div>
                   <div id="catalog-pages" className="space-y-3" data-tour="pages-catalog">
+                      {exerciseMode ? (
+                        <div className="p-3 bg-anahuac-light dark:bg-[#2f2f2f] dark:text-gray-200 text-gray-800 border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center justify-between hover:border-anahuac-orange transition-colors cursor-grab shadow-sm group" data-type="pagina_ejercicio" data-tour="page-template">
+                          <div className="flex items-center gap-3"><span className="material-symbols-outlined text-anahuac-orange">assignment</span><span className="text-sm font-medium">Página básica de ejercicio</span></div>
+                          <button onClick={() => window.insertTemplate('pagina_ejercicio')} className="text-gray-400 hover:text-anahuac-orange transition-colors opacity-0 group-hover:opacity-100" title="Añadir página de ejercicio"><span className="material-symbols-outlined">add_circle</span></button>
+                        </div>
+                      ) : <>
                       <div className="p-3 bg-anahuac-light dark:bg-[#2f2f2f] dark:text-gray-200 text-gray-800 border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center justify-between hover:border-anahuac-orange transition-colors cursor-grab shadow-sm group" data-type="bienvenida" data-tour="page-template">
                           <div className="flex items-center gap-3"><span className="material-symbols-outlined text-anahuac-orange">home</span> <span className="text-sm font-medium">Bienvenida</span></div>
                           <button onClick={() => window.insertTemplate('bienvenida')} className="text-gray-400 hover:text-anahuac-orange transition-colors opacity-0 group-hover:opacity-100" title="Añadir al final del documento"><span className="material-symbols-outlined">add_circle</span></button>
@@ -716,6 +731,7 @@ export default function App() {
                           <div className="flex items-center gap-3"><span className="material-symbols-outlined text-anahuac-orange">web</span> <span className="text-sm font-medium">Página Básica</span></div>
                           <button onClick={() => window.insertTemplate('pagina_basica')} className="text-gray-400 hover:text-anahuac-orange transition-colors opacity-0 group-hover:opacity-100" title="Añadir al final del documento"><span className="material-symbols-outlined">add_circle</span></button>
                       </div>
+                      </>}
                   </div>
               </div>
               
@@ -727,6 +743,7 @@ export default function App() {
                               Textos <span className="material-symbols-outlined text-[18px] transform group-open:rotate-180 transition-transform">expand_more</span>
                           </summary>
                           <div className="space-y-3 catalog-list pt-1">
+                              {exerciseMode && ['texto_alumno', 'enviar_ejercicio'].map((type,index)=>(<div key={type} data-type={type} className="catalog-item exercise-catalog-item"><span className="material-symbols-outlined">{index===0?'edit_note':'send'}</span><span>{index===0?'Texto alumno':'Enviar ejercicio'}</span><button type="button" title="Añadir al final" onClick={()=>window.insertTemplate(type)}><span className="material-symbols-outlined">add_circle</span></button></div>))}
                               <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab" data-type="titulo_basico" data-tour="element-template"><span className="material-symbols-outlined text-anahuac-purple dark:text-white">title</span> <span className="text-sm font-medium">Título Suelto</span></div>
                               <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center justify-between gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab group" data-type="titulo_imagen">
                                   <div className="flex items-center gap-3"><span className="material-symbols-outlined text-anahuac-orange">image</span> <span className="text-sm font-medium">Título con Imagen</span></div>
@@ -756,6 +773,7 @@ export default function App() {
                               Interactivos <span className="material-symbols-outlined text-[18px] transform group-open:rotate-180 transition-transform">expand_more</span>
                           </summary>
                           <div className="space-y-3 catalog-list pt-1">
+                              {!exerciseMode && <div data-type="ejercicio_descargable" className="catalog-item exercise-catalog-item"><span className="material-symbols-outlined">download</span><span>Ejercicio descargable</span><button type="button" title="Añadir ejercicio descargable" onClick={()=>window.insertTemplate('ejercicio_descargable')}><span className="material-symbols-outlined">add_circle</span></button></div>}
                               <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab" data-type="pestanas"><span className="material-symbols-outlined text-anahuac-purple dark:text-white">tab</span> <span className="text-sm font-medium">Pestañas (Tabs)</span></div>
                               <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab" data-type="acordeon"><span className="material-symbols-outlined text-anahuac-purple dark:text-white">arrow_drop_down_circle</span> <span className="text-sm font-medium">Tema Desplegable (Acordeón)</span></div>
                               <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab" data-type="flipcard"><span className="material-symbols-outlined text-anahuac-orange">flip</span> <span className="text-sm font-medium">Flipcard (Girable)</span></div>
@@ -809,19 +827,9 @@ export default function App() {
 
       {/* Área Principal: El Lienzo */}
       <main className="flex-1 flex flex-col relative dark:bg-gray-900 bg-[url('data:image/svg+xml;utf8,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%222%22%20cy%3D%222%22%20r%3D%221%22%20fill%3D%22%23e5e7eb%22%2F%3E%3C%2Fsvg%3E')] dark:bg-[url('data:image/svg+xml;utf8,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%222%22%20cy%3D%222%22%20r%3D%221%22%20fill%3D%22%234b5563%22%2F%3E%3C%2Fsvg%3E')] transition-colors">
-          <header className="h-16 bg-white dark:bg-[#454545] border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-8 shadow-sm z-10 transition-colors" data-tour="top-toolbar">
-              <button
-                  type="button"
-                  onClick={() => setShowTutorialMenu(true)}
-                  className="h-10 px-4 rounded-full bg-anahuac-purple hover:bg-purple-800 dark:bg-[#3f2f5b] dark:hover:bg-[#513e73] text-white flex items-center gap-2 font-bold text-sm shadow-sm hover:shadow transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-anahuac-purple/40"
-                  title="Abrir tutorial"
-                  aria-label="Abrir tutorial por temas"
-                  data-tour="tutorial-launcher"
-              >
-                  <span className="material-symbols-outlined text-[21px]">school</span>
-                  <span>Tutorial</span>
-              </button>
-              <div className="flex items-center gap-4">
+          <header className="min-h-16 shrink-0 gap-2 bg-white dark:bg-[#454545] border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-3 shadow-sm z-30 transition-colors" data-tour="top-toolbar">
+              {!exerciseMode && <ProjectManager onTutorial={()=>setShowTutorialMenu(true)} />}
+              <div className="flex items-center gap-2 shrink-0">
                   <div className="relative">
                       <button 
                         onClick={() => setShowPreviewMenu(!showPreviewMenu)} 
@@ -884,18 +892,6 @@ export default function App() {
                   <button onClick={() => setIsDarkMode(!isDarkMode)} className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 dark:bg-[#2f2f2f] text-gray-600 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-[#3f3f3f] transition-colors" title={isDarkMode ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}>
                       <span className="material-symbols-outlined text-[20px]">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
                   </button>
-                  <button onClick={() => window.importHTML()} className="bg-gray-100 dark:bg-[#2f2f2f] hover:bg-gray-200 dark:hover:bg-[#3f3f3f] text-gray-700 dark:text-gray-200 px-5 py-2 rounded-full font-medium shadow-sm hover:shadow transition-all active:scale-95 flex items-center gap-2 text-sm tracking-wide" title="Subir desde archivo HTML" data-tour="import-file">HTML <span className="material-symbols-outlined text-[18px]">upload</span></button>
-                  <button onClick={() => {
-                      const modal = document.getElementById('paste-modal');
-                      if (modal) {
-                          modal.classList.remove('hidden');
-                          const txt = document.getElementById('paste-html-textarea') as HTMLTextAreaElement;
-                          if (txt) { txt.value = ''; txt.focus(); }
-                      }
-                  }} className="bg-gray-100 dark:bg-[#2f2f2f] hover:bg-gray-200 dark:hover:bg-[#3f3f3f] text-gray-700 dark:text-gray-200 p-2 w-10 h-10 rounded-full font-medium shadow-sm hover:shadow transition-all active:scale-95 flex items-center justify-center" title="Pegar HTML del portapapeles" data-tour="import-paste">
-                      <span className="material-symbols-outlined text-[18px]">content_paste</span>
-                  </button>
-                  
                   <div className="flex items-center gap-2" data-tour="history">
                       <button id="btn-undo" onClick={() => window.undo()} className="bg-gray-100 dark:bg-[#2f2f2f] hover:bg-gray-200 dark:hover:bg-[#3f3f3f] text-gray-700 dark:text-gray-200 p-2 w-10 h-10 rounded-full font-medium shadow-sm hover:shadow transition-all active:scale-95 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed" title="Deshacer (Ctrl+Z)">
                           <span className="material-symbols-outlined text-[18px]">undo</span>
@@ -907,10 +903,6 @@ export default function App() {
                   
                   <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-2"></div>
 
-                  <button onClick={() => window.exportHTML()} className="bg-anahuac-orange hover:bg-orange-600 text-white px-5 py-2 rounded-full font-medium shadow-sm hover:shadow transition-all active:scale-95 flex items-center gap-2 text-sm tracking-wide" title="Descargar archivo HTML" data-tour="export-file">HTML <span className="material-symbols-outlined text-[18px]">download</span></button>
-                  <button onClick={() => window.copyHTMLToClipboard()} className="bg-anahuac-orange hover:bg-orange-600 text-white p-2 w-10 h-10 rounded-full font-medium shadow-sm hover:shadow transition-all active:scale-95 flex items-center justify-center" title="Copiar HTML al portapapeles" data-tour="export-copy">
-                      <span className="material-symbols-outlined text-[18px]">content_copy</span>
-                  </button>
               </div>
           </header>
 
@@ -981,6 +973,7 @@ export default function App() {
       )}
 
       {/* Modales */}
+      {exerciseMode && <div className="exercise-editor-actions"><strong>Ejercicio descargable</strong><span role="status">{exerciseError || (savingExercise ? 'Preparando archivo y recursos…' : 'Diseño independiente de la página LMS')}</span><button disabled={savingExercise} onClick={()=>{if(confirm('¿Descartar los cambios de este ejercicio y volver?')) parent.postMessage({type:'exercise-cancel'},location.origin);}}>Cancelar</button><button disabled={savingExercise} onClick={async()=>{setSavingExercise(true);setExerciseError('');try{await saveExercise();}catch(error){setExerciseError(error instanceof Error?error.message:'No se pudo guardar el ejercicio');}finally{setSavingExercise(false);}}}>Guardar y volver</button></div>}
       <div id="paste-modal" className="modal-bg fixed inset-0 bg-black/60 hidden z-50 flex items-center justify-center">
           <div className="bg-white dark:bg-gray-800 dark:text-gray-200 rounded-xl shadow-2xl p-8 w-[95%] sm:w-[90%] max-w-[700px] max-h-[90vh] overflow-y-auto flex flex-col transition-colors">
               <h2 className="text-xl font-bold text-anahuac-purple dark:text-white mb-2 font-serif flex items-center gap-2"><span className="material-symbols-outlined">content_paste</span> Pegar Código HTML</h2>
