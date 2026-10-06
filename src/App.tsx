@@ -130,6 +130,18 @@ export default function App() {
 
     // Fetch backgrounds from github and local
     const fetchBgs = async () => {
+        // SPA servers can return index.html with HTTP 200 for missing JPGs.
+        // Only include resources that the browser can actually decode as images.
+        const hasImage = (url: string): Promise<boolean> => new Promise(resolve => {
+            const image = new Image();
+            const finish = (valid: boolean) => {
+                clearTimeout(timeout); image.onload=null; image.onerror=null; resolve(valid);
+            };
+            const timeout = window.setTimeout(() => finish(false), 8000);
+            image.onload = () => finish(image.naturalWidth > 0 && image.naturalHeight > 0);
+            image.onerror = () => finish(false);
+            image.src = url;
+        });
         let githubBgs = [];
         try {
             const cached = localStorage.getItem(`${ASSET_CACHE_PREFIX}_bg_images`);
@@ -163,8 +175,7 @@ export default function App() {
         while(found && index <= 30) {
             try {
                 const url = `${LOCAL_IMAGES_URL}/fondos/fondo${index}.jpg`;
-                const res = await fetch(url, { method: 'HEAD' });
-                if (res.ok) {
+                if (await hasImage(url)) {
                     localBgs.push({ name: `Fondo ${index}`, url });
                     index++;
                 } else {
@@ -176,16 +187,12 @@ export default function App() {
         }
 
         // Combinar y eliminar duplicados por nombre
-        const combined = [...localBgs, ...githubBgs];
+        const verifiedGithub = await Promise.all(githubBgs.map(async (bg: {name:string,url:string}) =>
+            bg && typeof bg.url === 'string' && await hasImage(bg.url) ? bg : null));
+        const combined = [...verifiedGithub.filter((bg): bg is {name:string,url:string} => bg !== null), ...localBgs];
         const uniqueBgs = Array.from(new Map(combined.map(item => [item.name, item])).values());
         
-        if (uniqueBgs.length > 0) {
-            setBgImages(uniqueBgs.sort((a,b) => a.name.localeCompare(b.name)));
-        } else {
-            setBgImages([
-                { name: 'Fondo 1', url: `${LOCAL_IMAGES_URL}/fondos/fondo1.jpg`}
-            ]);
-        }
+        setBgImages(uniqueBgs.sort((a,b) => a.name.localeCompare(b.name, 'es', {numeric:true})));
     };
     fetchBgs();
 

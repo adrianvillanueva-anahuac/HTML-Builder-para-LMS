@@ -91,6 +91,17 @@ body.exercise-editor [data-tour="import-file"],body.exercise-editor [data-tour="
 .project-header .project-menu-anchor{grid-column:1;grid-row:1}
 .project-header .project-save-state{grid-column:2;grid-row:1;font-size:10px;color:#697386;white-space:nowrap}
 .project-header .project-name{grid-column:3;grid-row:1;justify-self:center;max-width:100%;padding:0 4px;text-align:center}
+.project-name-anchor{grid-column:3;grid-row:1;justify-self:center;position:relative;min-width:0;max-width:100%}
+.project-name-form{display:flex;align-items:center;gap:4px;max-width:100%}
+.project-name-form input{width:230px;min-width:0;max-width:100%;border:1px solid #5d428c;border-radius:5px;padding:3px 6px;font-size:13px;background:white;color:#5d428c}
+.project-name-form button{padding:2px;width:26px;height:26px;justify-content:center}
+.project-name-form button span{font-size:18px}
+.project-name-hint{position:absolute;top:100%;left:50%;transform:translateX(-50%);width:240px;max-width:70vw;padding:8px 12px;background:white;color:#ff5900;border:1px solid #ff5900;border-radius:10px;box-shadow:0 4px 16px #0002;text-align:center;font-size:13px;z-index:110;pointer-events:none;animation:project-hint-fade 4s forwards}
+.project-name-hint > span{display:block;font-size:28px;animation:project-hint-arrow .65s ease-in-out infinite alternate}
+@keyframes project-hint-arrow{from{transform:translateY(2px)}to{transform:translateY(-4px)}}
+@keyframes project-hint-fade{0%,85%{opacity:1}100%{opacity:0}}
+.dark .project-name-form input,.dark .project-name-hint{background:#252a35;color:#ff8b4d}
+@media(prefers-reduced-motion:reduce){.project-name-hint > span{animation:none}}
 .project-header .project-copy{grid-column:4;grid-row:1}
 .project-header .builder-header-actions{grid-column:5;grid-row:1}
 .project-header .project-tab-strip{grid-column:1/-1;grid-row:2;height:31px;padding:3px 6px 0;margin:0 -12px;gap:4px;border-radius:0;background:#e9eaf0;border:0;align-self:end}

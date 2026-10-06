@@ -16,7 +16,30 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [menu, setMenu] = useState(false);
-  const [message, setMessage] = useState('');
+  const [editingName, setEditingName] = useState(false);
+  const [draftName, setDraftName] = useState('');
+  const [nameHint, setNameHint] = useState(0);
+  const nameInput = useRef<HTMLInputElement>(null);
+  useEffect(() => { if(editingName) {nameInput.current?.focus();nameInput.current?.select();} },[editingName]);
+  useEffect(() => {
+    if(!nameHint)return;
+    const timer=window.setTimeout(()=>setNameHint(0),4000);
+    return ()=>window.clearTimeout(timer);
+  },[nameHint]);
+  const [notice, setNotice] = useState({text:'',sequence:0});
+  const message = notice.text;
+  function setMessage(text:string) {
+    // Restart the lifetime even when the same notification is shown twice.
+    setNotice(previous => ({text,sequence:previous.sequence+1}));
+  }
+  useEffect(() => {
+    if (!message || busy) return;
+    const sequence = notice.sequence;
+    const timeout = window.setTimeout(() => {
+      setNotice(previous => previous.sequence===sequence ? {...previous,text:''} : previous);
+    }, 4000);
+    return () => window.clearTimeout(timeout);
+  }, [notice.sequence, message, busy]);
   const outer = () => document.getElementById('canvas-container-outer')!;
   function snapshot(): Pick<Workspace,'html'|'bg'|'style'> {
     const el = outer(), clone = el.cloneNode(true) as HTMLElement;
@@ -119,14 +142,18 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
       }catch(error){setMessage((error as Error).message);}
     };input.click();
   }
-  async function save(asNew = false, requestedName?: string): Promise<boolean> {
+  async function save(asNew = false, requestedName?: string, downloadOnly = false): Promise<boolean> {
     if(busy)return false;
     if(document.querySelector('iframe[title="Diseñar ejercicio descargable"]')) {setMessage('Primero guarda y vuelve desde el ejercicio.');return false;}
     const captured=capture();if(!captured)return false;
+    if(!requestedName && captured.name.trim().toLocaleLowerCase()==='proyecto nuevo') {
+      setDraftName(captured.name);setEditingName(true);setNameHint(Date.now());setMenu(false);
+      return false;
+    }
     const p={...captured,name:requestedName || captured.name};
     setBusy(true);
     try {
-      if(!(window as any).showSaveFilePicker)throw new Error('File picker unavailable');
+      if(downloadOnly || !(window as any).showSaveFilePicker)throw new Error('Use project download');
       const chosen=(!asNew && handle.current) || await (window as any).showSaveFilePicker({suggestedName:p.name.replace(/[<>:"/\\|?*]/g,'_')+'.lmsproject',types:[{description:'Proyecto Builder LMS',accept:{'application/json':['.lmsproject']}}]});
       const savedProject={...p,name:projectNameFromFile(chosen.name)};
       const writable=await chosen.createWritable();await writable.write(JSON.stringify(savedProject));await writable.close();
@@ -238,7 +265,21 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
         <div id="project-file-menu" className={`project-menu${menu?' is-open':''}`} inert={!menu} aria-hidden={!menu}><button disabled={busy} onClick={()=>create()}>Nuevo proyecto</button><button disabled={busy} onClick={()=>open()}>Abrir proyecto o HTML</button><button disabled={!project||busy} onClick={()=>save()}>Guardar</button><button disabled={!project||busy} onClick={()=>save(true)}>Guardar como…</button><button data-tour="tutorial-launcher" onClick={()=>{setMenu(false);onTutorial();}}><span className="material-symbols-outlined">school</span>Tutorial</button></div>
       </div>
       <span className="project-save-state" role="status">{saved?'Guardado':'Sin guardar'}</span>
-      <button className="project-name" title="Doble clic para renombrar y guardar proyecto" onDoubleClick={renameProject} onKeyDown={e=>{if(e.key==='F2')void renameProject();}}>{project?.name || 'Sin proyecto'}</button>
+      <div className="project-name-anchor">
+        {editingName ? <form className="project-name-form" onSubmit={e=>{
+          e.preventDefault();
+          const name=draftName.trim().replace(/\.lmsproject$/i,'').trim();
+          if(!name || name.toLocaleLowerCase()==='proyecto nuevo'){
+            nameInput.current?.setCustomValidity('Escribe un nombre distinto de Proyecto nuevo.');nameInput.current?.reportValidity();return;
+          }
+          const p=capture();if(!p)return;
+          publish({...p,name});setEditingName(false);setNameHint(0);void save(true,name,true);
+        }}>
+          <input ref={nameInput} aria-label="Nombre de tu proyecto" value={draftName} required maxLength={120} onChange={e=>{e.currentTarget.setCustomValidity('');setDraftName(e.target.value);}} onKeyDown={e=>{if(e.key==='Escape'){setEditingName(false);setNameHint(0);}}}/>
+          <button type="submit" aria-label="Confirmar nombre y descargar" title="Confirmar nombre y descargar"><span className="material-symbols-outlined">check</span></button>
+        </form> : <button className="project-name" title="Doble clic para renombrar y guardar proyecto" onDoubleClick={renameProject} onKeyDown={e=>{if(e.key==='F2')void renameProject();}}>{project?.name || 'Sin proyecto'}</button>}
+        {nameHint>0 && <div key={nameHint} className="project-name-hint" role="status"><span className="material-symbols-outlined" aria-hidden="true">north</span>Escribe aquí el nombre de tu proyecto.</div>}
+      </div>
       <div className="project-tab-strip">
       <div className="project-tabs" role="tablist" aria-label="Espacios de trabajo">{project?.spaces.map(s=><div className="project-tab" data-active={s.id===project.activeId} key={s.id} draggable={!busy}
         onDragStart={e=>{e.dataTransfer.setData('application/x-lms-space',s.id);e.dataTransfer.effectAllowed='move';}}
