@@ -45,6 +45,13 @@ export function setupToolbarSelection() {
     if (target.closest('[contenteditable="true"]')) { clear(); return; }
     const block = target.closest<HTMLElement>('.lms-element');
     if (!block || !block.querySelector(':scope > .block-toolbar')) { clear(); return; }
+    const toolbar = target.closest('.block-toolbar');
+    // Empty page/drop-zone space releases the selection; it must not silently
+    // pin an enclosing page and suppress all of its children's hover menus.
+    if (!toolbar && (target.matches('.lms-dropzone') ||
+        (selected && block !== selected && block.contains(selected)))) {
+      clear(); return;
+    }
     selected = block;
     render();
   };

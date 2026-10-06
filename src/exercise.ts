@@ -1,6 +1,7 @@
 import { getBlockToolbar, getPaginaBasicaHTML } from './templates';
 import { exerciseDownloadURL } from './exercise-download';
 import { projectDialog } from './project-dialog';
+import { normalizeStudentControls, setupStudentControls, restoreStudentAppearance } from './student-controls';
 
 export const exerciseMode = new URLSearchParams(location.search).get('editor') === 'exercise' && window.parent !== window;
 export const escapeHTML = (text: string) => text.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
@@ -69,6 +70,7 @@ export function getExerciseBlock(type: string): string {
 }
 
 export function prepareExerciseLinks(clone: HTMLElement) {
+  clone.querySelectorAll<HTMLTextAreaElement>('.student-answer').forEach(restoreStudentAppearance);
   clone.querySelectorAll<HTMLElement>('[data-type="ejercicio_descargable"]').forEach(block => {
     normalizeDownload(block);
     const a = block.querySelector<HTMLAnchorElement>('.exercise-download');
@@ -93,7 +95,11 @@ export function setupExercises() {
   document.body.classList.toggle('exercise-editor', exerciseMode);
   window.getExerciseBlock = getExerciseBlock;
   const canvas = document.getElementById('canvas-container-outer');
-  const upgradeDownloads = () => canvas?.querySelectorAll<HTMLElement>('[data-type="ejercicio_descargable"]').forEach(normalizeDownload);
+  const upgradeDownloads = () => {
+    canvas?.querySelectorAll<HTMLElement>('[data-type="ejercicio_descargable"]').forEach(normalizeDownload);
+    canvas?.querySelectorAll<HTMLElement>('[data-type="texto_alumno"]').forEach(normalizeStudentControls);
+  };
+  if (canvas) setupStudentControls(canvas);
   upgradeDownloads();
   if (canvas) new MutationObserver(upgradeDownloads).observe(canvas, {childList:true,subtree:true});
   window.alignExercise = (button: HTMLElement, align: string) => {

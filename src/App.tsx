@@ -830,9 +830,9 @@ export default function App() {
 
       {/* Área Principal: El Lienzo */}
       <main className="flex-1 flex flex-col relative dark:bg-gray-900 bg-[url('data:image/svg+xml;utf8,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%222%22%20cy%3D%222%22%20r%3D%221%22%20fill%3D%22%23e5e7eb%22%2F%3E%3C%2Fsvg%3E')] dark:bg-[url('data:image/svg+xml;utf8,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%222%22%20cy%3D%222%22%20r%3D%221%22%20fill%3D%22%234b5563%22%2F%3E%3C%2Fsvg%3E')] transition-colors">
-          <header className="min-h-16 shrink-0 gap-2 bg-white dark:bg-[#454545] border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-3 shadow-sm z-30 transition-colors" data-tour="top-toolbar">
+          <header className={`builder-header ${exerciseMode ? 'exercise-header' : 'project-header'} shrink-0 bg-white border-b border-gray-200 shadow-sm z-30`} data-tour="top-toolbar">
               {!exerciseMode && <ProjectManager onTutorial={()=>setShowTutorialMenu(true)} />}
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="builder-header-actions flex items-center gap-2 shrink-0">
                   <div className="relative">
                       <button 
                         onClick={() => setShowPreviewMenu(!showPreviewMenu)} 

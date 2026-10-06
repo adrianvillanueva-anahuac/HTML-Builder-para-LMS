@@ -119,19 +119,48 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
       }catch(error){setMessage((error as Error).message);}
     };input.click();
   }
-  async function save(asNew = false): Promise<boolean> {
+  async function save(asNew = false, requestedName?: string): Promise<boolean> {
     if(busy)return false;
     if(document.querySelector('iframe[title="Diseñar ejercicio descargable"]')) {setMessage('Primero guarda y vuelve desde el ejercicio.');return false;}
-    const p=capture();if(!p)return false;
-    if(!(window as any).showSaveFilePicker){setMessage('Para confirmar el guardado en disco, abre el Builder en Chrome mediante HTTPS o localhost.');return false;}
+    const captured=capture();if(!captured)return false;
+    const p={...captured,name:requestedName || captured.name};
     setBusy(true);
     try {
+      if(!(window as any).showSaveFilePicker)throw new Error('File picker unavailable');
       const chosen=(!asNew && handle.current) || await (window as any).showSaveFilePicker({suggestedName:p.name.replace(/[<>:"/\\|?*]/g,'_')+'.lmsproject',types:[{description:'Proyecto Builder LMS',accept:{'application/json':['.lmsproject']}}]});
       const savedProject={...p,name:projectNameFromFile(chosen.name)};
       const writable=await chosen.createWritable();await writable.write(JSON.stringify(savedProject));await writable.close();
       handle.current=chosen;baseline.current=projectContent(savedProject);
       const latest={...capture()!,name:savedProject.name};publish(latest);setMessage('Proyecto guardado en PC.');setMenu(false);return projectContent(latest)===baseline.current;
-    }catch(error){if((error as Error).name!=='AbortError'){handle.current=null;setMessage('No se pudo guardar el proyecto. Vuelve a intentarlo.');}}
+    }catch(error){
+      if((error as Error).name!=='AbortError'){
+        handle.current=null;
+        try {
+          const filename=p.name.replace(/[<>:"/\\|?*]/g,'_')+'.lmsproject';
+          const downloadedProject={...p,name:projectNameFromFile(filename)};
+          const blob=new Blob([JSON.stringify(downloadedProject)],{type:'application/json'});
+          const url=URL.createObjectURL(blob);
+          const a=document.createElement('a');a.href=url;a.download=filename;
+          try {document.body.appendChild(a);a.click();}
+          finally {a.remove();window.setTimeout(()=>URL.revokeObjectURL(url),60000);}
+          setMenu(false);
+          // A download click cannot confirm that the browser saved the file,
+          // particularly inside a sandboxed iframe. Never discard work on that alone.
+          const confirmation=await projectDialog('Revisa tus descargas. ¿Se guardó el archivo '+filename+'?',undefined,[
+            {value:'downloaded',label:'Sí, el archivo se descargó'},
+            {value:'cancel',label:'No se descargó / seguir editando'}]);
+          if(confirmation!=='downloaded'){
+            setMessage('Conservamos tu trabajo. Si el iframe bloquea las descargas, abre la app en una pestaña independiente o habilita allow-downloads en su contenedor.');return false;
+          }
+          baseline.current=projectContent(downloadedProject);
+          const latest={...capture()!,name:downloadedProject.name};publish(latest);
+          setMessage('Proyecto descargado. Puedes reabrirlo con «Abrir proyecto o HTML». Los siguientes guardados descargarán otra copia.');
+          return projectContent(latest)===baseline.current;
+        }catch{
+          setMessage('No se pudo descargar el proyecto. Conservamos tu trabajo; vuelve a intentarlo.');
+        }
+      }
+    }
     finally{setBusy(false);}
     return false;
   }
@@ -161,8 +190,9 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
   async function renameProject() {
     if(busy)return;
     const p=capture();if(!p)return;
-    const name=await projectDialog('Nombre del proyecto',p.name);
-    if(name)publish({...p,name});
+    const isExisting=baseline.current!==null;
+    const name=await projectDialog(isExisting?'Guardar como: nombre de la copia':'Guardar proyecto con este nombre',p.name);
+    if(name)await save(isExisting,name);
   }
   function reorder(from:string, to:string) {
     if(busy || document.querySelector('iframe[title="Diseñar ejercicio descargable"]'))return;
@@ -207,15 +237,18 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
         <button className="project-menu-toggle" title="Menú del proyecto" aria-expanded={menu} aria-controls="project-file-menu" onClick={()=>setMenu(!menu)}><span className="material-symbols-outlined">menu</span></button>
         <div id="project-file-menu" className={`project-menu${menu?' is-open':''}`} inert={!menu} aria-hidden={!menu}><button disabled={busy} onClick={()=>create()}>Nuevo proyecto</button><button disabled={busy} onClick={()=>open()}>Abrir proyecto o HTML</button><button disabled={!project||busy} onClick={()=>save()}>Guardar</button><button disabled={!project||busy} onClick={()=>save(true)}>Guardar como…</button><button data-tour="tutorial-launcher" onClick={()=>{setMenu(false);onTutorial();}}><span className="material-symbols-outlined">school</span>Tutorial</button></div>
       </div>
-      <button className="project-name" title="Doble clic para renombrar proyecto" onDoubleClick={renameProject} onKeyDown={e=>{if(e.key==='F2')void renameProject();}}>{project?.name || 'Sin proyecto'}<small>{saved?'Guardado':'Sin guardar'}</small></button>
-      {project && <button disabled={busy} title="Agregar página" aria-label="Agregar página" onClick={()=>edit('add')}><span className="material-symbols-outlined">note_add</span></button>}
-      <div className="project-tabs" role="tablist" aria-label="Espacios de trabajo">{project?.spaces.map(s=><div className="project-tab" key={s.id} draggable={!busy}
+      <span className="project-save-state" role="status">{saved?'Guardado':'Sin guardar'}</span>
+      <button className="project-name" title="Doble clic para renombrar y guardar proyecto" onDoubleClick={renameProject} onKeyDown={e=>{if(e.key==='F2')void renameProject();}}>{project?.name || 'Sin proyecto'}</button>
+      <div className="project-tab-strip">
+      <div className="project-tabs" role="tablist" aria-label="Espacios de trabajo">{project?.spaces.map(s=><div className="project-tab" data-active={s.id===project.activeId} key={s.id} draggable={!busy}
         onDragStart={e=>{e.dataTransfer.setData('application/x-lms-space',s.id);e.dataTransfer.effectAllowed='move';}}
         onDragOver={e=>{if(e.dataTransfer.types.includes('application/x-lms-space')){e.preventDefault();e.dataTransfer.dropEffect='move';}}}
         onDrop={e=>{e.preventDefault();reorder(e.dataTransfer.getData('application/x-lms-space'),s.id);}}>
         <button role="tab" aria-selected={s.id===project.activeId} disabled={busy} title="Doble clic para renombrar; arrastra para reordenar" onClick={()=>{if(s.id!==project.activeId)change(s.id);}} onDoubleClick={()=>edit('rename',s.id)} onKeyDown={e=>{if(e.key==='F2')void edit('rename',s.id);if(e.altKey&&(e.key==='ArrowLeft'||e.key==='ArrowRight')){e.preventDefault();const i=project.spaces.findIndex(x=>x.id===s.id),next=project.spaces[i+(e.key==='ArrowLeft'?-1:1)];if(next)reorder(s.id,next.id);}}}>{s.name}</button>
-        <button className="project-tab-delete" disabled={busy} title={'Eliminar '+s.name} aria-label={'Eliminar '+s.name} onClick={()=>edit('delete',s.id)}><span className="material-symbols-outlined">delete</span></button>
+        <button className="project-tab-delete" disabled={busy} title={'Eliminar '+s.name} aria-label={'Eliminar '+s.name} onClick={()=>edit('delete',s.id)}><span className="material-symbols-outlined">close</span></button>
       </div>)}</div>
+      {project && <button className="project-tab-add" disabled={busy} title="Agregar página" aria-label="Agregar página" onClick={()=>edit('add')}><span className="material-symbols-outlined">add</span></button>}
+      </div>
       <button className="project-copy" data-tour="export-copy" disabled={!saved||busy} title={saved?'Copiar espacio activo a Brightspace':'Guarda los cambios para copiar a Brightspace'} aria-label="Copiar a Brightspace" onClick={copy}><span className="material-symbols-outlined">content_copy</span></button>
     </div>
     {(busy || message) && <div className="project-status" role="status" onClick={()=>setMessage('')}>{busy?'Guardando…':message}</div>}
