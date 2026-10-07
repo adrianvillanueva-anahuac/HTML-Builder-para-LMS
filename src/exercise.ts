@@ -1,6 +1,7 @@
 import { getBlockToolbar, getPaginaBasicaHTML } from './templates';
 import { exerciseDownloadURL } from './exercise-download';
 import { projectDialog } from './project-dialog';
+import { downloadControls, setupDownloadControls } from './download-controls';
 import { normalizeStudentControls, setupStudentControls, restoreStudentAppearance } from './student-controls';
 
 export const exerciseMode = new URLSearchParams(location.search).get('editor') === 'exercise' && window.parent !== window;
@@ -34,13 +35,23 @@ function normalizeDownload(block: HTMLElement) {
     const note = block.querySelector('.exercise-design-note'); if (note) details.append(note);
     row.append(details);
   }
-  const justify = ({left:'flex-start',center:'center',right:'flex-end'})[block.dataset.exerciseAlign || 'left'] || 'flex-start';
-  if (row.style.justifyContent !== justify) row.style.justifyContent = justify;
+  if (!row.querySelector('.exercise-download-instructions')) {
+    Object.assign(row.style,{display:'flex',flexDirection:'column',alignItems:'center',gap:'12px',padding:'24px',border:'2px dotted #5d428c',borderRadius:'12px',textAlign:'center'});
+    const instructions=document.createElement('p');
+    instructions.className='exercise-download-instructions editable-text';
+    instructions.textContent='Descarga el ejercicio y sigue las instrucciones para completarlo.';
+    row.prepend(instructions);
+  }
+  const justify = ({left:'flex-start',center:'center',right:'flex-end'})[block.dataset.exerciseAlign || 'center'] || 'center';
+  if (row.style.alignItems !== justify) row.style.alignItems = justify;
   const tools = block.querySelector('.exercise-tools');
   const toolbar = block.querySelector(':scope > .block-toolbar:not(.exercise-tools) > div');
   if (tools && toolbar && tools.parentElement !== toolbar) {
     tools.classList.remove('block-toolbar');
     toolbar.insertBefore(tools, toolbar.lastElementChild);
+  }
+  if (tools && !tools.querySelector('[data-download-control]')) {
+    tools.innerHTML=downloadControls();
   }
   if (tools && !tools.querySelector('[data-exercise-alignment]')) {
     const group = document.createElement('span'); group.dataset.exerciseAlignment = '';
@@ -99,7 +110,7 @@ export function setupExercises() {
     canvas?.querySelectorAll<HTMLElement>('[data-type="ejercicio_descargable"]').forEach(normalizeDownload);
     canvas?.querySelectorAll<HTMLElement>('[data-type="texto_alumno"]').forEach(normalizeStudentControls);
   };
-  if (canvas) setupStudentControls(canvas);
+  if (canvas) { setupStudentControls(canvas); setupDownloadControls(canvas); }
   upgradeDownloads();
   if (canvas) new MutationObserver(upgradeDownloads).observe(canvas, {childList:true,subtree:true});
   window.alignExercise = (button: HTMLElement, align: string) => {

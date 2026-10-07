@@ -482,12 +482,14 @@ export function setupVanillaGlobals() {
         
         const canvas = document.getElementById('canvas');
         if (!canvas) return;
+        const wasEmpty = !canvas.querySelector('.lms-element');
 
         const template = document.createElement('template'); 
         template.innerHTML = newHTML.trim(); 
         const renderedElement = template.content.firstElementChild as HTMLElement | null;
         if(renderedElement) {
             canvas.appendChild(renderedElement);
+            if (wasEmpty && ['bienvenida','referencias','requerimientos','indice','conclusiones','profesor','pagina_basica','pagina_ejercicio'].includes(type)) window.switchTab('elements');
             if (type === 'titulo_imagen') {
                 window.updateTitleImageContrast(renderedElement);
             }
@@ -4205,6 +4207,9 @@ export function setupVanillaGlobals() {
 
         onAdd: function (evt: any) {
             const item = evt.item; const type = item.dataset.type;
+            const canvas = document.getElementById('canvas');
+            const firstPage = item.parentElement === canvas &&
+                !Array.from(canvas?.querySelectorAll('.lms-element') || []).some(el => el !== item && !item.contains(el));
             
             if (window.lmsLayoutIntent && window.lmsLayoutIntentTarget) {
                  // Do not render temp elements if handled via layout column logic natively
@@ -4248,6 +4253,7 @@ export function setupVanillaGlobals() {
                     const renderedElement = template.content.firstElementChild as HTMLElement | null;
                     if(item.parentNode && renderedElement) {
                         item.parentNode.replaceChild(renderedElement, item);
+                        if (firstPage && ['bienvenida','referencias','requerimientos','indice','conclusiones','profesor','pagina_basica','pagina_ejercicio'].includes(type)) window.switchTab('elements');
                         if (type === 'titulo_imagen') {
                             window.updateTitleImageContrast(renderedElement);
                         }
