@@ -514,10 +514,6 @@ export function setupVanillaGlobals() {
         const btnEl = document.querySelector(`button[data-target="${t}"]`);
         if(btnEl) btnEl.className = "btn-tab flex-1 py-3 px-1 text-[13px] font-bold border-b-2 border-anahuac-orange text-anahuac-orange transition-colors";
         
-        const floatingActions = document.getElementById('pages-floating-actions');
-        if(floatingActions) {
-            floatingActions.style.display = t === 'pages' ? 'flex' : 'none';
-        }
     }
 
     // Funcionalidad de bloques

@@ -70,6 +70,13 @@ const includeLocalFooterLogos = (logos: FooterLogo[]): FooterLogo[] => {
 
 export default function App() {
   const [sidebarWidth, setSidebarWidth] = useState(340);
+  const [elementView, setElementView] = useState<'list'|'grid'>('list');
+  useEffect(() => {
+    document.querySelectorAll<HTMLElement>('#tab-elements .catalog-item').forEach(item => {
+      const label = item.querySelector('span:not(.material-symbols-outlined)')?.textContent?.trim();
+      if (label) { item.title=label; item.setAttribute('aria-label',label); }
+    });
+  }, [elementView]);
   const [savingExercise, setSavingExercise] = useState(false);
   const [exerciseError, setExerciseError] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -745,7 +752,12 @@ export default function App() {
                   </div>
               </div>
               
-              <div id="tab-elements" className="tab-content p-5">
+              <div id="tab-elements" className="tab-content p-5" data-view={elementView}>
+                  <div className="element-style-actions" data-tour="canvas-style-actions">
+                      <button onClick={() => window.openBgModal()} className="bg-anahuac-purple text-white" title="Fondo del Canvas" aria-label="Fondo del Canvas"><span className="material-symbols-outlined">wallpaper</span></button>
+                      <button onClick={() => window.openGlobalFooterModal()} className="bg-anahuac-orange text-white" title="Configurar diseño de Footer por defecto" aria-label="Configurar diseño de Footer por defecto"><span className="material-symbols-outlined">design_services</span></button>
+                      <button className="element-view-toggle" onClick={()=>setElementView(view=>view==='list'?'grid':'list')} aria-pressed={elementView==='grid'} aria-label={elementView==='list'?'Cambiar a vista de cuadrícula':'Cambiar a vista de lista'} title={elementView==='list'?'Vista de cuadrícula':'Vista de lista'}><span className="material-symbols-outlined">{elementView==='list'?'grid_view':'view_list'}</span></button>
+                  </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-4 leading-tight">Bloques interactivos anidables.</div>
                   <div className="space-y-4">
                       <details open className="group text-sm">
@@ -817,22 +829,6 @@ export default function App() {
               </div>
           </div>
 
-          <div id="pages-floating-actions" className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center justify-center gap-4" data-tour="canvas-style-actions">
-              <button 
-                  onClick={() => window.openBgModal()} 
-                  className="bg-anahuac-purple hover:bg-purple-800 text-white w-14 h-14 rounded-full flex items-center justify-center shadow-[0_4px_14px_0_rgba(93,66,140,0.39)] hover:shadow-[0_6px_20px_rgba(93,66,140,0.23)] hover:-translate-y-1 transition-all"
-                  title="Fondo del Canvas"
-              >
-                  <span className="material-symbols-outlined text-[28px]">wallpaper</span>
-              </button>
-              <button 
-                  onClick={() => window.openGlobalFooterModal()} 
-                  className="bg-anahuac-orange text-white w-14 h-14 rounded-full flex items-center justify-center shadow-[0_4px_14px_0_rgba(255,89,0,0.39)] hover:bg-orange-600 hover:shadow-[0_6px_20px_rgba(255,89,0,0.23)] hover:-translate-y-1 transition-all"
-                  title="Configurar diseño de Footer por defecto"
-              >
-                  <span className="material-symbols-outlined text-[28px]">design_services</span>
-              </button>
-          </div>
       </aside>
 
       {/* Área Principal: El Lienzo */}

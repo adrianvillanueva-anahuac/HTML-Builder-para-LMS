@@ -371,6 +371,10 @@ export const startTutorial = (topicId: TutorialTopicId) => {
       title: step.title,
       text: `<span class="lms-tour-topic">${topic?.title ?? 'Tutorial'}</span><p>${step.text}</p><span class="lms-tour-progress">Paso ${index + 1} de ${definition.steps.length}</span>`,
       buttons: createButtons(index, definition.steps.length),
+      beforeShowPromise: async () => {
+        const tab = step.selector === '[data-tour="canvas-style-actions"]' ? 'elements' : definition.tab;
+        if (tab) window.switchTab?.(tab);
+      },
       showOn: () => !step.selector || Boolean(document.querySelector(step.selector)),
       extraHighlights: step.extraHighlights
     };
