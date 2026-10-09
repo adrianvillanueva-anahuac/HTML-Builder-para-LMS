@@ -292,7 +292,7 @@ export async function saveExercise() {
   const submissions = outer.querySelectorAll<HTMLElement>('[data-type="enviar_ejercicio"]');
   if (submissions.length > 1) throw new Error('Usa como máximo un bloque «Enviar ejercicio».');
   submissions.forEach(submission => validateDelivery(submission.dataset.teacherEmail || '', submission.dataset.brightspaceUrl || ''));
-  if (!outer.querySelector('.student-answer')) throw new Error('Añade al menos un campo «Texto alumno».');
+  if (!outer.querySelector('.student-answer,.mod-card[data-student="true"]')) throw new Error('Añade al menos un campo «Texto alumno» o activa «Texto para alumno» en un rectángulo.');
   const {buildStudentDocument}=await import('./exercise-export');
   const html=window.generateExportHTML(false);
   if (!html) throw new Error('No se pudo generar el contenido del ejercicio.');

@@ -1,4 +1,7 @@
 import Sortable from 'sortablejs';
+import { getModularHTML, initModularTables, setupModularTables, prepareModularExport, modularExportAssets, compactModularState } from './modular-table';
+import './icon-grid.css';
+import iconGridStyles from './icon-grid.css?raw';
 import { externalizeImages } from './published-resources';
 import { getExerciseBlock, prepareExerciseLinks } from './exercise';
 import {
@@ -133,6 +136,7 @@ export function upgradeTitleImageElements(root: ParentNode = document) {
 }
 
 export function setupVanillaGlobals() {
+    setupModularTables();
     window.resetExerciseHistory = () => {
         clearTimeout(historyTimeout);
         historyStack = []; historyIndex = -1; isHistoryAction = false;
@@ -167,15 +171,16 @@ export function setupVanillaGlobals() {
 
     // HISTORY FUNCTIONS
     window.saveHistoryState = function(immediate = false) {
-        if (isHistoryAction || document.body.classList.contains('is-dragging')) return;
+        if (isHistoryAction || window.modularResizing || document.body.classList.contains('is-dragging')) return;
         const save = () => {
-            if (document.body.classList.contains('is-dragging')) return;
+            if (window.modularResizing || document.body.classList.contains('is-dragging')) return;
             const container = document.getElementById('canvas-container-outer') || document.getElementById('canvas');
             if (!container) return;
             
             // Generate clean state representing the layout
             const wrapper = document.createElement('div');
             wrapper.innerHTML = container.innerHTML;
+            compactModularState(wrapper);
             
             // Remove editor-specific state that shouldn't trigger history like active sorting ghost
             wrapper.querySelectorAll('.sortable-ghost, .layout-intent-indicator').forEach(el => el.remove());
@@ -476,6 +481,7 @@ export function setupVanillaGlobals() {
         else if(type === 'profesor') newHTML = getProfesorHTML();
         else if(type === 'pagina_basica') newHTML = getPaginaBasicaHTML();
         else if(type === 'titulo_imagen') newHTML = getTituloImagenHTML();
+        else if(type === 'tabla_modular') newHTML = getModularHTML();
         else newHTML = getExerciseBlock(type);
         
         if (!newHTML) return;
@@ -1034,6 +1040,7 @@ export function setupVanillaGlobals() {
             else if(type === 'parrafo_basico') draggedTemplateHTML = getParrafoBasicoHTML();
             else if(type === 'imagen_suelta') draggedTemplateHTML = getImagenSueltaHTML();
             else if(type === 'grid_2x2') draggedTemplateHTML = getGrid2x2HTML();
+            else if(type === 'tabla_modular') draggedTemplateHTML = getModularHTML();
             else if(type === 'cuadro_naranja') draggedTemplateHTML = getCuadroNaranjaHTML();
             else if(type === 'acordeon') draggedTemplateHTML = getAcordeonHTML();
             else if(type === 'separador') draggedTemplateHTML = getSeparadorHTML();
@@ -3520,6 +3527,7 @@ export function setupVanillaGlobals() {
         }
         const clone = outerEl.cloneNode(true) as HTMLElement;
         if(!clone) return null;
+        prepareModularExport(clone);
         try { externalizeImages(clone); prepareExerciseLinks(clone); }
         catch (error) { alert(error instanceof Error ? error.message : 'No se pudo preparar la exportación.'); return null; }
         
@@ -3834,7 +3842,7 @@ export function setupVanillaGlobals() {
 
         const exportedCanvasHtml = clone.innerHTML;
         const editorState = includeEditorState ? `<script type="application/json" id="lms-state" data-encoding="json">${JSON.stringify(outerEl.innerHTML || '').replace(/</g, '\\u003c')}</script>` : '';
-        const finalHTML = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="generator" content="anahuac-builder-lms"><title>Contenido D2L</title>${customStyles}</head><body><div class="max-w-5xl mx-auto anahuac-builder-export">${exportedCanvasHtml}</div>${finalJS}${editorState}</body></html>`;
+        const finalHTML = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="generator" content="anahuac-builder-lms"><title>Contenido D2L</title>${customStyles}<style>${iconGridStyles}</style></head><body><div class="max-w-5xl mx-auto anahuac-builder-export">${exportedCanvasHtml}</div>${finalJS}${clone.querySelector('.modular-table') ? modularExportAssets : ''}${editorState}</body></html>`;
         
         return finalHTML;
     }
@@ -4229,6 +4237,7 @@ export function setupVanillaGlobals() {
                     else if(type === 'parrafo_basico') newHTML = getParrafoBasicoHTML();
                     else if(type === 'imagen_suelta') newHTML = getImagenSueltaHTML();
                     else if(type === 'grid_2x2') newHTML = getGrid2x2HTML();
+                    else if(type === 'tabla_modular') newHTML = getModularHTML();
                     else if(type === 'cuadro_naranja') newHTML = getCuadroNaranjaHTML();
                     else if(type === 'acordeon') newHTML = getAcordeonHTML();
                     else if(type === 'tabla_dinamica') newHTML = getTablaDinamicaHTML();
@@ -4432,6 +4441,7 @@ export function setupVanillaGlobals() {
     };
 
     window.initNestedDropzones = function() {
+        initModularTables();
         document.querySelectorAll('.lms-dropzone').forEach(zone => { 
             const htmlZone = zone as HTMLElement;
             if(htmlZone.dataset.sortableActive !== "true") { 

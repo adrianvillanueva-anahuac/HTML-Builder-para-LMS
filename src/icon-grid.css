@@ -1,0 +1,9 @@
+/* Keep icon cards in complete pairs; respect the explicit single-column mode. */
+.lms-element:has(> .grid[style*="250px"]){container-type:inline-size}
+.lms-element>.grid[style*="250px"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+@container (min-width:1003px){.lms-element>.grid[style*="250px"]{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
+@container (min-width:1003px){
+  .lms-element>.grid[style*="250px"]>:nth-last-child(2):nth-child(4n+1),
+  .lms-element>.grid[style*="250px"]>:last-child:nth-child(4n+2){grid-column:span 2}
+}
+@container (max-width:499px){.lms-element>.grid[style*="250px"]{grid-template-columns:minmax(0,1fr)!important}}

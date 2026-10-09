@@ -809,7 +809,7 @@ export default function App() {
                               Gráficas <span className="material-symbols-outlined text-[18px] transform group-open:rotate-180 transition-transform">expand_more</span>
                           </summary>
                           <div className="space-y-3 catalog-list pt-1">
-                              <div className="p-3 text-gray-400 text-xs italic">Aún no hay gráficas disponibles.</div>
+                              <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray rounded-lg catalog-item flex items-center gap-3 cursor-grab" data-type="tabla_modular"><span className="material-symbols-outlined text-anahuac-purple dark:text-white">dashboard_customize</span><span className="text-sm font-medium">Tabla modular</span><button className="ml-auto" title="Añadir tabla modular" onClick={()=>window.insertTemplate('tabla_modular')}><span className="material-symbols-outlined">add_circle</span></button></div>
                           </div>
                       </details>
                   </div>

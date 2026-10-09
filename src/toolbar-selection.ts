@@ -40,7 +40,7 @@ export function setupToolbarSelection() {
     if (!(event.target instanceof Element) || dragging() || performance.now() < ignoreClickUntil) return;
     const target = event.target;
     // Controls keep their native click behaviour; no preventDefault/stopPropagation.
-    if (target.closest('dialog,[role="dialog"],[id$="-modal"],#rtf-toolbar,#image-toolbar,#inline-icon-toolbar,.exercise-editor-overlay')) return;
+    if (target.closest('dialog,[role="dialog"],[id$="-modal"],#rtf-toolbar,#image-toolbar,#inline-icon-toolbar,.exercise-editor-overlay,.mod-connector-popover')) return;
     if (!canvas.contains(target)) { clear(); return; }
     if (target.closest('[contenteditable="true"]')) { clear(); return; }
     const block = target.closest<HTMLElement>('.lms-element');

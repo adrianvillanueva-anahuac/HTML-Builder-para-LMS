@@ -160,6 +160,12 @@ body.exercise-editor [data-tour="import-file"],body.exercise-editor [data-tour="
 .dark .project-menu button,.dark .project-menu-toggle,.dark .project-welcome button{background:#303644;border-color:#485164;color:#e1d3ff}
 .dark .project-menu button:not(:disabled):hover,.dark .project-menu-toggle:hover,.dark .project-welcome button:hover{background:#443b59;color:white}
 .dark .project-welcome h2,.dark .exercise-settings h2{color:#dcc8ff}
+.welcome-actions{display:flex;align-items:center;flex-wrap:wrap}
+.project-welcome .welcome-icon-action{width:42px;height:42px;padding:0;justify-content:center;flex-shrink:0;border:0;border-radius:50%;background:#ff5900;color:white;transition:background .15s,transform .15s}
+.project-welcome .welcome-icon-action:hover{background:#dc4c00;color:white}
+.project-welcome .welcome-icon-action:active{transform:scale(.94)}
+.project-welcome .welcome-icon-action:focus-visible{outline:2px solid #5d428c;outline-offset:3px}
+.project-welcome .welcome-video-notice{margin:16px 4px 0;font-size:14px}
 .dark .project-status{background:#303644;color:#e8edf5}
 .dark .exercise-settings :is(input,select,textarea){background:#191e28;color:#edf0f7;border-color:#50596b;color-scheme:dark}
 .dark #scroll-container{background:#171b24;background-image:radial-gradient(#2b3240 1px,transparent 1px);background-size:20px 20px}

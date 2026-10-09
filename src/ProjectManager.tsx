@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { compactModularState } from './modular-table';
 import { takeWorkspaceHistory, loadWorkspaceHistory, upgradeTitleImageElements } from './vanilla-setup';
 import { parseProject, projectContent, projectNameFromFile, emptyWorkspace, type Project, type Workspace } from './project-model';
 
@@ -15,6 +16,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
   const histories = useRef(new Map<string, History>());
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [showVideoNotice, setShowVideoNotice] = useState(false);
   const [menu, setMenu] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState('');
@@ -51,6 +53,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     clone.querySelectorAll<HTMLElement>('.parallax-layer').forEach(n => n.style.removeProperty('transform'));
     const placeholder = clone.querySelector<HTMLElement>('#canvas-placeholder');
     placeholder?.removeAttribute('style');
+    compactModularState(clone);
     return { html: clone.innerHTML, bg: el.dataset.bg || 'blanco', style: el.style.cssText };
   }
   function capture() {
@@ -293,6 +296,6 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
       <button className="project-copy" data-tour="export-copy" disabled={!saved||busy} title={saved?'Copiar espacio activo a Brightspace':'Guarda los cambios para copiar a Brightspace'} aria-label="Copiar a Brightspace" onClick={copy}><span className="material-symbols-outlined">content_copy</span></button>
     </div>
     {(busy || message) && <div className="project-status" role="status" onClick={()=>setMessage('')}>{busy?'Guardando…':message}</div>}
-    {!project && <div className="project-welcome" role="dialog" aria-modal="true" aria-label="Comenzar proyecto"><section><h2>Tu proyecto de aprendizaje</h2><p>Diseña varias páginas en un proyecto. Puedes empezar sin guardar; para copiar a Brightspace tendrás que guardar en PC.</p><button onClick={()=>create()}>Nuevo proyecto</button><button onClick={()=>open()}>Abrir proyecto o HTML</button><button onClick={async()=>{if(await create())requestAnimationFrame(()=>startTutorial('interfaz'));}}><span className="material-symbols-outlined">school</span>Tutorial</button></section></div>}
+    {!project && <div className="project-welcome" role="dialog" aria-modal="true" aria-label="Comenzar proyecto"><section><h2>Tu proyecto de aprendizaje</h2><p>Diseña varias páginas en un proyecto. Puedes empezar sin guardar; para copiar a Brightspace tendrás que guardar en PC.</p><div className="welcome-actions"><button onClick={()=>create()}>Nuevo proyecto</button><button onClick={()=>open()}>Abrir proyecto o HTML</button><button className="welcome-icon-action" title="Recorrido de app" aria-label="Recorrido de app" onClick={async()=>{if(await create())requestAnimationFrame(()=>startTutorial('interfaz'));}}><span className="material-symbols-outlined" aria-hidden="true">school</span></button><button className="welcome-icon-action" title="Tutoriales en video" aria-label="Tutoriales en video" onClick={()=>setShowVideoNotice(true)}><span className="material-symbols-outlined" aria-hidden="true">smart_display</span></button></div>{showVideoNotice && <p className="welcome-video-notice" role="status">Se están preparando los tutoriales</p>}</section></div>}
   </div>;
 }
