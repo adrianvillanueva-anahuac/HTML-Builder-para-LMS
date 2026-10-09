@@ -53,6 +53,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     clone.querySelectorAll<HTMLElement>('.parallax-layer').forEach(n => n.style.removeProperty('transform'));
     const placeholder = clone.querySelector<HTMLElement>('#canvas-placeholder');
     placeholder?.removeAttribute('style');
+    clone.querySelectorAll('.lms-drag-origin').forEach(el => el.remove());
     compactModularState(clone);
     return { html: clone.innerHTML, bg: el.dataset.bg || 'blanco', style: el.style.cssText };
   }

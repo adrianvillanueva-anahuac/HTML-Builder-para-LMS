@@ -45,6 +45,9 @@ export function setupToolbarSelection() {
     if (target.closest('[contenteditable="true"]')) { clear(); return; }
     const block = target.closest<HTMLElement>('.lms-element');
     if (!block || !block.querySelector(':scope > .block-toolbar')) { clear(); return; }
+    // Master-page containers are hover-only, including clicks on their own
+    // toolbar. Child blocks still use the normal pinned selection behaviour.
+    if (block.querySelector(':scope > .lms-dropzone.bg-white')) { clear(); return; }
     const toolbar = target.closest('.block-toolbar');
     // Empty page/drop-zone space releases the selection; it must not silently
     // pin an enclosing page and suppress all of its children's hover menus.

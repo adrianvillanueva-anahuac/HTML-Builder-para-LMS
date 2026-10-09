@@ -183,7 +183,7 @@ export function setupVanillaGlobals() {
             compactModularState(wrapper);
             
             // Remove editor-specific state that shouldn't trigger history like active sorting ghost
-            wrapper.querySelectorAll('.sortable-ghost, .layout-intent-indicator').forEach(el => el.remove());
+            wrapper.querySelectorAll('.sortable-ghost, .layout-intent-indicator, .lms-drag-origin').forEach(el => el.remove());
             wrapper.querySelectorAll('.selected-img, .drag-over, .is-dragging, .drag-item').forEach(el => {
                 el.classList.remove('selected-img', 'drag-over', 'is-dragging', 'drag-item');
             });
@@ -2281,6 +2281,8 @@ export function setupVanillaGlobals() {
             const id = parseInt(btn.getAttribute('data-id') || '1');
             btn.className = window.tempFooterLogo === id ? "border-2 border-anahuac-orange rounded p-2 text-center bg-orange-50 footer-logo-btn cursor-pointer shadow-md" : "border-2 border-gray-200 rounded p-2 text-center footer-logo-btn cursor-pointer hover:border-anahuac-orange transition-colors";
             (btn as HTMLElement).style.backgroundColor = displayBg;
+            const logoImage = btn.querySelector('img');
+            if (logoImage) logoImage.style.filter = window.tempFooterType === 'solido' ? 'brightness(0) invert(1)' : '';
             const maskDiv = btn.querySelector('.logo-mask') as HTMLElement;
             if(maskDiv) {
                 maskDiv.style.backgroundColor = displayColor;
@@ -2328,7 +2330,7 @@ export function setupVanillaGlobals() {
         
         if(contentDiv) {
             const logoVisual = Number(window.tempFooterLogo) === 6
-                ? `<img src="${displaySvg}" alt="Anáhuac Querétaro en colaboración con Coventry University" class="footer-logo-image" style="width: 100%; height: 100%; object-fit: contain;">`
+                ? `<img src="${displaySvg}" alt="Anáhuac Querétaro en colaboración con Coventry University" class="footer-logo-image" style="width: 100%; height: 100%; object-fit: contain;${window.tempFooterType === 'solido' ? ' filter: brightness(0) invert(1);' : ''}">`
                 : `<div class="footer-logo-mask" style="width: 100%; height: 100%; mask-image: url('${displaySvg}'); -webkit-mask-image: url('${displaySvg}'); mask-size: contain; -webkit-mask-size: contain; mask-repeat: no-repeat; -webkit-mask-repeat: no-repeat; mask-position: center; -webkit-mask-position: center; background-color: ${displayColor}"></div>`;
             const logoHtml = `<div class="inline-block mx-2 footer-logo flex items-center justify-center overflow-visible" data-logo-idx="${window.tempFooterLogo}" style="width: 280px; height: 60px;">
                 ${logoVisual}
@@ -3527,6 +3529,7 @@ export function setupVanillaGlobals() {
         }
         const clone = outerEl.cloneNode(true) as HTMLElement;
         if(!clone) return null;
+        clone.querySelectorAll('.lms-drag-origin').forEach(el => el.remove());
         prepareModularExport(clone);
         try { externalizeImages(clone); prepareExerciseLinks(clone); }
         catch (error) { alert(error instanceof Error ? error.message : 'No se pudo preparar la exportación.'); return null; }
@@ -4039,14 +4042,39 @@ export function setupVanillaGlobals() {
     }
     
     let proposedSlot: {zone: HTMLElement; target: HTMLElement; after: boolean} | null = null;
+    let dragOrigin: HTMLElement | null = null;
     window.lmsOnSortableStart = function(evt: any) {
+        dragOrigin?.remove();
+        dragOrigin = null;
         proposedSlot = null;
         clearTimeout(historyTimeout);
         window.isLmsDragging = true;
         window.lmsDraggedItem = evt.item;
+        if (evt.item.closest('#canvas') && evt.item.classList.contains('is-rendered')) {
+            const item = evt.item as HTMLElement;
+            const rect = item.getBoundingClientRect();
+            const preview = item.cloneNode(true) as HTMLElement;
+            // This inert visual is not a sortable block or an editable drop zone.
+            [preview, ...preview.querySelectorAll<HTMLElement>('*')].forEach(el => {
+                el.removeAttribute('id');
+                el.removeAttribute('contenteditable');
+                el.classList.remove('lms-element', 'lms-dropzone', 'ghost-element', 'drag-item', 'sortable-chosen');
+            });
+            preview.querySelectorAll('.block-toolbar,.mod-tools').forEach(el => el.remove());
+            dragOrigin = document.createElement('div');
+            dragOrigin.className = 'lms-drag-origin';
+            dragOrigin.inert = true;
+            dragOrigin.setAttribute('aria-hidden', 'true');
+            dragOrigin.style.height = `${rect.height}px`;
+            dragOrigin.style.marginBottom = getComputedStyle(item).marginBottom;
+            dragOrigin.append(preview);
+            item.before(dragOrigin);
+        }
     };
     
     window.lmsOnSortableEnd = function(evt: any) {
+        dragOrigin?.remove();
+        dragOrigin = null;
         proposedSlot = null;
         document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
         if (window.lmsLayoutIntent && window.lmsLayoutIntentTarget) {
@@ -4186,12 +4214,12 @@ export function setupVanillaGlobals() {
         forceFallback: true, 
         fallbackTolerance: 3, 
         fallbackOnBody: true, 
-        swapThreshold: 0.5,
+        swapThreshold: 0.85,
         invertSwap: true,
         easing: "cubic-bezier(0.2, 0, 0, 1)",
         scrollSensitivity: 50,
         scrollSpeed: 8,
-        emptyInsertThreshold: 20, 
+        emptyInsertThreshold: 48,
         direction: 'vertical',
         
         onStart: function(evt: any) {
