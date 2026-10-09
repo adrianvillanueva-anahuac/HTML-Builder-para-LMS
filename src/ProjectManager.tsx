@@ -65,6 +65,12 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     return next;
   }
   function publish(p: Project) { current.current=p; setProject(p); setSaved(projectContent(p) === baseline.current); }
+  function resetNameEditor(name: string) {
+    setDraftName(name);
+    setEditingName(false);
+    setNameHint(0);
+    nameInput.current?.setCustomValidity('');
+  }
   function restore(s: Workspace) {
     window.currentEditableText = null;
     document.getElementById('rtf-toolbar')?.classList.add('hidden');
@@ -92,6 +98,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     if (!blank.current) blank.current=emptyWorkspace();
     const s={...emptyWorkspace(),id:crypto.randomUUID(),name:'Página 1'};
     baseline.current=null;handle.current=null;histories.current.clear();
+    resetNameEditor('Proyecto nuevo');
     restore(s);publish({format:'lms-builder-project',version:1,name:'Proyecto nuevo',activeId:s.id,spaces:[s]});setMenu(false);return true;
   }
   async function open() {
@@ -134,14 +141,14 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
             histories.current.set(existing.activeId,takeWorkspaceHistory());
             p={...existing,activeId:imported.id,spaces:[...existing.spaces,imported]};
           } else { histories.current.clear();handle.current=null;baseline.current=null; }
-          restore(imported);publish(p);setMenu(false);
+          restore(imported);publish(p);resetNameEditor(p.name);setMenu(false);
           setMessage('HTML anterior añadido como nueva página. Guarda el proyecto para conservarlo.');
           return;
         }
         if(!(await canReplace()))return;
         histories.current.clear();handle.current=null;
         restore(p.spaces.find(s=>s.id===p.activeId)!);
-        baseline.current=projectContent(p);publish(p);setMenu(false);
+        baseline.current=projectContent(p);publish(p);resetNameEditor(p.name);setMenu(false);
         setMessage('Proyecto abierto. Guardar te permitirá elegir el archivo de destino.');
       }catch(error){setMessage((error as Error).message);}
     };input.click();
@@ -150,8 +157,14 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     if(busy)return false;
     if(document.querySelector('iframe[title="Diseñar ejercicio descargable"]')) {setMessage('Primero guarda y vuelve desde el ejercicio.');return false;}
     const captured=capture();if(!captured)return false;
-    if(!requestedName && captured.name.trim().toLocaleLowerCase()==='proyecto nuevo') {
+    if(!requestedName && (asNew || captured.name.trim().toLocaleLowerCase()==='proyecto nuevo')) {
       setDraftName(captured.name);setEditingName(true);setNameHint(Date.now());setMenu(false);
+      // Also refocus when Save as is chosen while the name editor is already open.
+      requestAnimationFrame(()=>{
+        nameInput.current?.setCustomValidity('');
+        nameInput.current?.focus();
+        nameInput.current?.select();
+      });
       return false;
     }
     const p={...captured,name:requestedName || captured.name};
