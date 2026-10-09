@@ -25,6 +25,18 @@ export function mountModularRuntime(block) {
     if(template && grid.style.gridTemplateRows!==template)grid.style.gridTemplateRows=template;
     const base=grid.getBoundingClientRect();
     const scrollBounds=block.querySelector('.mod-scroll').getBoundingClientRect();
+    // Clamp the whole toolbar, not just its menus, inside the clipping scroll area.
+    block.querySelectorAll('.mod-cell-tools').forEach(tool=>{
+      if(!tool.getClientRects().length)return;
+      const cell=tool.parentElement.getBoundingClientRect();
+      const leftLimit=Math.max(4,scrollBounds.left+4);
+      const rightLimit=Math.min(window.innerWidth-4,scrollBounds.right-4);
+      tool.style.maxWidth=Math.max(30,rightLimit-leftLimit)+'px';
+      const width=tool.getBoundingClientRect().width;
+      const left=Math.max(leftLimit,Math.min(cell.right-width,rightLimit-width));
+      tool.style.right='auto';
+      tool.style.left=(left-cell.left-tool.parentElement.clientLeft)+'px';
+    });
     block.querySelectorAll('.mod-row-tools').forEach(tool=>{
       const row=tool.closest('.mod-cell').getBoundingClientRect();
       set(tool,'style',`left:${scrollBounds.left-44}px;top:${row.top+row.height/2-20}px`);
@@ -81,10 +93,11 @@ export function mountModularRuntime(block) {
   observer.observe(block,{childList:true,subtree:true,characterData:true});
   block.addEventListener('input',schedule);
   block.addEventListener('pointerover',schedule);
+  block.addEventListener('focusin',schedule);
   block.addEventListener('toggle',schedule,true);
   window.addEventListener('scroll',schedule,true);
   document.addEventListener('click',closeOutside);
   document.fonts?.ready.then(schedule);
   schedule();
-  return {update:schedule,destroy:()=>{resize.disconnect();observer.disconnect();cancelAnimationFrame(frame);block.removeEventListener('input',schedule);block.removeEventListener('pointerover',schedule);block.removeEventListener('toggle',schedule,true);window.removeEventListener('scroll',schedule,true);document.removeEventListener('click',closeOutside);}};
+  return {update:schedule,destroy:()=>{resize.disconnect();observer.disconnect();cancelAnimationFrame(frame);block.removeEventListener('input',schedule);block.removeEventListener('pointerover',schedule);block.removeEventListener('focusin',schedule);block.removeEventListener('toggle',schedule,true);window.removeEventListener('scroll',schedule,true);document.removeEventListener('click',closeOutside);}};
 }

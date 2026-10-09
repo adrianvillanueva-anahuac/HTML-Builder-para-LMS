@@ -17,6 +17,7 @@ const save=()=>window.saveHistoryState?.(true);
 function updateCellAppearance(cell:HTMLElement,value:ModularModel['cells'][string]) {
   const card=cell.querySelector<HTMLElement>('.mod-card')!;
   card.style.setProperty('--card-color',value.color);card.style.setProperty('--card-text',modularTextColor(value.color));
+  card.style.setProperty('--info-color',['#5d428c','#646464','#cdd5dc','#f3eef9','#f2f3f5'].includes(value.color.toLowerCase())?'#ff5900':'#5d428c');
   card.style.setProperty('--card-radius',value.radius+'px');card.style.setProperty('--card-padding',value.padding+'px');
   card.style.setProperty('--card-align',value.verticalAlign==='center'?'center':value.verticalAlign==='end'?'flex-end':'flex-start');
 }
@@ -41,6 +42,7 @@ function layout(block:HTMLElement) {
   block.dataset.rowHeights=JSON.stringify(m.rows);
   grid.style.minWidth=`${m.columns.length*40+(m.columns.length-1)*m.gap}px`;
   block.style.setProperty('--mod-gap',m.gap+'px');block.style.setProperty('--mod-margin',m.margin+'%');
+  block.dataset.joined=String(m.gap===0);
   block.dataset.overflow=String(m.overflow);
   block.style.setProperty('--mod-stroke-width',(m.stroke?.width||0)+'px');
   block.style.setProperty('--mod-stroke-color',m.stroke?.color||'#5d428c');
@@ -78,6 +80,7 @@ function render(block:HTMLElement) {
       const card=document.createElement('div'); card.className='mod-card';
       card.style.setProperty('--card-color',value.color);card.style.setProperty('--card-radius',value.radius+'px');card.style.setProperty('--card-padding',value.padding+'px');
       card.style.setProperty('--card-text',modularTextColor(value.color));
+      card.style.setProperty('--info-color',['#5d428c','#646464','#cdd5dc','#f3eef9','#f2f3f5'].includes(value.color.toLowerCase())?'#ff5900':'#5d428c');
       card.style.setProperty('--card-align',value.verticalAlign==='center'?'center':value.verticalAlign==='end'?'flex-end':'flex-start');
       card.dataset.student=String(!!value.student);
       const text=document.createElement('div');text.className=value.student?'mod-text mod-student-placeholder':'mod-text editable-text';text.innerHTML=value.student?'':value.html;card.append(text);

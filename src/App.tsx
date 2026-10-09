@@ -5,6 +5,7 @@ import { TUTORIAL_TOPICS, startTutorial, type TutorialTopicId } from './tutorial
 import { exerciseMode, setupExercises, saveExercise } from './exercise';
 import ProjectManager from './ProjectManager';
 import { setupToolbarSelection } from './toolbar-selection';
+import { setupEditingContrast } from './editing-contrast';
 
 const GITHUB_REPOSITORY = 'adrianvillanueva-anahuac/HTML-Builder-para-LMS';
 const GITHUB_IMAGES_API_URL = `https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/public/imagenes`;
@@ -324,6 +325,7 @@ export default function App() {
   });
 
   useEffect(() => setupToolbarSelection(), []);
+  useEffect(() => setupEditingContrast(), []);
 
   useEffect(() => {
     if (isInitialized.current) return;
