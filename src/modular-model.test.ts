@@ -1,5 +1,21 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {exposedCorners} from './modular-model';
+
+test('separación cero conserva solo las esquinas exteriores de celdas ocupadas',()=>{
+  const m=createModular(3,3);
+  const cell={html:'',color:'#fff',radius:12,padding:0};
+  m.cells['1:1']={...cell};
+  assert.deepEqual(exposedCorners(m,'1:1'),[true,true,true,true]);
+  m.cells['1:2']={...cell};
+  assert.deepEqual(exposedCorners(m,'1:1'),[true,false,false,true]);
+  m.cells['2:1']={...cell};
+  assert.deepEqual(exposedCorners(m,'1:1'),[true,false,false,false]);
+  m.cells['0:1']={...cell};m.cells['1:0']={...cell};
+  assert.deepEqual(exposedCorners(m,'1:1'),[false,false,false,false]);
+  removeCell(m,'1:0');removeCell(m,'0:1');
+  assert.deepEqual(exposedCorners(m,'1:1'),[true,false,false,false]);
+});
 import {createModular,neighbors,removeCell,removeLastTrack,resizeColumns,modularPalette,modularTextColor,centerGroups} from './modular-model';
 
 test('figuras centrales requieren cuatro vecinos y admiten cruces adyacentes',()=>{

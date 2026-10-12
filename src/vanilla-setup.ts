@@ -2,6 +2,8 @@ import Sortable from 'sortablejs';
 import { getModularHTML, initModularTables, setupModularTables, prepareModularExport, modularExportAssets, compactModularState } from './modular-table';
 import './icon-grid.css';
 import iconGridStyles from './icon-grid.css?raw';
+import './footer-layout.css';
+import footerLayoutStyles from './footer-layout.css?raw';
 import { externalizeImages } from './published-resources';
 import { getExerciseBlock, prepareExerciseLinks } from './exercise';
 import {
@@ -3703,6 +3705,7 @@ export function setupVanillaGlobals() {
         clone.querySelectorAll('.editorial-image').forEach(el => { el.classList.remove('selected-img'); el.removeAttribute('draggable'); });
 
         clone.querySelectorAll('.lms-footer-wrapper').forEach(el => {
+            el.classList.add('lms-page-footer');
             el.classList.remove('opacity-80', 'hover:opacity-100', 'cursor-pointer', 'border-2', 'border-transparent', 'hover:border-dashed', 'hover:border-anahuac-orange', 'py-4', 'p-4', 'rounded-xl', 'group/footer', 'lms-footer-wrapper');
             el.removeAttribute('ondblclick'); el.removeAttribute('data-footer-type'); el.removeAttribute('data-footer-logo');
             const tooltip = el.querySelector('.absolute'); if(tooltip) tooltip.remove();
@@ -3845,7 +3848,7 @@ export function setupVanillaGlobals() {
 
         const exportedCanvasHtml = clone.innerHTML;
         const editorState = includeEditorState ? `<script type="application/json" id="lms-state" data-encoding="json">${JSON.stringify(outerEl.innerHTML || '').replace(/</g, '\\u003c')}</script>` : '';
-        const finalHTML = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="generator" content="anahuac-builder-lms"><title>Contenido D2L</title>${customStyles}<style>${iconGridStyles}</style></head><body><div class="max-w-5xl mx-auto anahuac-builder-export">${exportedCanvasHtml}</div>${finalJS}${clone.querySelector('.modular-table') ? modularExportAssets : ''}${editorState}</body></html>`;
+        const finalHTML = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="generator" content="anahuac-builder-lms"><title>Contenido D2L</title>${customStyles}<style>${iconGridStyles}\n${footerLayoutStyles}</style></head><body><div class="max-w-5xl mx-auto anahuac-builder-export">${exportedCanvasHtml}</div>${finalJS}${clone.querySelector('.modular-table') ? modularExportAssets : ''}${editorState}</body></html>`;
         
         return finalHTML;
     }

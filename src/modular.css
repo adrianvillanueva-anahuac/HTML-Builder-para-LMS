@@ -4,7 +4,7 @@
 .mod-grid{position:relative;display:grid;gap:var(--mod-gap,20px);box-sizing:border-box}
 .mod-cell{position:relative;min-width:0;min-height:0;border:1px dashed #cdd5dc;box-sizing:border-box}
 .modular-table[data-joined=true] .mod-cell:has(>.mod-card){border:0}
-.modular-table[data-joined=true] .mod-card{border-radius:0}
+.modular-table[data-joined=true] .mod-card{border-radius:var(--joined-corner-0,0px) var(--joined-corner-1,0px) var(--joined-corner-2,0px) var(--joined-corner-3,0px)}
 .mod-card{position:relative;width:100%;height:100%;box-sizing:border-box;background:var(--card-color,#f3eef9);color:var(--card-text,#333);border-radius:var(--card-radius,6px);padding:var(--card-padding,12px)}
 .mod-card{display:flex;flex-direction:column;justify-content:var(--card-align,flex-start)}
 .mod-card{box-shadow:inset 0 0 0 var(--mod-stroke-width,0px) var(--mod-stroke-color,#5d428c)}

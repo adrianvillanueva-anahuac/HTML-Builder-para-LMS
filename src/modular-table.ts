@@ -5,6 +5,7 @@ import styles from './modular.css?raw';
 import './modular.css';
 import {renderCenters,updateCenter,centerShapes,syncCenterText} from './modular-centers';
 import type {CenterShape} from './modular-model';
+import {exposedCorners} from './modular-model';
 
 const icon=(name:string)=>`<span class="material-symbols-outlined" aria-hidden="true">${name}</span>`;
 const button=(action:string,name:string,label:string)=>`<button type="button" data-mod-action="${action}" title="${label}" aria-label="${label}">${icon(name)}</button>`;
@@ -81,6 +82,7 @@ function render(block:HTMLElement) {
     cell.dataset.row=String(r);
     if(value) {
       const card=document.createElement('div'); card.className='mod-card';
+      exposedCorners(m,key).forEach((exposed,index)=>card.style.setProperty(`--joined-corner-${index}`,exposed?'var(--card-radius,6px)':'0px'));
       card.style.setProperty('--card-color',value.color);card.style.setProperty('--card-radius',value.radius+'px');card.style.setProperty('--card-padding',value.padding+'px');
       card.style.setProperty('--card-text',modularTextColor(value.color));
       card.style.setProperty('--info-color',['#5d428c','#646464','#cdd5dc','#f3eef9','#f2f3f5'].includes(value.color.toLowerCase())?'#ff5900':'#5d428c');

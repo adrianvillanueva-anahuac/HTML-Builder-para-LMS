@@ -1,0 +1,16 @@
+/* Match the existing page padding at its normal responsive breakpoint. */
+.p-10:has(> .lms-footer-wrapper),.p-10:has(> .lms-page-footer){--footer-gutter:2.5rem}
+@media(min-width:768px){
+  .md\:p-16:has(> .lms-footer-wrapper),.md\:p-16:has(> .lms-page-footer){--footer-gutter:4rem}
+}
+.lms-footer-wrapper,.lms-page-footer{
+  width:calc(100% + var(--footer-gutter,0px) * 2)!important;
+  margin-inline:calc(-1 * var(--footer-gutter,0px));
+  margin-bottom:calc(-1 * var(--footer-gutter,0px));
+  padding:0!important;border:0!important;opacity:1!important;
+  border-radius:0 0 12px 12px;flex-shrink:0;
+}
+.lms-footer-wrapper:hover{outline:2px dashed #ff5900;outline-offset:-2px}
+.lms-footer-wrapper>.footer-content,.lms-page-footer>.footer-content{border-radius:inherit;overflow:hidden}
+.lms-footer-wrapper .footer-content>div,.lms-page-footer .footer-content>div{padding-block:24px}
+.lms-footer-wrapper .footer-logo,.lms-page-footer .footer-logo{max-width:70%;flex-shrink:0}

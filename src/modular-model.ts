@@ -30,6 +30,13 @@ export const modularPalette = [
 export function modularTextColor(color:string) {
   return modularPalette.find(entry=>entry.value===color.toLowerCase())?.text || '#333333';
 }
+// Clockwise: top-left, top-right, bottom-right, bottom-left.
+export function exposedCorners(model:ModularModel,key:string):boolean[] {
+  const [r,c]=key.split(':').map(Number);
+  const top=!!model.cells[`${r-1}:${c}`],bottom=!!model.cells[`${r+1}:${c}`];
+  const left=!!model.cells[`${r}:${c-1}`],right=!!model.cells[`${r}:${c+1}`];
+  return [!top&&!left,!top&&!right,!bottom&&!right,!bottom&&!left];
+}
 export function createModular(rows: number, columns: number): ModularModel {
   return {version:1, rows:Array(Math.round(clamp(rows,1,10))).fill(120), columns:Array(Math.round(clamp(columns,1,10))).fill(1), gap:20, margin:0, overflow:false, cells:{}, connections:[]};
 }
