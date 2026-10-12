@@ -62,6 +62,20 @@ export function mountModularRuntime(block) {
         set(panel,'style',`position:fixed;left:${Math.max(leftLimit,Math.min(anchor.right-width,rightLimit-width))}px;top:${top}px;right:auto;width:${width}px;max-height:${height}px;z-index:200`);
       }
     });
+    block.querySelectorAll('.mod-center').forEach(center=>{
+      const [r,c]=center.dataset.center.split(':').map(Number);
+      const a=grid.querySelector(`[data-cell="${r}:${c}"]`),b=grid.querySelector(`[data-cell="${r+1}:${c+1}"]`);
+      if(!a||!b)return;
+      const ar=a.getBoundingClientRect(),br=b.getBoundingClientRect();
+      const size=Number(center.dataset.size)||80;
+      set(center,'style',`left:${(ar.right+br.left)/2-base.left-size/2}px;top:${(ar.bottom+br.top)/2-base.top-size/2}px;width:${size}px;height:${size}px`);
+      const tools=center.querySelector('.mod-center-tools');
+      if(tools&&tools.getClientRects().length){
+        const rect=center.getBoundingClientRect(),width=tools.offsetWidth;
+        tools.style.left=Math.max(scrollBounds.left+4,Math.min(rect.left,scrollBounds.right-width-4))+'px';
+        tools.style.top=Math.max(8,rect.top-tools.offsetHeight)+'px';
+      }
+    });
     block.querySelectorAll('.mod-edge').forEach(edge=>{
       const a=grid.querySelector(`[data-cell="${edge.dataset.from}"]`);
       const b=grid.querySelector(`[data-cell="${edge.dataset.to}"]`);
@@ -72,17 +86,53 @@ export function mountModularRuntime(block) {
       const y=vertical?(ar.bottom+br.top)/2-base.top:ar.top+ar.height/2-base.top;
       const distance=vertical?br.top-ar.bottom:br.left-ar.right;
       const length=Math.max(24,distance+8);
-      set(edge,'style',`left:${x}px;top:${y}px;width:${vertical?28:length}px;height:${vertical?length:28}px`);
+      const scale=Math.max(.5,Math.min(3,Number(edge.dataset.scale)||1));
+      const offset=Math.max(-100,Math.min(100,Number(edge.dataset.offset)||0));
+      // Resolve obstacles from the authored position every time, never accumulate displacement.
+      const desired=(vertical?x:y)+offset;
+      const cross=vertical?y:x;
+      const pathNode=edge.querySelector('path');
+      const stroke=pathNode?.getAttribute('stroke')==='none'?0:Number(pathNode?.getAttribute('stroke-width')||2)*scale/2;
+      const half=14*scale+stroke,along=length*scale/2+stroke;
+      const intervals=[];
+      block.querySelectorAll('.mod-center:has(.mod-center-visual)').forEach(center=>{
+        const rect=center.getBoundingClientRect();
+        const axisMin=vertical?rect.left-base.left:rect.top-base.top;
+        const axisMax=vertical?rect.right-base.left:rect.bottom-base.top;
+        const crossMin=vertical?rect.top-base.top:rect.left-base.left;
+        const crossMax=vertical?rect.bottom-base.top:rect.right-base.left;
+        if(cross+along+2>crossMin&&cross-along-2<crossMax)intervals.push([axisMin-half-2,axisMax+half+2]);
+      });
+      const free=p=>intervals.every(([lo,hi])=>p<=lo||p>=hi);
+      const candidates=[desired,...intervals.flat()].filter(free);
+      candidates.sort((a,b)=>Math.abs(a-desired)-Math.abs(b-desired));
+      const position=candidates[0]??desired;
+      set(edge,'style',`left:${vertical?position:x}px;top:${vertical?y:position}px;width:${(vertical?28:length)*scale}px;height:${(vertical?length:28)*scale}px`);
       const svg=edge.querySelector('svg');
       if(!svg)return;
       set(svg,'viewBox',`0 0 ${length} 28`);
-      set(svg,'style',vertical?'transform:rotate(90deg);width:'+length+'px;height:28px;position:absolute;left:50%;top:50%;margin-left:'+(-length/2)+'px;margin-top:-14px':'width:100%;height:100%');
+      set(svg,'style',vertical?'transform:rotate(90deg);width:'+(length*scale)+'px;height:'+(28*scale)+'px;position:absolute;left:50%;top:50%;margin-left:'+(-length*scale/2)+'px;margin-top:'+(-14*scale)+'px':'width:100%;height:100%');
       const path=svg.querySelector('path');
       const dir=edge.dataset.direction;
       const left=dir==='backward'||dir==='both',right=dir==='forward'||dir==='both';
       const l=left?9:2,r=right?length-9:length-2;
       const points=`M ${l} 9 L ${r} 9 ${right?`L ${r} 3 L ${length-2} 14 L ${r} 25 L ${r} 19`:`L ${r} 19`} L ${l} 19 ${left?`L ${l} 25 L 2 14 L ${l} 3 L ${l} 9`:''} Z`;
-      if(path)set(path,'d',points);
+      const radius=Number(edge.dataset.radius)||0;
+      let outline=points;
+      if(radius>0){
+        const values=points.match(/-?[\d.]+/g).map(Number),vertices=[];
+        for(let i=0;i<values.length;i+=2)vertices.push([values[i],values[i+1]]);
+        if(vertices.length>1&&vertices[0][0]===vertices.at(-1)[0]&&vertices[0][1]===vertices.at(-1)[1])vertices.pop();
+        outline=vertices.map((p,i)=>{
+          const prev=vertices[(i+vertices.length-1)%vertices.length],next=vertices[(i+1)%vertices.length];
+          const a=Math.hypot(prev[0]-p[0],prev[1]-p[1]),b=Math.hypot(next[0]-p[0],next[1]-p[1]);
+          const d=Math.min(radius,a/2,b/2);
+          const start=[p[0]+(prev[0]-p[0])*d/a,p[1]+(prev[1]-p[1])*d/a];
+          const end=[p[0]+(next[0]-p[0])*d/b,p[1]+(next[1]-p[1])*d/b];
+          return `${i?'L':'M'} ${start.join(' ')} Q ${p.join(' ')} ${end.join(' ')}`;
+        }).join(' ')+' Z';
+      }
+      if(path){set(path,'d',outline);set(path,'stroke-linejoin',radius?'round':'miter');}
     });
   };
   const schedule=()=>{if(!frame)frame=requestAnimationFrame(update);};

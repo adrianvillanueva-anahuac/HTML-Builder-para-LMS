@@ -61,7 +61,7 @@
 .mod-grid:hover .mod-edge button,.mod-edge button:focus{opacity:1}
 .mod-edge[data-menu-open=true] button{opacity:1}
 .mod-connector-popover{position:fixed;z-index:8000;pointer-events:auto;width:max-content;max-width:calc(100vw - 16px)}
-.mod-connector-popover details>div{left:auto;right:0}
+.mod-connector-popover details>div{left:auto;right:0;top:auto;bottom:100%;margin-bottom:0}
 .mod-connector-popover .mod-palette{display:grid;grid-template-columns:repeat(4,30px);gap:6px;min-width:156px}
 .mod-connector-popover .mod-palette button{border-radius:50%}
 .mod-edge button .material-symbols-outlined{font-size:16px}
@@ -107,3 +107,20 @@ body:has(.mod-modal) #rtf-toolbar{z-index:10001!important}
 .mod-published .mod-cell{border:0}
 .mod-published .mod-text:empty::before{content:none}
 .mod-published .mod-preview-content{cursor:default}
+.mod-grid{isolation:isolate}
+.mod-cell{z-index:2}
+.mod-center{position:absolute;pointer-events:none}
+.mod-center-visual{position:absolute;inset:0;z-index:40;pointer-events:auto;display:grid;place-items:center}
+.mod-center[data-front=false] .mod-center-visual{z-index:1}
+.mod-center-visual svg{position:absolute;width:100%;height:100%;inset:0;filter:drop-shadow(0 1px 2px #0002)}
+.mod-center-text{position:relative;width:58%;max-height:65%;overflow:auto;text-align:center;overflow-wrap:anywhere;font-size:12px;line-height:1.2;white-space:pre-wrap}
+.mod-center-text{min-height:1.2em;cursor:text}
+.mod-center-text:empty::before{content:'txt';opacity:.6}
+.mod-published .mod-center-text:empty::before{content:none}
+.mod-center:has(.mod-center-text[contenteditable=true]) .mod-center-visual{z-index:90}
+.mod-center-trigger{position:absolute;left:50%;top:50%;margin:-16px;width:32px;height:32px;border-radius:50%;background:white;color:#5d428c;box-shadow:0 2px 6px #0003;z-index:80;pointer-events:auto;opacity:0;cursor:pointer}
+.mod-center:hover .mod-center-trigger,.mod-center-trigger:focus-visible{opacity:1}
+.mod-center-tools{position:fixed;display:none;pointer-events:auto;z-index:100;max-width:calc(100vw - 24px);flex-wrap:wrap;margin:0}
+.mod-center:hover .mod-center-tools,.mod-center:focus-within .mod-center-tools,.mod-center[data-pinned=true] .mod-center-tools{display:flex}
+.mod-center-tools textarea{display:block;width:180px;max-width:100%;border:1px solid #cdd5dc;border-radius:4px;padding:6px;color:#333;background:white}
+.mod-center-tools [data-center-shape]{width:auto;padding:4px 8px}

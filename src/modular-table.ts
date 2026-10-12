@@ -3,6 +3,8 @@ import { mountModularRuntime } from './modular-runtime.js';
 import runtimeSource from './modular-runtime.js?raw';
 import styles from './modular.css?raw';
 import './modular.css';
+import {renderCenters,updateCenter,centerShapes,syncCenterText} from './modular-centers';
+import type {CenterShape} from './modular-model';
 
 const icon=(name:string)=>`<span class="material-symbols-outlined" aria-hidden="true">${name}</span>`;
 const button=(action:string,name:string,label:string)=>`<button type="button" data-mod-action="${action}" title="${label}" aria-label="${label}">${icon(name)}</button>`;
@@ -23,6 +25,7 @@ function updateCellAppearance(cell:HTMLElement,value:ModularModel['cells'][strin
 }
 function sync(block:HTMLElement) {
   const model=models.get(block)!;
+  syncCenterText(block,model);
   block.querySelectorAll<HTMLElement>('.mod-cell').forEach(cell=>{
     // During a mode switch, focusout can run before the old placeholder is replaced.
     if(model.cells[cell.dataset.cell!]?.student||cell.querySelector('.mod-card[data-student=true]'))return;
@@ -99,10 +102,13 @@ function render(block:HTMLElement) {
     const edge=m.connections.find(e=>e.from===from&&e.to===to);
     const el=document.createElement('div');el.className='mod-edge';el.dataset.from=from;el.dataset.to=to;el.dataset.direction=edge?.direction||'none';
     el.innerHTML=(edge?`<svg xmlns="http://www.w3.org/2000/svg" aria-label="Conexión ${edge.direction}" role="img"><path fill="${escape(edge.fill)}" stroke="${escape(edge.stroke)}" stroke-width="${edge.strokeWidth??2}" ${edge.dotted?'stroke-dasharray="3 3"':''}/></svg>`:'')+button('connect','conversion_path','Configurar conexión').replace('<button ','<button class="mod-editor" ');
+    el.dataset.scale=String(edge?.scale??1);el.dataset.offset=String(edge?.offset??0);
+    el.dataset.radius=String(edge?.radius??0);
     grid.append(el);
   });
   block.querySelector<HTMLButtonElement>('[data-mod-action=row]')!.disabled=m.rows.length>=10;
   block.querySelector<HTMLButtonElement>('[data-mod-action=column]')!.disabled=m.columns.length>=10;
+  renderCenters(grid,m);
   layout(block);persist(block);runtimes.set(block,mountModularRuntime(block));
 }
 function modal(title:string,content:string,onConfirm:(panel:HTMLElement)=>boolean|void,onCancel=()=>{}) {
@@ -194,7 +200,7 @@ function positionConnector(){
   const {edge,panel}=connector;
   if(!edge.isConnected){closeConnector();return;}
   const rect=edge.getBoundingClientRect();
-  panel.style.left=Math.max(8,Math.min(rect.left+rect.width/2-140,innerWidth-292))+'px';
+  panel.style.left=Math.max(8,Math.min(rect.left+rect.width/2-panel.offsetWidth/2,innerWidth-panel.offsetWidth-8))+'px';
   panel.style.top=(rect.top>190?rect.top-52:rect.bottom+6)+'px';
 }
 function editConnection(block:HTMLElement,edge:HTMLElement,pinned=true) {
@@ -208,12 +214,38 @@ function editConnection(block:HTMLElement,edge:HTMLElement,pinned=true) {
   connector={block,edge,panel,pinned};edge.dataset.menuOpen='true';document.body.append(panel);positionConnector();
   for(const field of ['fill','stroke'])panel.querySelector(`[data-edge-field=${field}]`)!.parentElement!.insertAdjacentHTML('afterbegin',`<button type="button" data-edge-field="${field}" data-value="none" title="${field==='fill'?'Sin relleno':'Sin contorno'}" aria-label="${field==='fill'?'Sin relleno':'Sin contorno'}">${icon('block')}</button>`);
   const current=models.get(block)!.connections.find(e=>e.from===from&&e.to===to);
+  const vertical=from.split(':')[0]!==to.split(':')[0];
+  const extraMenu=(symbol:string,label:string,content:string)=>`<details><summary title="${label}" aria-label="${label}">${icon(symbol)}</summary><div>${content}</div></details>`;
+  panel.querySelector('[data-edge-field=remove]')!.insertAdjacentHTML('beforebegin',
+    extraMenu('photo_size_select_small','Tamaño del conector',`<label>Tamaño <output>${Math.round((current?.scale??1)*100)}%</output><input data-edge-scale type="range" min="50" max="300" step="10" value="${Math.round((current?.scale??1)*100)}" aria-label="Tamaño del conector"></label>`)+
+    extraMenu(vertical?'swap_horiz':'swap_vert','Posición del conector',`<label>${vertical?'Izquierda / derecha':'Arriba / abajo'} <output>${current?.offset??0} px</output><input data-edge-offset type="range" min="-100" max="100" value="${current?.offset??0}" aria-label="Desplazamiento del conector"></label><button data-edge-field="center" title="Volver al centro" aria-label="Volver al centro">${icon('center_focus_strong')}</button>`)+
+    extraMenu('rounded_corner','Esquinas del conector',`<label>Redondeado <output>${current?.radius??0} px</output><input data-edge-radius type="range" min="0" max="6" value="${current?.radius??0}" aria-label="Redondeado del conector"></label>`));
+  panel.querySelectorAll<HTMLDetailsElement>('details').forEach(menu=>{
+    menu.addEventListener('pointerenter',()=>{panel.querySelectorAll<HTMLDetailsElement>('details').forEach(other=>{if(other!==menu){other.open=false;delete other.dataset.pinned;}});menu.open=true;});
+    menu.addEventListener('pointerleave',()=>{if(menu.dataset.pinned!=='true')menu.open=false;});
+    menu.querySelector('summary')!.addEventListener('click',event=>{event.preventDefault();menu.open=true;menu.dataset.pinned='true';});
+  });
+  for(const [direction,symbol,label] of [['forward',vertical?'arrow_downward':'arrow_forward',vertical?'Hacia abajo':'Hacia derecha'],['backward',vertical?'arrow_upward':'arrow_back',vertical?'Hacia arriba':'Hacia izquierda']]){
+    const btn=panel.querySelector<HTMLElement>(`[data-edge-field=direction][data-value=${direction}]`)!;btn.innerHTML=icon(symbol);btn.title=label;btn.setAttribute('aria-label',label);
+  }
   panel.querySelector('[data-edge-field=dotted]')!.parentElement!.insertAdjacentHTML('beforeend',`<label>Grosor <output>${current?.strokeWidth??2} px</output><input type="range" min="1" max="10" value="${current?.strokeWidth??2}" aria-label="Grosor del conector" data-edge-width></label>`);
+  const strokePalette=panel.querySelector('[data-edge-field=stroke]')!.parentElement!;
+  const strokeMenu=strokePalette.closest('details')!;
+  const tracePanel=panel.querySelector('[data-edge-field=dotted]')!.parentElement!;
+  const colorLabel=document.createElement('div');colorLabel.textContent='Color del contorno';
+  colorLabel.style.cssText='font-size:12px;margin:8px 0 6px';
+  tracePanel.append(colorLabel,strokePalette);
+  strokeMenu.remove();
+  positionConnector();
   panel.addEventListener('input',event=>{
-    const input=event.target as HTMLInputElement;if(!input.hasAttribute('data-edge-width'))return;
+    const input=event.target as HTMLInputElement;if(!input.matches('[data-edge-width],[data-edge-scale],[data-edge-offset],[data-edge-radius]'))return;
     const m=sync(block);let value=m.connections.find(e=>e.from===from&&e.to===to);
     if(!value){value={from,to,direction:'forward',fill:'#5d428c',stroke:'#5d428c',dotted:false};m.connections.push(value);edge.dataset.direction=value.direction;edge.insertAdjacentHTML('afterbegin',`<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Conexión forward"><path fill="#5d428c" stroke="#5d428c"/></svg>`);}
-    value.strokeWidth=clamp(Number(input.value),1,10);input.closest('label')!.querySelector('output')!.textContent=value.strokeWidth+' px';edge.querySelector('path')!.setAttribute('stroke-width',String(value.strokeWidth));persist(block);runtimes.get(block)?.update();
+    if(input.hasAttribute('data-edge-scale')){value.scale=clamp(Number(input.value)/100,.5,3);edge.dataset.scale=String(value.scale);input.closest('label')!.querySelector('output')!.textContent=Math.round(value.scale*100)+'%';}
+    else if(input.hasAttribute('data-edge-offset')){value.offset=clamp(Number(input.value),-100,100);edge.dataset.offset=String(value.offset);input.closest('label')!.querySelector('output')!.textContent=value.offset+' px';}
+    else if(input.hasAttribute('data-edge-radius')){value.radius=clamp(Number(input.value),0,6);edge.dataset.radius=String(value.radius);input.closest('label')!.querySelector('output')!.textContent=value.radius+' px';}
+    else {value.strokeWidth=clamp(Number(input.value),1,10);input.closest('label')!.querySelector('output')!.textContent=value.strokeWidth+' px';edge.querySelector('path')!.setAttribute('stroke-width',String(value.strokeWidth));}
+    persist(block);runtimes.get(block)?.update();
   });
   panel.addEventListener('change',()=>save());
   panel.addEventListener('pointerenter',()=>clearTimeout(connectorTimer));panel.addEventListener('pointerleave',deferConnectorClose);
@@ -227,10 +259,13 @@ function editConnection(block:HTMLElement,edge:HTMLElement,pinned=true) {
     else {
       if(!value){value={from,to,direction:'forward',fill:'#5d428c',stroke:'#5d428c',dotted:false};m.connections.push(value);}
       const field=choice.dataset.edgeField!;
+      if(field==='center'){value.offset=0;const input=panel.querySelector<HTMLInputElement>('[data-edge-offset]')!;input.value='0';input.closest('label')!.querySelector('output')!.textContent='0 px';}
       if(field==='dotted')value.dotted=choice.dataset.value==='true';
       else if(field==='direction')value.direction=choice.dataset.value as ModularConnection['direction'];
       else if(field==='fill'||field==='stroke')value[field]=choice.dataset.value!;
       edge.dataset.direction=value.direction;
+      edge.dataset.scale=String(value.scale??1);edge.dataset.offset=String(value.offset??0);
+      edge.dataset.radius=String(value.radius??0);
       edge.querySelector('svg')?.remove();
       edge.insertAdjacentHTML('afterbegin',`<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Conexión ${value.direction}"><path fill="${value.fill}" stroke="${value.stroke}" stroke-width="${value.strokeWidth??2}" ${value.dotted?'stroke-dasharray="3 3"':''}/></svg>`);
     }
@@ -295,6 +330,9 @@ export function setupModularTables() {
   document.addEventListener('click',event=>{
     const target=event.target as HTMLElement;
     if(!target.closest)return;
+    document.querySelectorAll<HTMLElement>('.mod-center[data-pinned]').forEach(node=>{if(!node.contains(target))delete node.dataset.pinned;});
+    const center=target.closest<HTMLElement>('.mod-center');
+    if(center)center.dataset.pinned='true';
     if(connector&&!connector.panel.contains(target)&&!connector.edge.contains(target))closeConnector();
     if(target.closest('.mod-modal,#rtf-toolbar,.mod-connector-popover'))return;
     document.querySelectorAll<HTMLElement>('.mod-tools details[open]').forEach(menu=>{if(!menu.contains(target)){menu.removeAttribute('open');delete menu.dataset.menuPinned;}});
@@ -314,6 +352,26 @@ export function setupModularTables() {
     const target=event.target as HTMLElement;if(!target.closest)return;
     const block=target.closest<HTMLElement>('.modular-table');
     if(!block||!models.has(block))return;
+    const center=target.closest<HTMLElement>('.mod-center');
+    if(center){
+      const m=sync(block),key=center.dataset.center!;
+      const create=target.closest<HTMLElement>('[data-center-create]');
+      if(create){
+        const shape=create.dataset.centerCreate as CenterShape['shape'];
+        if(!Object.hasOwn(centerShapes,shape))return;
+        m.centers??={};m.centers[key]={shape,color:'#ff5900',size:80,front:true,text:''};render(block);save();return;
+      }
+      const value=m.centers?.[key];if(!value)return;
+      const control=target.closest<HTMLElement>('[data-center-color],[data-center-shape],[data-center-layer],[data-center-delete]');
+      if(control){
+        if(control.hasAttribute('data-center-delete')){delete m.centers![key];render(block);save();return;}
+        if(control.dataset.centerColor)value.color=control.dataset.centerColor;
+        if(control.dataset.centerShape)value.shape=control.dataset.centerShape as CenterShape['shape'];
+        if(control.dataset.centerLayer)value.front=control.dataset.centerLayer==='front';
+        updateCenter(center,value);persist(block);runtimes.get(block)?.update();save();
+      }
+      return;
+    }
     const rowColor=target.closest<HTMLElement>('[data-row-color]');
     if(rowColor){
       event.preventDefault();event.stopPropagation();const m=sync(block),row=rowColor.dataset.colorRow!;
@@ -376,6 +434,12 @@ export function setupModularTables() {
   document.addEventListener('input',event=>{
     const target=event.target as HTMLInputElement,block=target.closest<HTMLElement>('.modular-table');if(!block||!models.has(block))return;
     const m=sync(block);
+    const center=target.closest<HTMLElement>('.mod-center');
+    if(center&&target.hasAttribute('data-center-size')){
+      const value=m.centers?.[center.dataset.center!];if(!value)return;
+      if(target.hasAttribute('data-center-size')){value.size=clamp(Number(target.value),24,240);target.closest('label')!.querySelector('output')!.textContent=value.size+' px';}
+      updateCenter(center,value);persist(block);runtimes.get(block)?.update();return;
+    }
     if(target.hasAttribute('data-mod-stroke-width')){m.stroke={width:clamp(Number(target.value),0,8),color:m.stroke?.color||'#5d428c'};target.closest('label')!.querySelector('output')!.textContent=m.stroke.width+' px';layout(block);}
     if(target.hasAttribute('data-cell-padding')){const cell=target.closest<HTMLElement>('.mod-cell')!,value=m.cells[cell.dataset.cell!];value.padding=clamp(Number(target.value),0,50);target.closest('label')!.querySelector('output')!.textContent=value.padding+' px';updateCellAppearance(cell,value);runtimes.get(block)?.update();}
     if(target.dataset.modRange){const field=target.dataset.modRange as 'gap'|'margin';m[field]=clamp(Number(target.value),0,field==='gap'?50:40);target.setAttribute('value',String(m[field]));target.closest('label')!.querySelector('output')!.textContent=m[field]+(field==='gap'?' px':'%');layout(block);}
@@ -386,6 +450,7 @@ export function setupModularTables() {
   document.addEventListener('keydown',event=>{
     const target=event.target as HTMLElement;
     if(event.key==='Escape'){
+      document.querySelectorAll<HTMLElement>('.mod-center[data-pinned]').forEach(node=>delete node.dataset.pinned);
       closeConnector();
       document.querySelectorAll<HTMLDetailsElement>('.modular-table .mod-tools details[open]').forEach(menu=>{menu.open=false;delete menu.dataset.menuPinned;});
     }
@@ -431,6 +496,7 @@ export function compactModularState(root:HTMLElement) {
     if(block.dataset.modPending){block.remove();return;}
     try {
       const model=JSON.parse(block.dataset.modular!);
+      syncCenterText(block,model);
       block.querySelectorAll<HTMLElement>('.mod-cell').forEach(cell=>{
         const text=cell.querySelector('.mod-text');
         if(text&&model.cells[cell.dataset.cell!]&&!model.cells[cell.dataset.cell!].student)model.cells[cell.dataset.cell!].html=text.innerHTML;

@@ -1,6 +1,14 @@
 export type ModularCell = { html: string; color: string; radius: number; padding: number; verticalAlign?: 'start'|'center'|'end'; student?:boolean };
-export type ModularConnection = { from: string; to: string; direction: 'forward'|'backward'|'both'|'none'; fill: string; stroke: string; dotted: boolean; strokeWidth?:number };
-export type ModularModel = { version: 1; rows: number[]; columns: number[]; gap: number; margin: number; overflow: boolean; stroke?: {width:number;color:string}; defaultRadius?:number; cells: Record<string, ModularCell>; connections: ModularConnection[] };
+export type ModularConnection = { from: string; to: string; direction: 'forward'|'backward'|'both'|'none'; fill: string; stroke: string; dotted: boolean; strokeWidth?:number;scale?:number;offset?:number;radius?:number };
+export type CenterShape = {shape:'triangle'|'circle'|'square'|'diamond'|'hexagon';color:string;size:number;front:boolean;text:string;html?:string};
+export type ModularModel = { version: 1; rows: number[]; columns: number[]; gap: number; margin: number; overflow: boolean; stroke?: {width:number;color:string}; defaultRadius?:number; cells: Record<string, ModularCell>; connections: ModularConnection[]; centers?:Record<string,CenterShape> };
+export function centerGroups(model:ModularModel):string[] {
+  const groups:string[]=[];
+  for(let r=0;r<model.rows.length-1;r++)for(let c=0;c<model.columns.length-1;c++){
+    if([`${r}:${c}`,`${r}:${c+1}`,`${r+1}:${c}`,`${r+1}:${c+1}`].every(k=>!!model.cells[k]))groups.push(`${r}:${c}`);
+  }
+  return groups;
+}
 export function removeLastTrack(model:ModularModel,axis:'row'|'column') {
   const tracks=axis==='row'?model.rows:model.columns;
   if(tracks.length<=1)return;
@@ -37,6 +45,8 @@ export function neighbors(model: ModularModel): [string,string][] {
 export function removeCell(model: ModularModel, key: string) {
   delete model.cells[key];
   model.connections=model.connections.filter(edge=>edge.from!==key && edge.to!==key);
+  const valid=new Set(centerGroups(model));
+  Object.keys(model.centers||{}).forEach(k=>{if(!valid.has(k))delete model.centers![k];});
 }
 export function resizeColumns(columns: number[], index: number, delta: number, available: number) {
   if(index<0 || index>=columns.length-1 || available<=0) return [...columns];

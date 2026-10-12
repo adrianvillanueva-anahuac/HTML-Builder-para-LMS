@@ -1,6 +1,19 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createModular,neighbors,removeCell,removeLastTrack,resizeColumns,modularPalette,modularTextColor} from './modular-model';
+import {createModular,neighbors,removeCell,removeLastTrack,resizeColumns,modularPalette,modularTextColor,centerGroups} from './modular-model';
+
+test('figuras centrales requieren cuatro vecinos y admiten cruces adyacentes',()=>{
+  const m=createModular(2,3);
+  for(const key of ['0:0','0:1','0:2','1:0','1:1'])m.cells[key]={html:'',color:'#fff',radius:0,padding:0};
+  assert.deepEqual(centerGroups(m),['0:0']);
+  m.cells['1:2']={html:'',color:'#fff',radius:0,padding:0};
+  assert.deepEqual(centerGroups(m),['0:0','0:1']);
+  m.centers={'0:0':{shape:'diamond',color:'#ff5900',size:100,front:false,text:'Centro'}};
+  assert.deepEqual(JSON.parse(JSON.stringify(m)).centers,m.centers);
+  removeCell(m,'1:0');assert.deepEqual(m.centers,{});
+  assert.deepEqual(centerGroups(m),['0:1']);
+  removeLastTrack(m,'row');assert.deepEqual(centerGroups(m),[]);
+});
 
 test('quitar filas y columnas elimina sus conexiones y conserva una retícula mínima',()=>{
   const m=createModular(2,2);
