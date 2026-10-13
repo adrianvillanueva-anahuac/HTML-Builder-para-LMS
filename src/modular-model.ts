@@ -1,7 +1,7 @@
 export type ModularCell = { html: string; color: string; radius: number; padding: number; verticalAlign?: 'start'|'center'|'end'; student?:boolean };
 export type ModularConnection = { from: string; to: string; direction: 'forward'|'backward'|'both'|'none'; fill: string; stroke: string; dotted: boolean; strokeWidth?:number;scale?:number;offset?:number;radius?:number };
 export type CenterShape = {shape:'triangle'|'circle'|'square'|'diamond'|'hexagon';color:string;size:number;front:boolean;text:string;html?:string};
-export type ModularModel = { version: 1; rows: number[]; columns: number[]; gap: number; margin: number; overflow: boolean; stroke?: {width:number;color:string}; defaultRadius?:number; cells: Record<string, ModularCell>; connections: ModularConnection[]; centers?:Record<string,CenterShape> };
+export type ModularModel = { version: 1; rows: number[]; columns: number[]; gap: number; margin: number; overflow: boolean; stroke?: {width:number;color:string}; defaultRadius?:number; defaultColor?:string; cells: Record<string, ModularCell>; connections: ModularConnection[]; centers?:Record<string,CenterShape> };
 export function centerGroups(model:ModularModel):string[] {
   const groups:string[]=[];
   for(let r=0;r<model.rows.length-1;r++)for(let c=0;c<model.columns.length-1;c++){
@@ -29,6 +29,30 @@ export const modularPalette = [
 ];
 export function modularTextColor(color:string) {
   return modularPalette.find(entry=>entry.value===color.toLowerCase())?.text || '#333333';
+}
+export function setAllCellColors(model:ModularModel,color:string) {
+  model.defaultColor=color;
+  Object.values(model.cells).forEach(cell=>cell.color=color);
+}
+export function createModularCell(model:ModularModel):ModularCell {
+  return {html:'',color:model.defaultColor??'#f3eef9',radius:model.defaultRadius??6,padding:12,verticalAlign:'center'};
+}
+export function activateAllCells(model:ModularModel) {
+  model.rows.forEach((_,r)=>model.columns.forEach((_,c)=>{
+    const key=`${r}:${c}`;
+    if(!model.cells[key])model.cells[key]=createModularCell(model);
+  }));
+}
+export function clearAllCells(model:ModularModel) {
+  model.cells={};
+  model.connections=[];
+  model.centers={};
+}
+// Clockwise: top, right, bottom, left. A shared edge is drawn only by its
+// right/bottom neighbor, avoiding doubled strokes and fractional-pixel borders.
+export function sharedStrokeFactors(model:ModularModel,key:string):number[] {
+  const [r,c]=key.split(':').map(Number);
+  return [1,model.cells[`${r}:${c+1}`]?0:1,model.cells[`${r+1}:${c}`]?0:1,1];
 }
 // Clockwise: top-left, top-right, bottom-right, bottom-left.
 export function exposedCorners(model:ModularModel,key:string):boolean[] {

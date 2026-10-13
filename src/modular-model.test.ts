@@ -1,6 +1,58 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {exposedCorners} from './modular-model';
+import {exposedCorners,sharedStrokeFactors,setAllCellColors,createModularCell,activateAllCells,clearAllCells} from './modular-model';
+
+test('activar todos completa solo los espacios vacíos y conserva contenido existente',()=>{
+  const m=createModular(2,3);m.defaultColor='#ff5900';m.defaultRadius=20;
+  const existing={...createModularCell(m),html:'<b>Conservar</b>',color:'#5d428c',student:true};
+  m.cells['0:0']=existing;
+  activateAllCells(m);
+  assert.equal(Object.keys(m.cells).length,6);
+  assert.equal(m.cells['0:0'],existing);
+  assert.equal(m.cells['1:2'].color,'#ff5900');
+  assert.equal(m.cells['1:2'].radius,20);
+  activateAllCells(m);
+  assert.equal(Object.keys(m.cells).length,6);
+  assert.equal(m.cells['0:0'].html,'<b>Conservar</b>');
+});
+
+test('quitar todos limpia dependencias sin cambiar retícula ni estilos generales',()=>{
+  const m=createModular(2,2);m.rows=[140,180];m.columns=[1,2];m.gap=0;m.margin=10;
+  m.stroke={width:2,color:'#ff5900'};m.defaultColor='#5d428c';
+  activateAllCells(m);
+  m.connections=[{from:'0:0',to:'0:1',direction:'both',fill:'#fff',stroke:'#000',dotted:false}];
+  m.centers={'0:0':{shape:'circle',color:'#fff',size:80,front:true,text:'Centro'}};
+  const before=JSON.parse(JSON.stringify(m));
+  clearAllCells(m);
+  assert.deepEqual(m,{...before,cells:{},connections:[],centers:{}});
+  activateAllCells(m);
+  assert.equal(Object.keys(m.cells).length,4);
+  assert.equal(m.cells['0:0'].color,'#5d428c');
+});
+
+test('bordes compartidos suman un solo grosor y los bordes libres lo conservan',()=>{
+  const m=createModular(2,2);
+  for(const key of ['0:0','0:1','1:0','1:1'])m.cells[key]=createModularCell(m);
+  assert.deepEqual(sharedStrokeFactors(m,'0:0'),[1,0,0,1]);
+  assert.equal(sharedStrokeFactors(m,'0:0')[1]+sharedStrokeFactors(m,'0:1')[3],1);
+  assert.equal(sharedStrokeFactors(m,'0:0')[2]+sharedStrokeFactors(m,'1:0')[0],1);
+  removeCell(m,'0:1');
+  assert.equal(sharedStrokeFactors(m,'0:0')[1],1);
+});
+
+test('relleno general conserva texto y estilos, y se hereda al crear rectángulos',()=>{
+  const m=createModular(1,3);
+  m.cells['0:0']={...createModularCell(m),html:'<b>Texto</b>',verticalAlign:'end'};
+  m.cells['0:1']=createModularCell(m);
+  setAllCellColors(m,'#ff5900');
+  assert.equal(m.cells['0:0'].html,'<b>Texto</b>');
+  assert.equal(m.cells['0:0'].verticalAlign,'end');
+  assert.equal(m.cells['0:1'].color,'#ff5900');
+  assert.equal(m.cells['0:2'],undefined);
+  assert.equal(createModularCell(m).color,'#ff5900');
+  assert.equal(createModularCell(m).verticalAlign,'center');
+  assert.equal(JSON.parse(JSON.stringify(m)).defaultColor,'#ff5900');
+});
 
 test('separación cero conserva solo las esquinas exteriores de celdas ocupadas',()=>{
   const m=createModular(3,3);

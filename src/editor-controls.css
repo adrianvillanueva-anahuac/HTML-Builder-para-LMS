@@ -1,0 +1,44 @@
+/* Shared visual rule for editor icon controls. New controls can opt in with
+   editor-icon-button. Never apply this to published content or color swatches. */
+:root {
+  --editor-icon-color: #6b7280;
+  --editor-icon-hover-color: #374151;
+  --editor-icon-hover-bg: #f3f4f6;
+  --editor-icon-active-bg: #e5e7eb;
+  --editor-icon-focus: #64748b;
+}
+.dark {
+  --editor-icon-color: #cbd5e1;
+  --editor-icon-hover-color: #f1f5f9;
+  --editor-icon-hover-bg: #374151;
+  --editor-icon-active-bg: #4b5563;
+  --editor-icon-focus: #94a3b8;
+}
+
+/* Limit automatic matching to editor UI containers. Preserve palette fills,
+   selected swatches, resize handles, student controls in exported documents,
+   and the semantic colors of the actual learning content. */
+:is(.block-toolbar,.mod-tools,#rtf-toolbar,#image-toolbar,#inline-icon-toolbar,
+    .element-style-actions,.builder-header,.student-controls)
+  :is(button,summary):has(.material-symbols-outlined):not(.mod-palette *,[style*="background"],.project-copy),
+.editor-icon-button,
+.mod-editor:is(.mod-add,.mod-center-trigger),
+.mod-edge > button.mod-editor {
+  color: var(--editor-icon-color) !important;
+  background-color: transparent !important;
+  border-radius: 5px;
+  transition: color .15s, background-color .15s;
+  &:hover:not(:disabled), &:focus-visible {
+    color: var(--editor-icon-hover-color) !important;
+    background-color: var(--editor-icon-hover-bg) !important;
+  }
+  &:active:not(:disabled), &[aria-pressed="true"], &[aria-checked="true"] {
+    color: var(--editor-icon-hover-color) !important;
+    background-color: var(--editor-icon-active-bg) !important;
+  }
+  &:focus-visible { outline: 2px solid var(--editor-icon-focus); outline-offset: 2px; }
+  &:disabled { opacity: .4; cursor: not-allowed; }
+  & > .material-symbols-outlined { color: inherit !important; }
+}
+.block-toolbar .drag-handle { color: var(--editor-icon-color) !important; }
+.mod-tools { color: var(--editor-icon-color); }

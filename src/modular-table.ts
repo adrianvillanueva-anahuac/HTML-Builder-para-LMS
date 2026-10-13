@@ -5,7 +5,7 @@ import styles from './modular.css?raw';
 import './modular.css';
 import {renderCenters,updateCenter,centerShapes,syncCenterText} from './modular-centers';
 import type {CenterShape} from './modular-model';
-import {exposedCorners} from './modular-model';
+import {exposedCorners,sharedStrokeFactors,setAllCellColors,createModularCell,activateAllCells,clearAllCells} from './modular-model';
 
 const icon=(name:string)=>`<span class="material-symbols-outlined" aria-hidden="true">${name}</span>`;
 const button=(action:string,name:string,label:string)=>`<button type="button" data-mod-action="${action}" title="${label}" aria-label="${label}">${icon(name)}</button>`;
@@ -22,7 +22,7 @@ function updateCellAppearance(cell:HTMLElement,value:ModularModel['cells'][strin
   card.style.setProperty('--card-color',value.color);card.style.setProperty('--card-text',modularTextColor(value.color));
   card.style.setProperty('--info-color',['#5d428c','#646464','#cdd5dc','#f3eef9','#f2f3f5'].includes(value.color.toLowerCase())?'#ff5900':'#5d428c');
   card.style.setProperty('--card-radius',value.radius+'px');card.style.setProperty('--card-padding',value.padding+'px');
-  card.style.setProperty('--card-align',value.verticalAlign==='center'?'center':value.verticalAlign==='end'?'flex-end':'flex-start');
+  card.style.setProperty('--card-align',value.verticalAlign==='start'?'flex-start':value.verticalAlign==='end'?'flex-end':'center');
 }
 function sync(block:HTMLElement) {
   const model=models.get(block)!;
@@ -71,9 +71,15 @@ function render(block:HTMLElement) {
   }
   const toolbar=block.querySelector('.block-toolbar .mod-tools')!;
   toolbar.querySelector('[data-mod-action=delete]')!.insertAdjacentHTML('beforebegin',
+    globalMenu('format_color_fill','Color de todos los rectángulos',`<div class="mod-palette">${modularPalette.map(c=>`<button type="button" data-mod-fill-color="${c.value}" title="${c.name}" aria-label="Relleno general ${c.name}" style="background:${c.value};border:1px solid #aaa"></button>`).join('')}</div>`)+
     globalMenu('border_color','Borde de todos los rectángulos',`<label>Grosor <output>${m.stroke?.width||0} px</output><input type="range" min="0" max="8" value="${m.stroke?.width||0}" data-mod-stroke-width aria-label="Grosor del borde"></label><div class="mod-palette">${modularPalette.map(c=>`<button type="button" data-mod-stroke-color="${c.value}" title="${c.name}" aria-label="Borde ${c.name}" style="background:${c.value};border:1px solid #aaa"></button>`).join('')}</div>`)+
     globalMenu('rounded_corner','Redondeado de todos los rectángulos',[0,6,12,20].map(n=>`<button type="button" data-mod-radius="${n}" title="Redondeado general ${n} px" aria-label="Redondeado general ${n} px">${n}</button>`).join(''))+
-    button('distribute','horizontal_distribute','Igualar ancho de columnas'));
+    button('distribute','horizontal_distribute','Igualar ancho de columnas')+
+    globalMenu('grid_view','Activar o quitar todos los rectángulos',button('activate-all','add_box','Activar todos los espacios')+button('clear-all','delete_sweep','Quitar todos los rectángulos')));
+  const bulkActions=block.querySelector<HTMLButtonElement>('[data-mod-action=activate-all]')!;
+  bulkActions.parentElement!.classList.add('mod-track-actions');
+  bulkActions.disabled=Object.keys(m.cells).length===m.rows.length*m.columns.length;
+  block.querySelector<HTMLButtonElement>('[data-mod-action=clear-all]')!.disabled=Object.keys(m.cells).length===0;
   block.querySelector<HTMLButtonElement>('[data-mod-action=remove-row]')!.disabled=m.rows.length<=1;
   block.querySelector<HTMLButtonElement>('[data-mod-action=remove-column]')!.disabled=m.columns.length<=1;
   m.rows.forEach((_,r)=>m.columns.forEach((_,c)=>{
@@ -83,10 +89,11 @@ function render(block:HTMLElement) {
     if(value) {
       const card=document.createElement('div'); card.className='mod-card';
       exposedCorners(m,key).forEach((exposed,index)=>card.style.setProperty(`--joined-corner-${index}`,exposed?'var(--card-radius,6px)':'0px'));
+      sharedStrokeFactors(m,key).forEach((factor,index)=>card.style.setProperty(`--joined-stroke-${index}`,String(factor)));
       card.style.setProperty('--card-color',value.color);card.style.setProperty('--card-radius',value.radius+'px');card.style.setProperty('--card-padding',value.padding+'px');
       card.style.setProperty('--card-text',modularTextColor(value.color));
       card.style.setProperty('--info-color',['#5d428c','#646464','#cdd5dc','#f3eef9','#f2f3f5'].includes(value.color.toLowerCase())?'#ff5900':'#5d428c');
-      card.style.setProperty('--card-align',value.verticalAlign==='center'?'center':value.verticalAlign==='end'?'flex-end':'flex-start');
+      card.style.setProperty('--card-align',value.verticalAlign==='start'?'flex-start':value.verticalAlign==='end'?'flex-end':'center');
       card.dataset.student=String(!!value.student);
       const text=document.createElement('div');text.className=value.student?'mod-text mod-student-placeholder':'mod-text editable-text';text.innerHTML=value.student?'':value.html;card.append(text);
       const info=document.createElement('details');info.className='mod-info';info.innerHTML='<summary aria-label="Mostrar texto completo">+ info</summary><div class="mod-preview"><div class="mod-preview-content" tabindex="0" role="button" aria-label="Editar rectángulo"></div></div>';card.append(info);cell.append(card);
@@ -380,9 +387,13 @@ export function setupModularTables() {
       Object.entries(m.cells).forEach(([key,value])=>{if(key.split(':')[0]===row){value.color=rowColor.dataset.rowColor!;updateCellAppearance(block.querySelector<HTMLElement>(`.mod-cell[data-cell="${key}"]`)!,value);}});
       persist(block);save();return;
     }
-    const globalChoice=target.closest<HTMLElement>('[data-mod-stroke-color],[data-mod-radius]');
+    const globalChoice=target.closest<HTMLElement>('[data-mod-stroke-color],[data-mod-radius],[data-mod-fill-color]');
     if(globalChoice){
       event.preventDefault();event.stopPropagation();const m=sync(block);
+      if(globalChoice.dataset.modFillColor){
+        setAllCellColors(m,globalChoice.dataset.modFillColor);
+        block.querySelectorAll<HTMLElement>('.mod-cell').forEach(cell=>{const value=m.cells[cell.dataset.cell!];if(value)updateCellAppearance(cell,value);});
+      }
       if(globalChoice.dataset.modStrokeColor)m.stroke={width:m.stroke?.width||1,color:globalChoice.dataset.modStrokeColor};
       if(globalChoice.dataset.modRadius!==undefined){m.defaultRadius=Number(globalChoice.dataset.modRadius);Object.values(m.cells).forEach(c=>c.radius=m.defaultRadius!);block.querySelectorAll<HTMLElement>('.mod-cell').forEach(c=>{if(m.cells[c.dataset.cell!])updateCellAppearance(c,m.cells[c.dataset.cell!]);});}
       layout(block);persist(block);save();return;
@@ -409,7 +420,13 @@ export function setupModularTables() {
     if(action==='edit'||action==='color'){editCell(block,key!);return;}
     if(action==='connect'){editConnection(block,target.closest<HTMLElement>('.mod-edge')!);return;}
     if(action==='delete'){block.remove();window.checkEmptyState?.();save();return;}
-    if(action==='add')m.cells[key!]={html:'',color:'#f3eef9',radius:m.defaultRadius??6,padding:12};
+    if(action==='add')m.cells[key!]=createModularCell(m);
+    if(action==='activate-all')activateAllCells(m);
+    if(action==='clear-all'){
+      if(!Object.keys(m.cells).length)return;
+      if(!window.confirm('¿Quitar todos los rectángulos, sus textos, conexiones y figuras centrales? Se conservará la retícula. Puedes deshacer esta acción.'))return;
+      clearAllCells(m);
+    }
     if(action==='student'&&document.body.classList.contains('exercise-editor'))m.cells[key!].student=!m.cells[key!].student;
     if(action==='remove-row'||action==='remove-column'){
       const axis=action==='remove-row'?'row':'column',tracks=axis==='row'?m.rows:m.columns;
