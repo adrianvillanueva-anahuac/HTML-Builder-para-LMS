@@ -19,6 +19,16 @@
 .mod-text{max-height:100%;flex-shrink:0;width:100%;min-width:0;overflow:hidden;overflow-wrap:anywhere;box-sizing:border-box;outline:none}
 .mod-text:empty::before{content:'txt';color:#8a8195}
 .mod-student-placeholder:empty::before{content:'Texto para alumno';color:inherit;opacity:.65}
+.mod-student-prompt{width:100%;flex:0 0 auto;min-height:24px;text-align:center;overflow-wrap:anywhere;outline:none}
+/* Rich-text headings and pasted utility classes must inherit the card's
+   automatic contrast, unless an author explicitly chose an inline color. */
+.mod-card :is(.mod-text,.mod-student-prompt,.mod-preview-content){color:var(--card-text,#333)}
+.mod-card :is(.mod-text,.mod-student-prompt,.mod-preview-content) :not([style*="color"],[color]){color:inherit}
+.mod-card :is(.mod-text,.mod-student-prompt,.mod-preview-content).editable-text:is(:hover,[contenteditable="true"]){background:var(--card-color,#f3eef9)}
+.mod-student-prompt:empty::before{content:'Texto superior';opacity:.6}
+.mod-card[data-student-prompt=true]{gap:8px;justify-content:flex-start}
+.mod-card[data-student-prompt=true]>.mod-text{height:auto;flex:1 0 30px;max-height:none}
+.mod-published .mod-student-prompt:empty{display:none}
 .mod-student-placeholder,.student-rich-answer{height:100%;min-height:30px;border:1px dotted currentColor;padding:8px;box-sizing:border-box;border-radius:4px;outline:none}
 .student-rich-answer:focus{outline:2px solid #5d428c;outline-offset:2px}
 .mod-published .student-rich-answer:empty::before{content:'Escribe tu respuesta aquí';color:inherit;opacity:.6}
@@ -54,6 +64,18 @@
 .mod-row-tools details>div{position:fixed;left:8px;top:8px;right:auto;z-index:100;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:auto;box-sizing:border-box}
 .mod-row-tools .mod-palette{display:grid;grid-template-columns:repeat(4,30px);gap:6px}
 .mod-row-tools .mod-palette button{border-radius:50%}
+/* Controls sit outside the grid, leaving the column dimensions untouched. */
+.mod-scroll:has(.mod-column-tools){padding-bottom:58px}
+.mod-column-tools{position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);z-index:75;opacity:0;pointer-events:none}
+.modular-table:hover .mod-column-tools,.mod-column-tools:focus-within,.mod-column-tools:has(details[open]){opacity:1;pointer-events:auto}
+.mod-column-tools:has(details[open]){transform:none;margin-left:-20px}
+.mod-cell:has(.mod-column-tools details[open]){z-index:75}
+.mod-column-tools details>div{position:fixed;left:8px;top:8px;right:auto;z-index:100;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:auto;box-sizing:border-box}
+.mod-column-tools .mod-palette{display:grid;grid-template-columns:repeat(4,30px);gap:6px}
+.mod-column-tools .mod-palette button{border-radius:50%}
+.mod-prompt-icon{position:relative;display:block;width:16px;height:16px;border:1.5px solid currentColor;border-radius:2px;margin:3px 0 0 3px}
+.mod-prompt-icon>span{position:absolute;top:-8px;left:-6px;font:bold 10px/12px Arial,sans-serif;background:var(--editor-prompt-icon-bg,#fff);padding-inline:1px}
+.dark .mod-prompt-icon{--editor-prompt-icon-bg:#252a35}
 .mod-resize{position:absolute;z-index:15;touch-action:none;background:transparent;border:0;padding:0}
 .mod-resize:hover,.mod-resize:focus{background:#ff590066}
 .mod-resize-col{right:-5px;top:0;width:10px;height:100%;cursor:col-resize}

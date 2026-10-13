@@ -2,7 +2,7 @@ const palette = [['#5d428c','Morado'],['#ff5900','Naranja'],['#646464','Gris'],[
 const menu = (icon:string,title:string,content:string) => `<details class="student-control-menu"><summary aria-label="${title}" title="${title}"><span class="material-symbols-outlined">${icon}</span></summary><div class="student-control-panel"><strong>${title}</strong>${content}</div></details>`;
 const choice = (prop:string,value:string,label:string) => `<button type="button" data-download-control="${prop}" value="${value}">${label}</button>`;
 export function downloadControls() {
-  return menu('edit','Texto del botón','<input aria-label="Texto del botón" data-download-control="label" maxlength="120" placeholder="Descargar ejercicio">')
+  return menu('edit','Texto del botón','<input aria-label="Texto del botón" data-download-control="label" maxlength="120" placeholder="Descargar ejercicio">').replace('</summary>','<span class="button-text-icon-label" aria-hidden="true">txt</span></summary>')
     + ['fill','ink','border'].map((prop,i)=>menu(['format_color_fill','format_color_text','border_color'][i],['Relleno del botón','Color del texto','Color del borde'][i],palette.map(([v,t])=>choice(prop,v,`<span class="student-color-swatch" style="background:${v}"></span>${t}`)).join(''))).join('')
     + menu('font_download','Fuente del botón',['Roboto','Zilla Slab','Lato'].map(v=>choice('font',v,v)).join(''))
     + menu('line_style','Línea del botón',[['solid','Continua'],['dashed','Guiones'],['dotted','Punteada'],['none','Sin borde']].map(([v,t])=>choice('line',v,t)).join(''))

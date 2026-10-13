@@ -11,13 +11,15 @@ export function mountModularRuntime(block) {
     const heights=[...rows];
     block.querySelectorAll('.mod-card').forEach(card=>{
       const text=card.querySelector('.mod-text');if(!text)return;
-      if(!auto&&!text.classList.contains('student-rich-answer'))return;
-      const oldHeight=text.style.height,oldMin=text.style.minHeight;
-      text.style.height='auto';text.style.minHeight='0';
+      if(!auto&&!text.classList.contains('student-rich-answer')&&card.dataset.studentPrompt!=='true')return;
+      const oldHeight=text.style.height,oldMin=text.style.minHeight,oldFlex=text.style.flex;
+      text.style.height='auto';text.style.minHeight='0';text.style.flex='0 0 auto';
       const padding=getComputedStyle(card);
       const textStyle=getComputedStyle(text);
-      const required=Math.ceil(text.scrollHeight+parseFloat(textStyle.borderTopWidth||0)+parseFloat(textStyle.borderBottomWidth||0)+parseFloat(padding.paddingTop)+parseFloat(padding.paddingBottom)+2);
-      text.style.height=oldHeight;text.style.minHeight=oldMin;
+      const prompt=card.querySelector('.mod-student-prompt');
+      const promptHeight=prompt&&getComputedStyle(prompt).display!=='none'?prompt.getBoundingClientRect().height+parseFloat(padding.rowGap||0):0;
+      const required=Math.ceil(Math.max(30,text.scrollHeight)+parseFloat(textStyle.borderTopWidth||0)+parseFloat(textStyle.borderBottomWidth||0)+parseFloat(padding.paddingTop)+parseFloat(padding.paddingBottom)+promptHeight+2);
+      text.style.height=oldHeight;text.style.minHeight=oldMin;text.style.flex=oldFlex;
       const row=Number(card.closest('.mod-cell').dataset.cell.split(':')[0]);
       heights[row]=Math.max(heights[row]||40,required);
     });

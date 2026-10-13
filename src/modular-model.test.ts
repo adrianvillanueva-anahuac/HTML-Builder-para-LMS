@@ -1,4 +1,14 @@
 import {test} from 'node:test';
+test('texto superior del alumno es opcional y conserva formato al desactivarlo',()=>{
+  const m=createModular(1,1);
+  const cell=createModularCell(m);m.cells['0:0']=cell;
+  assert.equal(cell.studentPromptEnabled,undefined);
+  cell.student=true;cell.studentPromptEnabled=true;cell.studentPromptHtml='<p><b>Explica tu respuesta</b></p>';
+  const restored=JSON.parse(JSON.stringify(m));
+  assert.equal(restored.cells['0:0'].studentPromptHtml,cell.studentPromptHtml);
+  cell.studentPromptEnabled=false;
+  assert.equal(cell.studentPromptHtml,'<p><b>Explica tu respuesta</b></p>');
+});
 import assert from 'node:assert/strict';
 import {exposedCorners,sharedStrokeFactors,setAllCellColors,createModularCell,activateAllCells,clearAllCells} from './modular-model';
 

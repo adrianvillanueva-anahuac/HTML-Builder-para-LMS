@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @import "./editor-controls.css";
 
+.student-control-menu summary:has(.button-text-icon-label){position:relative}
+.student-control-menu summary:has(.button-text-icon-label) .material-symbols-outlined{transform:translate(-3px,-3px);font-size:17px}
+.button-text-icon-label{position:absolute;right:2px;bottom:2px;font:700 9px/10px Arial,sans-serif;letter-spacing:-.3px;color:inherit;pointer-events:none}
+
 .sidebar-resizer{position:absolute;right:-4px;top:0;bottom:0;width:8px;cursor:col-resize;z-index:80;touch-action:none}
 .sidebar-resizer:hover,.sidebar-resizer:focus-visible{background:#5d428c66;outline:none}
 .element-style-actions{display:flex;align-items:center;gap:10px;margin-bottom:12px}
@@ -8,7 +12,12 @@
 .element-style-actions button .material-symbols-outlined{font-size:17px}
 .element-style-actions .element-view-toggle{margin-left:auto;background:#f2edf8;color:#5d428c;border-radius:8px;box-shadow:none}
 .dark .element-style-actions .element-view-toggle{background:#393246;color:#e1d3ff}
+#tab-elements{container-type:inline-size;container-name:element-catalog}
 #tab-elements[data-view=grid] .catalog-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+/* Four 72px tiles plus three 8px gaps, based on usable panel width, not viewport. */
+@container element-catalog (min-width:312px){
+  #tab-elements[data-view=grid] .catalog-list{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
 #tab-elements[data-view=grid] .catalog-list > .catalog-item{margin:0;min-width:0;height:56px;padding:8px;justify-content:center;position:relative}
 #tab-elements[data-view=grid] .catalog-item span:not(.material-symbols-outlined){position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 #tab-elements[data-view=grid] .catalog-item > button{display:none}

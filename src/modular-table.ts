@@ -28,6 +28,8 @@ function sync(block:HTMLElement) {
   const model=models.get(block)!;
   syncCenterText(block,model);
   block.querySelectorAll<HTMLElement>('.mod-cell').forEach(cell=>{
+    const prompt=cell.querySelector<HTMLElement>('.mod-student-prompt');
+    if(prompt&&model.cells[cell.dataset.cell!])model.cells[cell.dataset.cell!].studentPromptHtml=prompt.innerHTML;
     // During a mode switch, focusout can run before the old placeholder is replaced.
     if(model.cells[cell.dataset.cell!]?.student||cell.querySelector('.mod-card[data-student=true]'))return;
     const text=cell.querySelector<HTMLElement>('.mod-text');
@@ -95,16 +97,23 @@ function render(block:HTMLElement) {
       card.style.setProperty('--info-color',['#5d428c','#646464','#cdd5dc','#f3eef9','#f2f3f5'].includes(value.color.toLowerCase())?'#ff5900':'#5d428c');
       card.style.setProperty('--card-align',value.verticalAlign==='start'?'flex-start':value.verticalAlign==='end'?'flex-end':'center');
       card.dataset.student=String(!!value.student);
+      if(value.student&&value.studentPromptEnabled){
+        card.dataset.studentPrompt='true';
+        const prompt=document.createElement('div');prompt.className='mod-student-prompt editable-text';
+        prompt.innerHTML=value.studentPromptHtml||'';prompt.title='Doble clic para editar el texto superior';card.append(prompt);
+      }
       const text=document.createElement('div');text.className=value.student?'mod-text mod-student-placeholder':'mod-text editable-text';text.innerHTML=value.student?'':value.html;card.append(text);
       const info=document.createElement('details');info.className='mod-info';info.innerHTML='<summary aria-label="Mostrar texto completo">+ info</summary><div class="mod-preview"><div class="mod-preview-content" tabindex="0" role="button" aria-label="Editar rectángulo"></div></div>';card.append(info);cell.append(card);
       const menu=(symbol:string,label:string,content:string)=>`<details><summary title="${label}" aria-label="${label}">${icon(symbol)}</summary><div>${content}</div></details>`;
       const choice=(field:string,v:string,label:string,symbol:string)=>`<button type="button" data-cell-field="${field}" data-value="${v}" title="${label}" aria-label="${label}">${icon(symbol)}</button>`;
       cell.insertAdjacentHTML('beforeend',`<div class="mod-cell-tools mod-tools mod-editor">${menu('format_color_fill','Color del rectángulo',`<div class="mod-palette">${modularPalette.map(c=>`<button type="button" data-cell-field="color" data-value="${c.value}" title="${c.name}" aria-label="${c.name}" style="background:${c.value};border:1px solid #aaa"></button>`).join('')}</div>`)}${menu('rounded_corner','Redondeado',[0,6,12,20].map(n=>choice('radius',String(n),`Redondeado ${n} px`,'rounded_corner').replace('</button>',`<small>${n}</small></button>`)).join(''))}${menu('padding','Margen del texto',`<label>Margen <output>${value.padding} px</output><input aria-label="Margen del texto" data-cell-padding type="range" min="0" max="50" value="${value.padding}"></label>`)}${menu('vertical_align_center','Alineación vertical',choice('verticalAlign','start','Texto arriba','vertical_align_top')+choice('verticalAlign','center','Texto centrado verticalmente','vertical_align_center')+choice('verticalAlign','end','Texto abajo','vertical_align_bottom'))}${button('remove','delete','Eliminar rectángulo')}</div>`);
       if(document.body.classList.contains('exercise-editor'))cell.querySelector('.mod-cell-tools')!.insertAdjacentHTML('afterbegin',`<button type="button" role="switch" aria-checked="${!!value.student}" data-mod-action="student" title="Texto para alumno" aria-label="Texto para alumno">${icon(value.student?'toggle_on':'toggle_off')}</button>`);
+      if(value.student&&document.body.classList.contains('exercise-editor'))cell.querySelector('.mod-cell-tools')!.insertAdjacentHTML('afterbegin',`<button type="button" class="editor-icon-button" role="switch" aria-checked="${!!value.studentPromptEnabled}" data-mod-action="student-prompt" title="Texto superior para el alumno" aria-label="Texto superior para el alumno"><span class="mod-prompt-icon" aria-hidden="true"><span>A</span></span></button>`);
     } else cell.innerHTML=button('add','add',`Crear rectángulo ${r+1}, ${c+1}`).replace('<button ','<button class="mod-add mod-editor" ');
     if(c<m.columns.length-1)cell.insertAdjacentHTML('beforeend',`<button class="mod-editor mod-resize mod-resize-col" data-resize-col="${c}" aria-label="Ajustar columna ${c+1}" title="Arrastra para ajustar columna; flechas para ajustar con teclado"></button>`);
     cell.insertAdjacentHTML('beforeend',`<button class="mod-editor mod-resize mod-resize-row" data-resize-row="${r}" aria-label="Ajustar fila ${r+1}" title="Arrastra para ajustar fila; flechas para ajustar con teclado"></button>`);
     if(c===0)cell.insertAdjacentHTML('beforeend',`<div class="mod-row-tools mod-tools mod-editor" data-row-tools="${r}"><details><summary title="Color de fila ${r+1}" aria-label="Color de fila ${r+1}">${icon('format_color_fill')}</summary><div><div class="mod-palette">${modularPalette.map(color=>`<button type="button" data-row-color="${color.value}" data-color-row="${r}" title="${color.name}" aria-label="Fila ${r+1}: ${color.name}" style="background:${color.value};border:1px solid #aaa"></button>`).join('')}</div></div></details></div>`);
+    if(r===m.rows.length-1)cell.insertAdjacentHTML('beforeend',`<div class="mod-column-tools mod-tools mod-editor"><details><summary title="Color de columna ${c+1}" aria-label="Color de columna ${c+1}">${icon('format_color_fill')}</summary><div><div class="mod-palette">${modularPalette.map(color=>`<button type="button" data-column-color="${color.value}" data-color-column="${c}" title="${color.name}" aria-label="Columna ${c+1}: ${color.name}" style="background:${color.value};border:1px solid #aaa"></button>`).join('')}</div></div></details></div>`);
     grid.append(cell);
   }));
   neighbors(m).forEach(([from,to])=>{
@@ -291,7 +300,7 @@ export function initModularTables() {
   });
 }
 function positionCellMenus() {
-  document.querySelectorAll<HTMLDetailsElement>('.mod-cell-tools details[open],.mod-row-tools details[open],.mod-preview-tools details[open]').forEach(menu=>{
+  document.querySelectorAll<HTMLDetailsElement>('.mod-cell-tools details[open],.mod-row-tools details[open],.mod-column-tools details[open],.mod-preview-tools details[open]').forEach(menu=>{
     const panel=menu.querySelector<HTMLElement>(':scope > div'),anchor=menu.querySelector('summary');
     if(!panel||!anchor)return;
     const rect=anchor.getBoundingClientRect();
@@ -301,7 +310,7 @@ function positionCellMenus() {
     panel.style.maxWidth=Math.max(0,maxX-minX)+'px';panel.style.maxHeight=Math.max(0,maxY-minY)+'px';
     const width=panel.offsetWidth,height=panel.offsetHeight;
     const left=Math.max(minX,Math.min(rect.right-width,maxX-width));
-    const top=rect.bottom+height+4<=maxY?Math.max(minY,rect.bottom+4):Math.max(minY,rect.top-height-4);
+    const top=menu.closest('.mod-column-tools')&&rect.top-height-4>=minY?rect.top-height-4:rect.bottom+height+4<=maxY?Math.max(minY,rect.bottom+4):Math.max(minY,rect.top-height-4);
     panel.style.left=left+'px';panel.style.top=top+'px';
   });
 }
@@ -309,7 +318,7 @@ export function setupModularTables() {
   if(installed)return;installed=true;
   window.addEventListener('scroll',positionConnector,true);window.addEventListener('resize',positionConnector);
   window.addEventListener('scroll',positionCellMenus,true);window.addEventListener('resize',positionCellMenus);
-  document.addEventListener('toggle',event=>{if((event.target as HTMLElement).matches?.('.mod-cell-tools details,.mod-row-tools details,.mod-preview-tools details'))positionCellMenus();},true);
+  document.addEventListener('toggle',event=>{if((event.target as HTMLElement).matches?.('.mod-cell-tools details,.mod-row-tools details,.mod-column-tools details,.mod-preview-tools details'))positionCellMenus();},true);
   document.addEventListener('pointerover',event=>{
     const target=event.target as HTMLElement,trigger=target.closest?.<HTMLElement>('[data-mod-action=connect]');
     if(target.closest?.('.mod-info'))closeConnector();
@@ -381,6 +390,12 @@ export function setupModularTables() {
       }
       return;
     }
+    const columnColor=target.closest<HTMLElement>('[data-column-color]');
+    if(columnColor){
+      event.preventDefault();event.stopPropagation();const m=sync(block),column=columnColor.dataset.colorColumn!;
+      Object.entries(m.cells).forEach(([key,value])=>{if(key.split(':')[1]===column){value.color=columnColor.dataset.columnColor!;updateCellAppearance(block.querySelector<HTMLElement>(`.mod-cell[data-cell="${key}"]`)!,value);}});
+      persist(block);save();return;
+    }
     const rowColor=target.closest<HTMLElement>('[data-row-color]');
     if(rowColor){
       event.preventDefault();event.stopPropagation();const m=sync(block),row=rowColor.dataset.colorRow!;
@@ -428,6 +443,7 @@ export function setupModularTables() {
       clearAllCells(m);
     }
     if(action==='student'&&document.body.classList.contains('exercise-editor'))m.cells[key!].student=!m.cells[key!].student;
+    if(action==='student-prompt'&&document.body.classList.contains('exercise-editor')&&m.cells[key!]?.student)m.cells[key!].studentPromptEnabled=!m.cells[key!].studentPromptEnabled;
     if(action==='remove-row'||action==='remove-column'){
       const axis=action==='remove-row'?'row':'column',tracks=axis==='row'?m.rows:m.columns;
       if(tracks.length<=1)return;
@@ -499,6 +515,7 @@ export function prepareModularExport(root:HTMLElement) {
   root.querySelectorAll<HTMLElement>('.modular-table').forEach(block=>{
     if(block.dataset.modPending){block.remove();return;}
     block.classList.add('mod-published');delete block.dataset.modular;
+    block.querySelectorAll<HTMLElement>('.mod-student-prompt').forEach(prompt=>{prompt.classList.remove('editable-text');prompt.removeAttribute('contenteditable');prompt.removeAttribute('title');});
     block.querySelectorAll<HTMLElement>('.mod-card[data-student=true] .mod-text').forEach(text=>{
       text.innerHTML='';text.classList.remove('mod-student-placeholder');text.classList.add('student-rich-answer');text.setAttribute('role','textbox');text.setAttribute('aria-multiline','true');text.setAttribute('aria-label','Respuesta del alumno');
     });
@@ -517,6 +534,8 @@ export function compactModularState(root:HTMLElement) {
       const model=JSON.parse(block.dataset.modular!);
       syncCenterText(block,model);
       block.querySelectorAll<HTMLElement>('.mod-cell').forEach(cell=>{
+        const prompt=cell.querySelector('.mod-student-prompt');
+        if(prompt&&model.cells[cell.dataset.cell!])model.cells[cell.dataset.cell!].studentPromptHtml=prompt.innerHTML;
         const text=cell.querySelector('.mod-text');
         if(text&&model.cells[cell.dataset.cell!]&&!model.cells[cell.dataset.cell!].student)model.cells[cell.dataset.cell!].html=text.innerHTML;
       });
