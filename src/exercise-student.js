@@ -41,7 +41,13 @@
   let busy = false;
   let saving = false;
   let revision = 0;
-  const filename = () => ((nameInput?.value.trim() || 'sin_nombre') + ' - ' + document.title).normalize('NFKC').replace(/[<>:"/\\|?*\x00-\x1f]/g,'').replace(/\s+/g,'_').slice(0,120);
+  const submission=finish?.closest('.exercise-block');
+  const requireName=submission?.dataset.requireName!=='false';
+  const safePart=value=>value.normalize('NFKC').replace(/[<>:"/\\|?*\x00-\x1f]/g,'').replace(/\s+/g,' ').trim().replace(/[. ]+$/g,'').slice(0,100);
+  const exerciseId=safePart(submission?.dataset.exerciseId||'ejercicio')||'ejercicio';
+  const filename=()=>exerciseId+'_'+(requireName?safePart(nameInput?.value||'')||'sin_nombre':'sin_nombre')+'.html';
+  const progressFilename='progreso_'+exerciseId+'.html';
+  const validName=()=>!requireName||!!nameInput&&nameInput.value.trim().split(/\s+/).filter(part=>/\p{L}/u.test(part)).length>=2;
   const resize = field => {
     field.style.height='auto';field.style.height=field.scrollHeight+'px';
     // Nested containers must not clip a growing response.
@@ -58,8 +64,9 @@
     if(state.finalized||busy)richToolbar.hidden=true;
     answers.forEach(field=>{field.readOnly=state.finalized || busy;resize(field);});
     if (nameInput) nameInput.readOnly=state.finalized || busy;
-    if (finish) finish.disabled=busy || saving || (!state.finalized && (!nameInput || nameInput.value.trim().split(/\s+/).length<2));
-    document.getElementById('student-save').disabled=busy || saving;
+    if (finish) finish.disabled=busy || saving || (!state.finalized && !validName());
+    document.getElementById('student-save').disabled=state.finalized || busy || saving;
+    document.getElementById('student-save').hidden=state.finalized;
     if (finish) finish.querySelector('.exercise-button-text').textContent=state.finalized?'Descargar HTML final y entregar':finish.dataset.originalText;
   };
   if (finish) finish.dataset.originalText=finish.dataset.originalText || finish.querySelector('.exercise-button-text').textContent;
@@ -67,6 +74,14 @@
     const clone=document.documentElement.cloneNode(true);
     clone.querySelectorAll('.student-dialog').forEach(el=>el.remove());
     clone.querySelectorAll('.student-rich-tools').forEach(el=>el.remove());
+    clone.querySelectorAll('.exercise-watermark').forEach(el=>el.remove());
+    if(state.finalized){
+      const mark=document.createElement('div');mark.className='exercise-watermark';mark.textContent=filename();
+      mark.style.cssText='position:fixed;top:10px;left:12px;max-width:45%;font:11px Roboto,sans-serif;color:#646464;opacity:.7;overflow-wrap:anywhere;pointer-events:none;z-index:10000';
+      clone.querySelector('body').prepend(mark);
+      clone.querySelectorAll('input,textarea,select').forEach(field=>{field.setAttribute('readonly','');field.setAttribute('disabled','');});
+      clone.querySelectorAll('[contenteditable]').forEach(field=>field.setAttribute('contenteditable','false'));
+    }
     clone.querySelectorAll('.student-answer').forEach((field,i)=>{field.textContent=answers[i].value;});
     if (nameInput) clone.querySelector('.student-name').setAttribute('value',nameInput.value);
     clone.querySelector('#exercise-student-state').textContent=JSON.stringify(state).replace(/</g,'\\u003c');
@@ -76,18 +91,18 @@
     const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
   }
   async function save() {
-    if(busy || saving) return false;
+    if(state.finalized || busy || saving) return false;
     saving=true;update();
     try {
       if('showSaveFilePicker' in window) {
-        if(!handle) handle=await window.showSaveFilePicker({suggestedName:filename()+'.html',types:[{description:'Ejercicio HTML',accept:{'text/html':['.html']}}]});
+        if(!handle) handle=await window.showSaveFilePicker({suggestedName:progressFilename,types:[{description:'Ejercicio HTML',accept:{'text/html':['.html']}}]});
         const writable=await handle.createWritable();
         const savedRevision=revision;
         await writable.write(serialize());await writable.close();
         dirty=revision!==savedRevision;
         status.textContent=dirty?'Hay cambios posteriores al último guardado':'Progreso guardado en el archivo seleccionado';
       } else {
-        download(new Blob([serialize()],{type:'text/html'}),filename()+'.html');
+        download(new Blob([serialize()],{type:'text/html'}),progressFilename);
         status.textContent='Copia descargada: verifica que se guardó antes de cerrar';
         // A download cannot confirm that bytes reached disk. Keep the unload warning.
       }
@@ -112,15 +127,16 @@
     el.append(h,p);document.body.append(el);el.addEventListener('close',()=>el.remove());el.showModal();return el;
   }
   async function finalize() {
+    if(busy||saving||(!state.finalized&&!validName()))return;
     busy=true;update();status.textContent='Preparando HTML final…';
     try {
       const previousFinalized=state.finalized;
       state.finalized=true;dirty=true;busy=false;update();
-      try { download(new Blob([serialize()],{type:'text/html;charset=utf-8'}),filename()+' - final.html'); } catch(error) { state.finalized=previousFinalized; throw error; }
+      try { download(new Blob([serialize()],{type:'text/html;charset=utf-8'}),filename()); } catch(error) { state.finalized=previousFinalized; throw error; }
       status.textContent='HTML final descargado. Adjunta el archivo manualmente; aún no se ha enviado.';
       const panel=dialog('HTML final preparado','El archivo aún no se ha enviado. Abre el destino y adjunta manualmente el HTML descargado. En Brightspace, inicia sesión y confirma la entrega; por correo, comprueba que permita adjuntar HTML.');
       const mail=document.createElement('a');const email=document.querySelector('[data-teacher-email]')?.dataset.teacherEmail || '';
-      mail.href='mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent('Entrega de ejercicio — '+nameInput.value)+'&body='+encodeURIComponent('Profesor/a:\nAdjunto mi ejercicio en HTML.\n\n'+nameInput.value);
+      mail.href='mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent('Entrega de ejercicio — '+(requireName?nameInput?.value||'':exerciseId))+'&body='+encodeURIComponent('Profesor/a:\nAdjunto mi ejercicio en HTML.\n\n'+(requireName?nameInput?.value||'':''));
       mail.textContent='Abrir correo al profesor';if (email) panel.append(mail);
       const url=document.querySelector('[data-brightspace-url]')?.dataset.brightspaceUrl || '';
       if (url) {
@@ -134,13 +150,14 @@
       const footer=document.createElement('footer');
       const locateButton=document.createElement('button');locateButton.textContent='Cómo localizar el archivo';
       locateButton.onclick=()=> {
-        const help=dialog('Localizar el HTML final','Abre el menú de Chrome y selecciona Descargas (Ctrl+J en Windows). Busca la descarga reciente «'+filename()+' - final.html» y pulsa «Mostrar en carpeta». Si cambiaste el nombre o Chrome añadió un número, identifica la descarga por su hora. Este documento no puede abrir directamente la carpeta ni conocer la ubicación elegida.');
+        const help=dialog('Localizar el HTML final','Abre el menú de Chrome y selecciona Descargas (Ctrl+J en Windows). Busca la descarga reciente «'+filename()+'» y pulsa «Mostrar en carpeta». Si cambiaste el nombre o Chrome añadió un número, identifica la descarga por su hora. Este documento no puede abrir directamente la carpeta ni conocer la ubicación elegida.');
         const done=document.createElement('button');done.textContent='Entendido';done.onclick=()=>help.close();help.append(done);
       };
       const close=document.createElement('button');close.textContent='Cerrar';close.onclick=()=>panel.close();footer.append(locateButton,close);panel.append(footer);
     } catch(error) {status.textContent='No se pudo preparar el HTML final. Tus respuestas siguen disponibles.';console.error(error);} finally {busy=false;update();}
   }
   if (finish) finish.onclick=()=> {
+    if(busy||saving||(!state.finalized&&!validName()))return;
     if(state.finalized){void finalize();return;}
     const panel=dialog('¿Finalizar el ejercicio?','Revisa tus respuestas. La copia final quedará bloqueada para edición. Podrás descargar el HTML final y abrir el destino de entrega de nuevo.');
     const footer=document.createElement('footer');const cancel=document.createElement('button');cancel.textContent='Seguir editando';cancel.onclick=()=>panel.close();

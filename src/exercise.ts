@@ -1,6 +1,7 @@
 import { getBlockToolbar, getPaginaBasicaHTML } from './templates';
 import { exerciseDownloadURL } from './exercise-download';
 import { projectDialog } from './project-dialog';
+import {normalizeFinish,setupFinishControls,configureFinish} from './finish-controls';
 import { downloadControls, setupDownloadControls } from './download-controls';
 import { normalizeStudentControls, setupStudentControls, restoreStudentAppearance } from './student-controls';
 
@@ -109,8 +110,9 @@ export function setupExercises() {
   const upgradeDownloads = () => {
     canvas?.querySelectorAll<HTMLElement>('[data-type="ejercicio_descargable"]').forEach(normalizeDownload);
     canvas?.querySelectorAll<HTMLElement>('[data-type="texto_alumno"]').forEach(normalizeStudentControls);
+    canvas?.querySelectorAll<HTMLElement>('[data-type="enviar_ejercicio"]').forEach(normalizeFinish);
   };
-  if (canvas) { setupStudentControls(canvas); setupDownloadControls(canvas); }
+  if (canvas) { setupStudentControls(canvas); setupDownloadControls(canvas); setupFinishControls(canvas); }
   upgradeDownloads();
   if (canvas) new MutationObserver(upgradeDownloads).observe(canvas, {childList:true,subtree:true});
   window.alignExercise = (button: HTMLElement, align: string) => {
@@ -163,6 +165,7 @@ export function setupExercises() {
   }, true);
   window.configureExercise = (button: HTMLElement) => {
     const block = button.closest<HTMLElement>('.exercise-block')!;
+    if(block.dataset.type==='enviar_ejercicio'){configureFinish(block,validateDelivery);return;}
     if (block.dataset.type === 'ejercicio_descargable') normalizeDownload(block);
     const answer = block.querySelector<HTMLTextAreaElement>('.student-answer');
     const target = block.querySelector<HTMLElement>('.exercise-download,.exercise-finish');
@@ -264,7 +267,10 @@ export function setupExercises() {
         const outer=document.getElementById('canvas-container-outer')!;
         outer.innerHTML=doc.html; outer.setAttribute('style',doc.style || ''); outer.setAttribute('data-bg',doc.bg || 'blanco');
         outer.querySelectorAll('.exercise-instructions,.exercise-finish .exercise-button-text').forEach(el => {
-          el.textContent = (el.textContent || '').replace(/PDF/g, 'HTML');
+          // Migrate old wording without flattening rich-text formatting.
+          const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);
+          let text:Node|null;
+          while((text=walker.nextNode()))if(text.textContent?.includes('PDF'))text.textContent=text.textContent.replace(/PDF/g,'HTML');
         });
         outer.querySelectorAll<HTMLElement>('[data-sortable-active]').forEach(el=>delete el.dataset.sortableActive);
         window.initNestedDropzones();
@@ -278,7 +284,7 @@ export function setupExercises() {
 
 function validateDelivery(email: string, url: string) {
   email = email.trim(); url = url.trim();
-  if (!email && !url) throw new Error('Configura un correo del profesor o un enlace de entrega en Brightspace.');
+  // A delivery destination is optional: the student can download the final file alone.
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Introduce un correo válido.');
   if (url) {
     let valid = false;

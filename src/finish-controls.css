@@ -1,0 +1,18 @@
+.exercise-block .finish-tools{position:absolute;top:auto;bottom:100%;left:0;transform:none;display:flex!important;gap:3px;padding:5px;background:white;border:1px solid #d5d9df;border-radius:10px;box-shadow:0 3px 12px #0002;z-index:50;visibility:hidden;opacity:0;transition:opacity .12s;max-width:calc(100vw - 24px)}
+.finish-button-wrap:hover .finish-tools,.finish-button-wrap:focus-within .finish-tools{visibility:visible;opacity:1}
+.finish-tools button,.finish-tools summary{display:flex;align-items:center;justify-content:center;min-width:30px;height:30px;border:0;border-radius:6px;background:#fff;color:#64748b;cursor:pointer;list-style:none}
+.finish-tools button:hover,.finish-tools summary:hover{background:#f1f3f4}
+.finish-tools summary::-webkit-details-marker{display:none}
+.finish-tools .material-symbols-outlined{font-size:20px}
+.finish-tools details{position:relative}
+.finish-colors,.finish-radius{position:absolute;bottom:100%;left:0;display:flex;gap:6px;background:white;border:1px solid #d5d9df;border-radius:12px;padding:10px;box-shadow:0 4px 16px #0002;width:max-content}
+.finish-color-menu:not([open])>.finish-colors{display:none}
+.finish-color-menu:hover>.finish-colors,.finish-color-menu:focus-within>.finish-colors{display:flex}
+.finish-colors button{min-width:24px;width:24px;height:24px;border-radius:50%;background:var(--swatch);border:1px solid #bbc1c8}
+.finish-colors button:hover{background:var(--swatch);outline:2px solid #64748b;outline-offset:2px}
+.finish-radius{left:auto;right:0;flex-direction:column}
+.finish-radius button{padding:0 10px;white-space:nowrap}
+.finish-settings .finish-name-option{display:flex;align-items:center;gap:10px}
+.finish-settings .finish-name-option input{width:20px;height:20px;flex:none;accent-color:#5d428c}
+.finish-settings p{font-size:12px;color:#646464}
+.finish-settings .finish-error{color:#b3261e}
