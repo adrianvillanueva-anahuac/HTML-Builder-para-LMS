@@ -1,4 +1,12 @@
-export interface Workspace { id: string; name: string; html: string; bg: string; style: string }
+export interface Workspace { id: string; name: string; html: string; bg: string; style: string; tabColor?:string; notes?:string[]; checklist?:{text:string;done:boolean}[] }
+export function workspaceTooltip(space:Workspace) {
+  return [...(space.notes||[]).map(note=>'• '+note),...(space.checklist||[]).map(item=>`${item.done?'☑ Completado':'☐ Pendiente'}: ${item.text}`),'Doble clic para editar nombre, color, notas y checklist; arrastra para reordenar'].join('\n');
+}
+export const tabPalette = [['Naranja','#ff5900'],['Morado','#5d428c'],['Gris oscuro','#646464'],['Gris claro','#cdd5dc']].map(([name,color])=>({name,colors:[color,...[.2,.35,.5,.65,.8].map(amount=>'#'+[1,3,5].map(i=>Math.round(parseInt(color.slice(i,i+2),16)*(1-amount)+255*amount).toString(16).padStart(2,'0')).join(''))]}));
+export function tabInk(color:string) {
+  const channels=[1,3,5].map(i=>{const n=parseInt(color.slice(i,i+2),16)/255;return n<=.04045?n/12.92:((n+.055)/1.055)**2.4;});
+  return channels[0]*.2126+channels[1]*.7152+channels[2]*.0722>.179?'#20242b':'#ffffff';
+}
 export const projectNameFromFile = (filename: string) => filename.replace(/\.(lmsproject|json)$/i, '');
 // Never derive a new page from the live canvas: it may already contain a project.
 export function emptyWorkspace(): Workspace {
@@ -15,6 +23,9 @@ export function parseProject(text: string): Project {
     if (!s || ['id','name','html','bg','style'].some(k => typeof s[k] !== 'string') || !s.id || !s.name.trim() || ids.has(s.id))
       throw new Error('El proyecto contiene espacios inválidos o duplicados.');
     ids.add(s.id);
+    if(s.tabColor!==undefined&&(typeof s.tabColor!=='string'||!/^#[0-9a-f]{6}$/i.test(s.tabColor)))throw new Error('Color de pestaña inválido.');
+    if(s.notes!==undefined&&(!Array.isArray(s.notes)||s.notes.some((note:unknown)=>typeof note!=='string')))throw new Error('Notas de pestaña inválidas.');
+    if(s.checklist!==undefined&&(!Array.isArray(s.checklist)||s.checklist.some((item:any)=>!item||typeof item.text!=='string'||typeof item.done!=='boolean')))throw new Error('Checklist de pestaña inválida.');
   }
   if (!ids.has(p.activeId)) throw new Error('El espacio activo del proyecto no existe.');
   return p;

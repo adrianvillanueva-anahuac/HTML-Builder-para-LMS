@@ -1,9 +1,9 @@
 // Native HTML dialogs work in Chrome and the embedded preview (window.prompt does not).
 export function projectDialog(title: string, initial?: string, choices?: {value:string;label:string}[]): Promise<string | null> {
   return new Promise(resolve => {
-    const dialog=document.createElement('dialog');dialog.className='exercise-settings';
+    const dialog=document.createElement('dialog');dialog.className='exercise-settings project-prompt';
     const form=document.createElement('form');form.method='dialog';
-    const heading=document.createElement('h2');heading.textContent=title;form.append(heading);
+    const heading=document.createElement('h2');heading.textContent=title;heading.id='project-prompt-'+crypto.randomUUID();dialog.setAttribute('aria-labelledby',heading.id);form.append(heading);
     let input:HTMLInputElement | undefined;
     if(initial!==undefined){input=document.createElement('input');input.value=initial;input.required=true;input.maxLength=120;input.setAttribute('aria-label',title);form.append(input);}
     const footer=document.createElement('div');footer.className='exercise-dialog-actions';

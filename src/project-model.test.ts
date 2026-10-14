@@ -1,5 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {tabPalette,tabInk,workspaceTooltip} from './project-model';
+
+test('checklist preserves completion and exposes states alongside notes',()=>{
+  const p=fixture();p.spaces[0].notes=['Revisar'];p.spaces[0].checklist=[{text:'Diseño',done:true},{text:'Publicar',done:false}];
+  const loaded=parseProject(JSON.stringify(p));assert.deepEqual(loaded,p);
+  const tooltip=workspaceTooltip(loaded.spaces[0]);
+  assert.ok(tooltip.includes('Revisar'));assert.ok(tooltip.includes('Completado: Diseño'));assert.ok(tooltip.includes('Pendiente: Publicar'));
+  assert.throws(()=>parseProject(JSON.stringify({...p,spaces:[{...p.spaces[0],checklist:[{text:'Tarea',done:'sí'}]}]})));
+});
+
+test('tab colors and multiple notes survive project round trip',()=>{
+  const p=fixture();p.spaces[0].tabColor='#5d428c';p.spaces[0].notes=['Revisar contenido','Nota <texto>'];
+  assert.deepEqual(parseProject(JSON.stringify(p)),p);
+  const old=fixture();assert.deepEqual(parseProject(JSON.stringify(old)),old);
+  assert.notEqual(projectContent(p),projectContent(old));
+  assert.throws(()=>parseProject(JSON.stringify({...p,spaces:[{...p.spaces[0],tabColor:'url(test)'}]})));
+  assert.throws(()=>parseProject(JSON.stringify({...p,spaces:[{...p.spaces[0],notes:[2]}]})));
+});
+test('institutional palette includes five pastel variants per base and readable ink',()=>{
+  assert.equal(tabPalette.length,4);
+  for(const group of tabPalette){assert.equal(group.colors.length,6);assert.equal(new Set(group.colors).size,6);group.colors.forEach(color=>assert.match(color,/^#[0-9a-f]{6}$/));}
+  assert.equal(tabInk('#ffffff'),'#20242b');assert.equal(tabInk('#5d428c'),'#ffffff');
+});
 import { parseProject, projectContent, projectNameFromFile, emptyWorkspace, type Project } from './project-model';
 
 test('project title uses the selected filename without its project extension',()=>{

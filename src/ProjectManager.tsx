@@ -1,14 +1,33 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { compactModularState } from './modular-table';
 import { takeWorkspaceHistory, loadWorkspaceHistory, upgradeTitleImageElements } from './vanilla-setup';
 import { parseProject, projectContent, projectNameFromFile, emptyWorkspace, type Project, type Workspace } from './project-model';
 
 import { startTutorial } from './tutorial';
 import { projectDialog } from './project-dialog';
+import { workspaceDialog } from './workspace-dialog';
+import { tabInk,workspaceTooltip } from './project-model';
+import type { CSSProperties } from 'react';
 
 type History = ReturnType<typeof takeWorkspaceHistory>;
 export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
   const [project, setProject] = useState<Project | null>(null);
+  const [tabInfo,setTabInfo]=useState<{space:Workspace;x:number;y:number}|null>(null);
+  const tabInfoTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+  const keepTabInfo=()=>{if(tabInfoTimer.current)clearTimeout(tabInfoTimer.current);};
+  const hideTabInfo=()=>{keepTabInfo();tabInfoTimer.current=setTimeout(()=>setTabInfo(null),150);};
+  const showTabInfo=(space:Workspace,element:HTMLElement)=>{
+    keepTabInfo();const rect=element.getBoundingClientRect();
+    setTabInfo({space,x:Math.max(12,Math.min(rect.left,window.innerWidth-332)),y:rect.bottom+12});
+  };
+  useEffect(()=>{
+    const dismiss=()=>setTabInfo(null);
+    const key=(event:KeyboardEvent)=>{if(event.key==='Escape')dismiss();};
+    const scroll=(event:Event)=>{if(!(event.target instanceof Element)||!event.target.closest('.project-tab-info'))dismiss();};
+    window.addEventListener('resize',dismiss);document.addEventListener('scroll',scroll,true);document.addEventListener('keydown',key);
+    return ()=>{keepTabInfo();window.removeEventListener('resize',dismiss);document.removeEventListener('scroll',scroll,true);document.removeEventListener('keydown',key);};
+  },[]);
   const current = useRef<Project | null>(null);
   const baseline = useRef<string | null>(null);
   const handle = useRef<any>(null);
@@ -222,7 +241,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
       histories.current.set(p.activeId,takeWorkspaceHistory());
       const s={...emptyWorkspace(),id:crypto.randomUUID(),name};spaces.push(s);restore(s);publish({...p,spaces,activeId:s.id});return;
     }
-    if(action==='rename') {const name=await projectDialog('Nombre del espacio',spaces[index].name);if(!name)return;spaces[index]={...spaces[index],name};}
+    if(action==='rename') {const settings=await workspaceDialog(spaces[index]);if(!settings)return;spaces[index]={...spaces[index],...settings};}
     if(action==='delete') {
       if(spaces.length===1){setMessage('El proyecto debe conservar al menos un espacio.');return;}
       if(!(await projectDialog(`¿Eliminar «${spaces[index].name}» y su contenido? Esta acción no se puede deshacer.`)))return;
@@ -297,18 +316,24 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
         </form> : <button className="project-name" title="Doble clic para renombrar y guardar proyecto" onDoubleClick={renameProject} onKeyDown={e=>{if(e.key==='F2')void renameProject();}}>{project?.name || 'Sin proyecto'}</button>}
         {nameHint>0 && <div key={nameHint} className="project-name-hint" role="status"><span className="material-symbols-outlined" aria-hidden="true">north</span>Escribe aquí el nombre de tu proyecto.</div>}
       </div>
-      <div className="project-tab-strip">
-      <div className="project-tabs" role="tablist" aria-label="Espacios de trabajo">{project?.spaces.map(s=><div className="project-tab" data-active={s.id===project.activeId} key={s.id} draggable={!busy}
-        onDragStart={e=>{e.dataTransfer.setData('application/x-lms-space',s.id);e.dataTransfer.effectAllowed='move';}}
+      <div className="project-tab-strip" style={{'--active-tab-color':project?.spaces.find(s=>s.id===project.activeId)?.tabColor||'#ffffff'} as CSSProperties}>
+      <div className="project-tabs" role="tablist" aria-label="Espacios de trabajo">{project?.spaces.map(s=><div className="project-tab" data-colored={!!s.tabColor} style={{'--tab-color':s.tabColor||'#ffffff','--tab-ink':tabInk(s.tabColor||'#ffffff')} as CSSProperties} data-active={s.id===project.activeId} key={s.id} draggable={!busy}
+        onDragStart={e=>{setTabInfo(null);e.dataTransfer.setData('application/x-lms-space',s.id);e.dataTransfer.effectAllowed='move';}}
         onDragOver={e=>{if(e.dataTransfer.types.includes('application/x-lms-space')){e.preventDefault();e.dataTransfer.dropEffect='move';}}}
         onDrop={e=>{e.preventDefault();reorder(e.dataTransfer.getData('application/x-lms-space'),s.id);}}>
-        <button role="tab" aria-selected={s.id===project.activeId} disabled={busy} title="Doble clic para renombrar; arrastra para reordenar" onClick={()=>{if(s.id!==project.activeId)change(s.id);}} onDoubleClick={()=>edit('rename',s.id)} onKeyDown={e=>{if(e.key==='F2')void edit('rename',s.id);if(e.altKey&&(e.key==='ArrowLeft'||e.key==='ArrowRight')){e.preventDefault();const i=project.spaces.findIndex(x=>x.id===s.id),next=project.spaces[i+(e.key==='ArrowLeft'?-1:1)];if(next)reorder(s.id,next.id);}}}>{s.name}</button>
+        <button role="tab" aria-selected={s.id===project.activeId} disabled={busy} aria-description={workspaceTooltip(s)} aria-describedby={tabInfo?.space.id===s.id?'project-tab-info':undefined} onMouseEnter={e=>showTabInfo(s,e.currentTarget)} onMouseLeave={hideTabInfo} onFocus={e=>showTabInfo(s,e.currentTarget)} onBlur={hideTabInfo} onClick={()=>{setTabInfo(null);if(s.id!==project.activeId)change(s.id);}} onDoubleClick={()=>{setTabInfo(null);void edit('rename',s.id);}} onKeyDown={e=>{if(e.key==='F2'){setTabInfo(null);void edit('rename',s.id);}if(e.altKey&&(e.key==='ArrowLeft'||e.key==='ArrowRight')){e.preventDefault();const i=project.spaces.findIndex(x=>x.id===s.id),next=project.spaces[i+(e.key==='ArrowLeft'?-1:1)];if(next)reorder(s.id,next.id);}}}>{s.name}</button>
         <button className="project-tab-delete" disabled={busy} title={'Eliminar '+s.name} aria-label={'Eliminar '+s.name} onClick={()=>edit('delete',s.id)}><span className="material-symbols-outlined">close</span></button>
       </div>)}</div>
       {project && <button className="project-tab-add" disabled={busy} title="Agregar página" aria-label="Agregar página" onClick={()=>edit('add')}><span className="material-symbols-outlined">add</span></button>}
       </div>
       <button className="project-copy" data-tour="export-copy" disabled={!saved||busy} title={saved?'Copiar espacio activo a Brightspace':'Guarda los cambios para copiar a Brightspace'} aria-label="Copiar a Brightspace" onClick={copy}><span className="material-symbols-outlined">content_copy</span></button>
     </div>
+    {tabInfo && createPortal(<div id="project-tab-info" className="project-tab-info" role="tooltip" style={{left:tabInfo.x,top:tabInfo.y,maxHeight:`calc(100dvh - ${tabInfo.y+12}px)`}} onMouseEnter={keepTabInfo} onMouseLeave={hideTabInfo}>
+      <strong><span className="project-tab-info-dot" style={{background:tabInfo.space.tabColor||'#ffffff'}}/>{tabInfo.space.name}</strong>
+      {!!tabInfo.space.notes?.length&&<section><h3>Notas</h3>{tabInfo.space.notes.map((note,i)=><p key={i}>{note}</p>)}</section>}
+      {!!tabInfo.space.checklist?.length&&<section><h3>Checklist</h3>{tabInfo.space.checklist.map((item,i)=><div className="project-tab-info-task" data-done={item.done} key={i}><span className="material-symbols-outlined" aria-hidden="true">{item.done?'check_circle':'radio_button_unchecked'}</span><span>{item.text}<small>{item.done?'Completado':'Pendiente'}</small></span></div>)}</section>}
+      <footer>Doble clic para editar la información</footer>
+    </div>,document.body)}
     {(busy || message) && <div className="project-status" role="status" onClick={()=>setMessage('')}>{busy?'Guardando…':message}</div>}
     {!project && <div className="project-welcome" role="dialog" aria-modal="true" aria-label="Comenzar proyecto"><section><h2>Tu proyecto de aprendizaje</h2><p>Diseña varias páginas en un proyecto. Puedes empezar sin guardar; para copiar a Brightspace tendrás que guardar en PC.</p><div className="welcome-actions"><button onClick={()=>create()}>Nuevo proyecto</button><button onClick={()=>open()}>Abrir proyecto o HTML</button><button className="welcome-icon-action" title="Recorrido de app" aria-label="Recorrido de app" onClick={async()=>{if(await create())requestAnimationFrame(()=>startTutorial('interfaz'));}}><span className="material-symbols-outlined" aria-hidden="true">school</span></button><button className="welcome-icon-action" title="Tutoriales en video" aria-label="Tutoriales en video" onClick={()=>setShowVideoNotice(true)}><span className="material-symbols-outlined" aria-hidden="true">smart_display</span></button></div>{showVideoNotice && <p className="welcome-video-notice" role="status">Se están preparando los tutoriales</p>}</section></div>}
   </div>;
