@@ -2,6 +2,8 @@ import appStyles from './index.css?inline';
 import { externalizeImages } from './published-resources';
 import { necessaryFontFaces } from './font-subsets';
 import runtime from './exercise-student.js?raw';
+import modularStyles from './modular.css?raw';
+import {inlineModularLayout} from './modular-export';
 
 const asDataURL = async (url: string): Promise<string> => {
   if (url.startsWith('data:')) return url;
@@ -13,6 +15,12 @@ const asDataURL = async (url: string): Promise<string> => {
 
 export async function buildStudentDocument(html: string): Promise<string> {
   const doc=new DOMParser().parseFromString(html,'text/html');
+  if(doc.querySelector('.modular-table')){
+    if(!doc.head.querySelector('style[data-modular-styles]')){
+      const styles=doc.createElement('style');styles.dataset.modularStyles='';styles.textContent=modularStyles;doc.head.append(styles);
+    }
+    inlineModularLayout(doc);
+  }
   doc.querySelector('#lms-state')?.remove();
   doc.querySelectorAll('script[src],script').forEach(script=> { if(script.textContent?.includes('tailwind.config') || script.hasAttribute('src')) script.remove(); });
   // Only fonts are embedded. Images remain public URLs and need a connection.

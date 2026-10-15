@@ -50,6 +50,12 @@
 .modular-table[data-pinned-cell] .mod-cell:not(.mod-cell-selected)>.mod-cell-tools{display:none}
 .mod-cell-selected>.mod-cell-tools{display:flex}
 .mod-cell-selected{z-index:35}
+.mod-prompt-tools{position:absolute;top:4px;left:4px;z-index:32;display:none}
+.mod-card:has(.mod-student-prompt:hover)>.mod-prompt-tools,.mod-card:has(.mod-student-prompt:focus-within)>.mod-prompt-tools,.mod-prompt-tools:hover,.mod-prompt-tools:focus-within{display:flex}
+.mod-prompt-tools button[aria-pressed=true]{background:#eee8f6;color:#5d428c}
+.mod-prompt-resize{position:absolute;top:var(--card-padding,12px);bottom:var(--card-padding,12px);width:8px;transform:translateX(-50%);cursor:col-resize;touch-action:none;z-index:20;border-radius:4px}
+.mod-prompt-resize:hover,.mod-prompt-resize:focus-visible{background:#5d428c66;outline:2px solid #5d428c}
+.mod-prompt-resize[hidden]{display:none}
 .mod-cell:has(.mod-cell-tools:hover){z-index:70}
 .mod-cell-tools details>div{position:fixed;left:8px;top:8px;right:auto;z-index:100;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:auto;box-sizing:border-box}
 .mod-cell-tools details>div input[type=range]{display:block;width:160px;margin-top:8px}

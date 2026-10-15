@@ -3,6 +3,8 @@ import { mountModularRuntime } from './modular-runtime.js';
 import runtimeSource from './modular-runtime.js?raw';
 import styles from './modular.css?raw';
 import './modular.css';
+import {inlineModularLayout} from './modular-export';
+import {applyPromptLayout,promptLayout} from './modular-prompt';
 import {renderCenters,updateCenter,centerShapes,syncCenterText} from './modular-centers';
 import type {CenterShape} from './modular-model';
 import {exposedCorners,sharedStrokeFactors,setAllCellColors,createModularCell,activateAllCells,clearAllCells} from './modular-model';
@@ -23,6 +25,7 @@ function updateCellAppearance(cell:HTMLElement,value:ModularModel['cells'][strin
   card.style.setProperty('--info-color',['#5d428c','#646464','#cdd5dc','#f3eef9','#f2f3f5'].includes(value.color.toLowerCase())?'#ff5900':'#5d428c');
   card.style.setProperty('--card-radius',value.radius+'px');card.style.setProperty('--card-padding',value.padding+'px');
   card.style.setProperty('--card-align',value.verticalAlign==='start'?'flex-start':value.verticalAlign==='end'?'flex-end':'center');
+  applyPromptLayout(card);
 }
 function sync(block:HTMLElement) {
   const model=models.get(block)!;
@@ -100,9 +103,13 @@ function render(block:HTMLElement) {
       if(value.student&&value.studentPromptEnabled){
         card.dataset.studentPrompt='true';
         const prompt=document.createElement('div');prompt.className='mod-student-prompt editable-text';
-        prompt.innerHTML=value.studentPromptHtml||'';prompt.title='Doble clic para editar el texto superior';card.append(prompt);
+        prompt.innerHTML=value.studentPromptHtml||'';prompt.title='Doble clic para editar las instrucciones';card.append(prompt);
+        card.dataset.promptPosition=value.studentPromptPosition||'top';
+        card.dataset.promptWidth=String(value.studentPromptWidth??35);
+        card.insertAdjacentHTML('beforeend',`<div class="mod-prompt-tools mod-tools mod-editor" role="group" aria-label="Posición de las instrucciones">${[['top','Superior','vertical_align_top'],['bottom','Inferior','vertical_align_bottom'],['left','Izquierda','align_horizontal_left'],['right','Derecha','align_horizontal_right']].map(([edge,label,symbol])=>`<button type="button" data-prompt-position="${edge}" aria-label="Instrucciones: ${label}" title="${label}" aria-pressed="${edge===(value.studentPromptPosition||'top')}">${icon(symbol)}</button>`).join('')}</div><div class="mod-prompt-resize mod-editor" role="separator" tabindex="0" aria-label="Ancho de las instrucciones" aria-orientation="vertical" aria-valuemin="20" aria-valuemax="80" title="Arrastra la división o usa las flechas izquierda y derecha"></div>`);
       }
       const text=document.createElement('div');text.className=value.student?'mod-text mod-student-placeholder':'mod-text editable-text';text.innerHTML=value.student?'':value.html;card.append(text);
+      applyPromptLayout(card);
       const info=document.createElement('details');info.className='mod-info';info.innerHTML='<summary aria-label="Mostrar texto completo">+ info</summary><div class="mod-preview"><div class="mod-preview-content" tabindex="0" role="button" aria-label="Editar rectángulo"></div></div>';card.append(info);cell.append(card);
       const menu=(symbol:string,label:string,content:string)=>`<details><summary title="${label}" aria-label="${label}">${icon(symbol)}</summary><div>${content}</div></details>`;
       const choice=(field:string,v:string,label:string,symbol:string)=>`<button type="button" data-cell-field="${field}" data-value="${v}" title="${label}" aria-label="${label}">${icon(symbol)}</button>`;
@@ -413,6 +420,15 @@ export function setupModularTables() {
       if(globalChoice.dataset.modRadius!==undefined){m.defaultRadius=Number(globalChoice.dataset.modRadius);Object.values(m.cells).forEach(c=>c.radius=m.defaultRadius!);block.querySelectorAll<HTMLElement>('.mod-cell').forEach(c=>{if(m.cells[c.dataset.cell!])updateCellAppearance(c,m.cells[c.dataset.cell!]);});}
       layout(block);persist(block);save();return;
     }
+    const placement=target.closest<HTMLElement>('[data-prompt-position]');
+    if(placement){
+      event.preventDefault();event.stopPropagation();
+      const cell=placement.closest<HTMLElement>('.mod-cell')!,value=sync(block).cells[cell.dataset.cell!],card=cell.querySelector<HTMLElement>('.mod-card')!;
+      value.studentPromptPosition=promptLayout(placement.dataset.promptPosition).edge as typeof value.studentPromptPosition;
+      card.dataset.promptPosition=value.studentPromptPosition;
+      card.querySelectorAll<HTMLElement>('[data-prompt-position]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.promptPosition===value.studentPromptPosition)));
+      applyPromptLayout(card);persist(block);runtimes.get(block)?.update();save();return;
+    }
     const choice=target.closest<HTMLElement>('[data-cell-field]');
     if(choice){
       event.preventDefault();event.stopPropagation();
@@ -456,7 +472,14 @@ export function setupModularTables() {
     if(action==='row'&&m.rows.length<10)m.rows.push(120);
     if(action==='column'&&m.columns.length<10)m.columns.push(m.columns.reduce((a,b)=>a+b,0)/m.columns.length);
     if(action==='overflow')m.overflow=!m.overflow;
-    render(block);save();
+    render(block);
+    if(key&&(action==='student'||action==='student-prompt')){
+      block.dataset.pinnedCell=key;
+      const selected=block.querySelector<HTMLElement>(`.mod-cell[data-cell="${key}"]`)!;
+      selected.classList.add('mod-cell-selected');
+      selected.querySelector<HTMLElement>(`[data-mod-action="${action}"]`)?.focus({preventScroll:true});
+    }
+    save();
   });
   document.addEventListener('dblclick',event=>{
     const target=event.target as HTMLElement,preview=target.closest?.<HTMLElement>('.mod-preview-content');
@@ -490,6 +513,13 @@ export function setupModularTables() {
       document.querySelectorAll<HTMLDetailsElement>('.modular-table .mod-tools details[open]').forEach(menu=>{menu.open=false;delete menu.dataset.menuPinned;});
     }
     if(target.matches?.('.mod-preview-content')&&target.contentEditable!=='true'&&(event.key==='Enter'||event.key===' ')){event.preventDefault();const block=target.closest<HTMLElement>('.modular-table');if(block&&models.has(block))editPreview(block,target);}
+    if(target.matches?.('.mod-prompt-resize')&&['ArrowLeft','ArrowRight'].includes(event.key)){
+      event.preventDefault();event.stopPropagation();
+      const block=target.closest<HTMLElement>('.modular-table')!,cell=target.closest<HTMLElement>('.mod-cell')!,value=sync(block).cells[cell.dataset.cell!],card=cell.querySelector<HTMLElement>('.mod-card')!;
+      const direction=(event.key==='ArrowRight'?1:-1)*(value.studentPromptPosition==='right'?-1:1);
+      value.studentPromptWidth=promptLayout('',(value.studentPromptWidth??35)+direction*5).percent;
+      card.dataset.promptWidth=String(value.studentPromptWidth);applyPromptLayout(card);persist(block);save();return;
+    }
     if(!target.matches?.('.mod-resize')||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key))return;
     event.preventDefault();const block=target.closest<HTMLElement>('.modular-table')!,m=sync(block),delta=event.key==='ArrowLeft'||event.key==='ArrowUp'?-10:10;
     if(target.dataset.resizeCol!==undefined)m.columns=resizeColumns(m.columns,Number(target.dataset.resizeCol),delta,block.querySelector<HTMLElement>('.mod-grid')!.clientWidth-(m.columns.length-1)*m.gap);
@@ -497,6 +527,20 @@ export function setupModularTables() {
     layout(block);persist(block);save();
   });
   document.addEventListener('pointerdown',event=>{
+    const divider=(event.target as HTMLElement).closest<HTMLElement>('.mod-prompt-resize');
+    if(divider){
+      event.preventDefault();event.stopPropagation();
+      const block=divider.closest<HTMLElement>('.modular-table')!,cell=divider.closest<HTMLElement>('.mod-cell')!,value=sync(block).cells[cell.dataset.cell!],card=cell.querySelector<HTMLElement>('.mod-card')!;
+      const start=event.clientX,initial=value.studentPromptWidth??35;
+      const available=Math.max(1,card.clientWidth-2*value.padding-8);
+      save();window.modularResizing=true;divider.setPointerCapture(event.pointerId);
+      const move=(e:PointerEvent)=>{
+        value.studentPromptWidth=promptLayout('',initial+(e.clientX-start)/available*100*(value.studentPromptPosition==='right'?-1:1)).percent;
+        card.dataset.promptWidth=String(value.studentPromptWidth);applyPromptLayout(card);
+      };
+      const end=()=>{divider.removeEventListener('pointermove',move);divider.removeEventListener('pointerup',end);divider.removeEventListener('pointercancel',end);divider.removeEventListener('lostpointercapture',end);window.modularResizing=false;persist(block);save();};
+      divider.addEventListener('pointermove',move);divider.addEventListener('pointerup',end);divider.addEventListener('pointercancel',end);divider.addEventListener('lostpointercapture',end);return;
+    }
     const target=(event.target as HTMLElement).closest<HTMLElement>('.mod-resize');if(!target)return;
     event.preventDefault();event.stopPropagation();
     const block=target.closest<HTMLElement>('.modular-table')!,m=sync(block),columns=[...m.columns],rows=[...m.rows],startX=event.clientX,startY=event.clientY;
@@ -525,6 +569,7 @@ export function prepareModularExport(root:HTMLElement) {
     block.querySelectorAll('.mod-preview-content').forEach(el=>{el.removeAttribute('role');el.removeAttribute('tabindex');el.removeAttribute('aria-label');});
     block.querySelectorAll('details[open]').forEach(el=>el.removeAttribute('open'));
   });
+  inlineModularLayout(root);
 }
 // Persist authored data only, not hover panels, measured paths or transient previews.
 export function compactModularState(root:HTMLElement) {
@@ -543,4 +588,5 @@ export function compactModularState(root:HTMLElement) {
     }catch { /* Preserve unknown imported content. */ }
   });
 }
-export const modularExportAssets=`<style>${styles}</style><script>${runtimeSource.replace('export function','function')}document.querySelectorAll('.modular-table').forEach(mountModularRuntime);<\/script>`;
+export const modularExportStyles=`<style data-modular-styles>${styles}</style>`;
+export const modularExportAssets=`<script>${runtimeSource.replace('export function','function')}document.querySelectorAll('.modular-table').forEach(mountModularRuntime);<\/script>`;

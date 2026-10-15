@@ -1,0 +1,39 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Prueba de instrucciones</title><body class="exercise-editor" style="font:16px Arial;padding:60px;background:#f5f4f8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"><style>#results{font-size:12px}.mod-tools .material-symbols-outlined{font-size:20px}</style>
+<h1>Instrucciones y respuesta del alumno</h1><pre id="results"></pre><main id="canvas" style="width:700px;margin:60px auto"></main>
+<script type="module">
+import {initModularTables,setupModularTables,prepareModularExport} from '/src/modular-table.ts';
+import {createModular,activateAllCells} from '/src/modular-model.ts';
+import {promptLayout} from '/src/modular-prompt.ts';
+import {mountModularRuntime} from '/src/modular-runtime.js';
+const frames=async(n=12)=>{for(let i=0;i<n;i++)await new Promise(requestAnimationFrame);};
+const results=document.querySelector('#results');let count=0;
+function check(ok,label){if(!ok)throw Error(label);results.textContent+=`✓ ${label}\n`;count++;}
+try{
+const model=createModular(1,1);model.rows=[240];activateAllCells(model);model.cells['0:0'].studentPromptHtml='Describe tu respuesta con tus propias palabras.';
+const block=document.createElement('section');block.className='modular-table';block.dataset.modular=JSON.stringify(model);document.querySelector('#canvas').append(block);
+document.querySelector('#canvas').id='canvas-container-outer';setupModularTables();initModularTables();
+block.querySelector('[data-mod-action=student]').click();
+check(block.dataset.pinnedCell==='0:0'&&getComputedStyle(block.querySelector('.mod-cell-tools')).display==='flex','El interruptor mantiene visible el menú');
+block.querySelector('[data-mod-action=student-prompt]').click();
+check(!!block.querySelector('.mod-student-prompt'),'El botón Texto superior permite activar las instrucciones');
+for(const edge of ['top','bottom','left','right']){
+block.querySelector(`[data-prompt-position=${edge}]`).click();
+await frames();
+check(block.querySelector('.mod-cell').getBoundingClientRect().height===240,`Altura estable en ${edge} después de 12 cuadros`);
+const card=block.querySelector('.mod-card'),p=card.querySelector('.mod-student-prompt').getBoundingClientRect(),a=card.querySelector('.mod-text').getBoundingClientRect();
+check(edge==='top'?p.bottom<=a.top:edge==='bottom'?a.bottom<=p.top:edge==='left'?p.right<=a.left:a.right<=p.left,`Posición ${edge}`);
+const clone=document.createElement('div');clone.append(block.cloneNode(true));prepareModularExport(clone);
+check(!clone.querySelector('.mod-editor')&&clone.querySelector('.mod-card').style.flexDirection===card.style.flexDirection,`Exportación ${edge} sin controles de edición`);
+clone.style.width='700px';document.body.append(clone);
+const runtime=mountModularRuntime(clone.querySelector('.modular-table'));
+await frames();
+check(clone.querySelector('.mod-cell').getBoundingClientRect().height===240,`Altura exportada estable en ${edge}`);
+runtime.destroy();clone.remove();
+}
+const divider=block.querySelector('.mod-prompt-resize');divider.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}));
+check(JSON.parse(block.dataset.modular).cells['0:0'].studentPromptWidth===40,'División lateral ajustable y guardada');
+check(promptLayout('left',99).percent===80&&promptLayout('right',0).percent===20,'Límites del divisor 20–80%');
+results.textContent+=`${count} comprobaciones correctas`;
+}catch(error){results.textContent+='ERROR: '+error.message;throw error;}
+</script></body></html>

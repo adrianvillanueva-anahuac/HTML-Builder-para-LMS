@@ -1,0 +1,44 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Prueba de exportación modular sin CSS</title></head><body>
+<h1>Exportación modular sin hojas de estilo</h1><pre id="results">Ejecutando…</pre>
+<main id="fixture" style="width:700px;max-width:90vw;margin:auto"></main>
+<h2>Ejercicio descargable sin hojas de estilo</h2><iframe id="student" title="Prueba del ejercicio exportado" style="width:100%;height:500px;border:1px solid #ccc"></iframe>
+<script type="module">
+import {inlineModularLayout} from '/src/modular-export.ts';
+import {mountModularRuntime} from '/src/modular-runtime.js';
+import {buildStudentDocument} from '/src/exercise-export.ts';
+const results=document.querySelector('#results'),fixture=document.querySelector('#fixture'),checks=[];
+function check(value,label){if(!value)throw new Error(label);checks.push('✓ '+label);results.textContent=checks.join('\n');}
+const cells=Array.from({length:12},(_,i)=>`<div class="mod-cell" data-cell="${Math.floor(i/4)}:${i%4}"><div class="mod-card" data-student="false" style="--card-color:#5d428c;--card-text:#ffffff;--card-radius:6px;--card-padding:12px"><div class="mod-text">${i===0?'Texto de prueba':''}</div><details class="mod-info" data-needed="false"><summary>+ info</summary><div class="mod-preview"><div class="mod-preview-content"></div></div></details></div></div>`).join('');
+fixture.innerHTML=`<section class="modular-table mod-published" data-row-heights="[120,120,120]" data-joined="false" style="--mod-gap:20px;--mod-stroke-width:0px"><div class="mod-shell"><div class="mod-scroll"><div class="mod-grid" style="grid-template-columns:repeat(4,minmax(40px,1fr));grid-template-rows:120px 120px 120px">${cells}<div class="mod-edge" data-from="0:1" data-to="0:2" data-direction="backward" style="left:350px;top:60px;width:28px;height:28px"><svg viewBox="0 0 28 28"><path fill="#5d428c" stroke="#5d428c" stroke-width="2"/></svg></div></div></div></div></section>`;
+try{
+  inlineModularLayout(fixture);inlineModularLayout(fixture);
+  const block=fixture.querySelector('.modular-table'),grid=fixture.querySelector('.mod-grid');
+  const runtime=mountModularRuntime(block);
+  await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);
+  check(getComputedStyle(grid).display==='grid','Retícula visible sin CSS externo');
+  check(getComputedStyle(grid).gridTemplateColumns.split(' ').length===4,'Cuatro columnas conservadas');
+  check(getComputedStyle(fixture.querySelector('.mod-card')).backgroundColor==='rgb(93, 66, 140)','Color morado conservado');
+  check([...fixture.querySelectorAll('.mod-info')].every(el=>getComputedStyle(el).display==='none'),'Sin botones + info innecesarios');
+  check(getComputedStyle(fixture.querySelector('.mod-edge')).position==='absolute','La flecha conserva posición absoluta tras recalcular');
+  const initial=fixture.querySelector('.mod-edge').style.left;fixture.style.width='500px';runtime.update();
+  await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);
+  check(fixture.querySelector('.mod-edge').style.left!==initial,'La conexión se adapta al nuevo ancho');
+  fixture.style.width='700px';runtime.update();
+  const studentMarkup=fixture.innerHTML.replace('class="mod-text"','class="mod-text student-rich-answer" role="textbox" aria-label="Respuesta del alumno"');
+  const html=await buildStudentDocument('<html><head></head><body><div class="anahuac-builder-export">'+studentMarkup+'</div></body></html>');
+  const exported=new DOMParser().parseFromString(html,'text/html');
+  check(!!exported.head.querySelector('style[data-modular-styles]'),'El ejercicio incluye CSS modular en el encabezado');
+  exported.querySelectorAll('style').forEach(el=>el.remove());
+  const frame=document.querySelector('#student');
+  await new Promise(resolve=>{frame.onload=resolve;frame.srcdoc='<!doctype html>'+exported.documentElement.outerHTML;});
+  const doc=frame.contentDocument,win=frame.contentWindow;
+  check(win.getComputedStyle(doc.querySelector('.mod-grid')).display==='grid','El ejercicio conserva la retícula aun eliminando TODO su CSS');
+  check(win.getComputedStyle(doc.querySelector('.mod-card')).backgroundColor==='rgb(93, 66, 140)','El ejercicio conserva los colores');
+  check(doc.querySelector('.student-rich-answer').contentEditable==='true','La respuesta del alumno sigue editable');
+  const joined=block.cloneNode(true);joined.dataset.joined='true';joined.style.setProperty('--mod-stroke-width','2px');
+  joined.querySelectorAll('.mod-card').forEach(card=>{card.style.setProperty('--joined-stroke-1','0');});
+  const holder=document.createElement('div');holder.append(joined);inlineModularLayout(holder);inlineModularLayout(holder);
+  check(joined.querySelector('.mod-card').style.borderRightWidth==='0px'&&joined.querySelector('.mod-card').style.borderTopWidth==='2px','Bordes unidos estables al exportar dos veces');
+  document.body.dataset.result='passed';
+}catch(error){results.textContent+='\nERROR: '+error.message;document.body.dataset.result='failed';console.error(error);}
+</script></body></html>

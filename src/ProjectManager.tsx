@@ -16,7 +16,9 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
   const [tabInfo,setTabInfo]=useState<{space:Workspace;x:number;y:number}|null>(null);
   const tabInfoTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
   const keepTabInfo=()=>{if(tabInfoTimer.current)clearTimeout(tabInfoTimer.current);};
-  const hideTabInfo=()=>{keepTabInfo();tabInfoTimer.current=setTimeout(()=>setTabInfo(null),150);};
+  const hideTabInfo=()=>{keepTabInfo();tabInfoTimer.current=setTimeout(()=>{
+    if(!document.activeElement?.closest('.project-tab-info'))setTabInfo(null);
+  },250);};
   const showTabInfo=(space:Workspace,element:HTMLElement)=>{
     keepTabInfo();const rect=element.getBoundingClientRect();
     setTabInfo({space,x:Math.max(12,Math.min(rect.left,window.innerWidth-332)),y:rect.bottom+12});
@@ -83,7 +85,17 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     current.current = next;
     return next;
   }
-  function publish(p: Project) { current.current=p; setProject(p); setSaved(projectContent(p) === baseline.current); }
+  function publish(p: Project) {
+    current.current=p; setProject(p); setSaved(projectContent(p) === baseline.current);
+    setTabInfo(info=>{if(!info)return null;const space=p.spaces.find(s=>s.id===info.space.id);return space?{...info,space}:null;});
+  }
+  function setChecklistDone(spaceId:string,index:number,done:boolean) {
+    if(busy || document.querySelector('iframe[title="Diseñar ejercicio descargable"]'))return;
+    const p=capture();if(!p)return;
+    const space=p.spaces.find(s=>s.id===spaceId);if(!space?.checklist?.[index])return;
+    // Update metadata without switching tabs or rebuilding the active canvas.
+    publish({...p,spaces:p.spaces.map(s=>s.id===spaceId?{...s,checklist:s.checklist!.map((item,i)=>i===index?{...item,done}:item)}:s)});
+  }
   function resetNameEditor(name: string) {
     setDraftName(name);
     setEditingName(false);
@@ -316,7 +328,12 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
         </form> : <button className="project-name" title="Doble clic para renombrar y guardar proyecto" onDoubleClick={renameProject} onKeyDown={e=>{if(e.key==='F2')void renameProject();}}>{project?.name || 'Sin proyecto'}</button>}
         {nameHint>0 && <div key={nameHint} className="project-name-hint" role="status"><span className="material-symbols-outlined" aria-hidden="true">north</span>Escribe aquí el nombre de tu proyecto.</div>}
       </div>
-      <div className="project-tab-strip" style={{'--active-tab-color':project?.spaces.find(s=>s.id===project.activeId)?.tabColor||'#ffffff'} as CSSProperties}>
+      <div className="project-tab-strip" onKeyDown={e=>{
+        if(e.key==='ArrowDown'&&!e.altKey&&(e.target as HTMLElement).matches('[role="tab"]')) {
+          const checkbox=document.querySelector<HTMLInputElement>('#project-tab-info input:not(:disabled)');
+          if(checkbox){e.preventDefault();keepTabInfo();checkbox.focus();}
+        }
+      }} style={{'--active-tab-color':project?.spaces.find(s=>s.id===project.activeId)?.tabColor||'#ffffff'} as CSSProperties}>
       <div className="project-tabs" role="tablist" aria-label="Espacios de trabajo">{project?.spaces.map(s=><div className="project-tab" data-colored={!!s.tabColor} style={{'--tab-color':s.tabColor||'#ffffff','--tab-ink':tabInk(s.tabColor||'#ffffff')} as CSSProperties} data-active={s.id===project.activeId} key={s.id} draggable={!busy}
         onDragStart={e=>{setTabInfo(null);e.dataTransfer.setData('application/x-lms-space',s.id);e.dataTransfer.effectAllowed='move';}}
         onDragOver={e=>{if(e.dataTransfer.types.includes('application/x-lms-space')){e.preventDefault();e.dataTransfer.dropEffect='move';}}}
@@ -328,10 +345,17 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
       </div>
       <button className="project-copy" data-tour="export-copy" disabled={!saved||busy} title={saved?'Copiar espacio activo a Brightspace':'Guarda los cambios para copiar a Brightspace'} aria-label="Copiar a Brightspace" onClick={copy}><span className="material-symbols-outlined">content_copy</span></button>
     </div>
-    {tabInfo && createPortal(<div id="project-tab-info" className="project-tab-info" role="tooltip" style={{left:tabInfo.x,top:tabInfo.y,maxHeight:`calc(100dvh - ${tabInfo.y+12}px)`}} onMouseEnter={keepTabInfo} onMouseLeave={hideTabInfo}>
+    {tabInfo && createPortal(<div id="project-tab-info" className="project-tab-info" role="region" aria-label={'Información de '+tabInfo.space.name} style={{left:tabInfo.x,top:tabInfo.y,maxHeight:`calc(100dvh - ${tabInfo.y+12}px)`}} onMouseEnter={keepTabInfo} onMouseLeave={hideTabInfo} onFocus={keepTabInfo} onBlur={hideTabInfo} onKeyDown={e=>{
+      if(e.key==='Escape') {
+        e.stopPropagation();
+        const index=project?.spaces.findIndex(s=>s.id===tabInfo.space.id)??-1;
+        document.querySelectorAll<HTMLButtonElement>('.project-tabs [role="tab"]')[index]?.focus();
+        setTabInfo(null);
+      }
+    }}>
       <strong><span className="project-tab-info-dot" style={{background:tabInfo.space.tabColor||'#ffffff'}}/>{tabInfo.space.name}</strong>
       {!!tabInfo.space.notes?.length&&<section><h3>Notas</h3>{tabInfo.space.notes.map((note,i)=><p key={i}>{note}</p>)}</section>}
-      {!!tabInfo.space.checklist?.length&&<section><h3>Checklist</h3>{tabInfo.space.checklist.map((item,i)=><div className="project-tab-info-task" data-done={item.done} key={i}><span className="material-symbols-outlined" aria-hidden="true">{item.done?'check_circle':'radio_button_unchecked'}</span><span>{item.text}<small>{item.done?'Completado':'Pendiente'}</small></span></div>)}</section>}
+      {!!tabInfo.space.checklist?.length&&<section><h3>Checklist</h3>{tabInfo.space.checklist.map((item,i)=><label className="project-tab-info-task" data-done={item.done} key={i}><input type="checkbox" checked={item.done} disabled={busy} aria-label={item.text} onChange={e=>setChecklistDone(tabInfo.space.id,i,e.currentTarget.checked)}/><span>{item.text}<small>{item.done?'Completado':'Pendiente'}</small></span></label>)}</section>}
       <footer>Doble clic para editar la información</footer>
     </div>,document.body)}
     {(busy || message) && <div className="project-status" role="status" onClick={()=>setMessage('')}>{busy?'Guardando…':message}</div>}

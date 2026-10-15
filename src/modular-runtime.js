@@ -1,7 +1,13 @@
 // Self-contained: the same layout logic runs in the Builder and published HTML.
 export function mountModularRuntime(block) {
   let frame=0;
-  const set=(el,name,value)=>{if(el.getAttribute(name)!==value)el.setAttribute(name,value);};
+  const set=(el,name,value)=>{
+    // Reposition published overlays without erasing their inline fallback appearance.
+    if(name==='style'&&block.classList.contains('mod-published')&&el.matches('.mod-edge,.mod-center,.mod-preview')){
+      const next=document.createElement('div').style;next.cssText=value;
+      for(let i=0;i<next.length;i++){const key=next[i];if(el.style.getPropertyValue(key)!==next.getPropertyValue(key))el.style.setProperty(key,next.getPropertyValue(key));}
+    }else if(el.getAttribute(name)!==value)el.setAttribute(name,value);
+  };
   const update=()=>{
     frame=0;
     const grid=block.querySelector('.mod-grid');
@@ -12,14 +18,24 @@ export function mountModularRuntime(block) {
     block.querySelectorAll('.mod-card').forEach(card=>{
       const text=card.querySelector('.mod-text');if(!text)return;
       if(!auto&&!text.classList.contains('student-rich-answer')&&card.dataset.studentPrompt!=='true')return;
-      const oldHeight=text.style.height,oldMin=text.style.minHeight,oldFlex=text.style.flex;
-      text.style.height='auto';text.style.minHeight='0';text.style.flex='0 0 auto';
+      const side=card.dataset.studentPrompt==='true'&&['left','right'].includes(card.dataset.promptPosition);
+      const oldHeight=text.style.height,oldMin=text.style.minHeight,oldFlex=text.style.flex,oldAlign=text.style.alignSelf;
+      text.style.height='auto';text.style.minHeight='0';
+      // In a row, flex controls width: retain it while measuring wrapped content.
+      // Disable cross-axis stretching so the current row height is not fed back
+      // into the next measurement by ResizeObserver.
+      if(side)text.style.alignSelf='flex-start';else text.style.flex='0 0 auto';
       const padding=getComputedStyle(card);
       const textStyle=getComputedStyle(text);
       const prompt=card.querySelector('.mod-student-prompt');
-      const promptHeight=prompt&&getComputedStyle(prompt).display!=='none'?prompt.getBoundingClientRect().height+parseFloat(padding.rowGap||0):0;
-      const required=Math.ceil(Math.max(30,text.scrollHeight)+parseFloat(textStyle.borderTopWidth||0)+parseFloat(textStyle.borderBottomWidth||0)+parseFloat(padding.paddingTop)+parseFloat(padding.paddingBottom)+promptHeight+2);
-      text.style.height=oldHeight;text.style.minHeight=oldMin;text.style.flex=oldFlex;
+      const promptAlign=prompt?.style.alignSelf;
+      if(side&&prompt)prompt.style.alignSelf='flex-start';
+      const promptHeight=prompt&&getComputedStyle(prompt).display!=='none'?prompt.getBoundingClientRect().height:0;
+      const answerHeight=Math.max(30,text.scrollHeight)+parseFloat(textStyle.borderTopWidth||0)+parseFloat(textStyle.borderBottomWidth||0);
+      const contentHeight=side?Math.max(answerHeight,promptHeight):answerHeight+(promptHeight?promptHeight+(parseFloat(padding.rowGap)||0):0);
+      const required=Math.ceil(contentHeight+parseFloat(padding.paddingTop)+parseFloat(padding.paddingBottom)+2);
+      text.style.height=oldHeight;text.style.minHeight=oldMin;text.style.flex=oldFlex;text.style.alignSelf=oldAlign;
+      if(prompt)prompt.style.alignSelf=promptAlign;
       const row=Number(card.closest('.mod-cell').dataset.cell.split(':')[0]);
       heights[row]=Math.max(heights[row]||40,required);
     });
@@ -51,6 +67,9 @@ export function mountModularRuntime(block) {
       const clipped=!auto && card.dataset.student!=='true' && (text.scrollHeight>text.clientHeight+1 || text.scrollWidth>text.clientWidth+1);
       set(card,'data-clipped',String(clipped));
       set(info,'data-needed',String(clipped));
+      if(block.classList.contains('mod-published')){
+        const display=clipped?'block':'none';if(info.style.display!==display)info.style.display=display;
+      }
       if(preview && info.dataset.editing!=='true' && preview.innerHTML!==text.innerHTML)preview.innerHTML=text.innerHTML;
       const panel=info.querySelector('.mod-preview');
       if(panel && (info.open || info.matches(':hover,:focus-within'))) {

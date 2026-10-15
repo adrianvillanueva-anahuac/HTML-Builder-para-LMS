@@ -1,5 +1,5 @@
 import Sortable from 'sortablejs';
-import { getModularHTML, initModularTables, setupModularTables, prepareModularExport, modularExportAssets, compactModularState } from './modular-table';
+import { getModularHTML, initModularTables, setupModularTables, prepareModularExport, modularExportAssets, modularExportStyles, compactModularState } from './modular-table';
 import './icon-grid.css';
 import iconGridStyles from './icon-grid.css?raw';
 import './footer-layout.css';
@@ -3848,7 +3848,7 @@ export function setupVanillaGlobals() {
 
         const exportedCanvasHtml = clone.innerHTML;
         const editorState = includeEditorState ? `<script type="application/json" id="lms-state" data-encoding="json">${JSON.stringify(outerEl.innerHTML || '').replace(/</g, '\\u003c')}</script>` : '';
-        const finalHTML = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="generator" content="anahuac-builder-lms"><title>Contenido D2L</title>${customStyles}<style>${iconGridStyles}\n${footerLayoutStyles}</style></head><body><div class="max-w-5xl mx-auto anahuac-builder-export">${exportedCanvasHtml}</div>${finalJS}${clone.querySelector('.modular-table') ? modularExportAssets : ''}${editorState}</body></html>`;
+        const finalHTML = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="generator" content="anahuac-builder-lms"><title>Contenido D2L</title>${customStyles}<style>${iconGridStyles}\n${footerLayoutStyles}</style>${clone.querySelector('.modular-table') ? modularExportStyles : ''}</head><body><div class="max-w-5xl mx-auto anahuac-builder-export">${exportedCanvasHtml}</div>${finalJS}${clone.querySelector('.modular-table') ? modularExportAssets : ''}${editorState}</body></html>`;
         
         return finalHTML;
     }
