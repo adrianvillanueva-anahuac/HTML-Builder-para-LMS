@@ -1,4 +1,14 @@
 import {test} from 'node:test';
+import {createModularConnection} from './modular-model';
+test('conectores nuevos morados sin contorno y personalización conservada',()=>{
+  const connection=createModularConnection('0:0','0:1');
+  assert.equal(connection.fill,'#5d428c');
+  assert.equal(connection.stroke,'none');
+  assert.equal(JSON.parse(JSON.stringify(connection)).stroke,'none');
+  connection.stroke='#ff5900';connection.fill='#ffffff';
+  assert.equal(JSON.parse(JSON.stringify(connection)).stroke,'#ff5900');
+  assert.equal(createModularConnection('0:1','0:2').fill,'#5d428c');
+});
 test('texto superior del alumno es opcional y conserva formato al desactivarlo',()=>{
   const m=createModular(1,1);
   const cell=createModularCell(m);m.cells['0:0']=cell;

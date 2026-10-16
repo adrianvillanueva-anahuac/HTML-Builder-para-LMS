@@ -17,6 +17,7 @@ block.querySelector('[data-mod-action=student]').click();
 check(block.dataset.pinnedCell==='0:0'&&getComputedStyle(block.querySelector('.mod-cell-tools')).display==='flex','El interruptor mantiene visible el menú');
 block.querySelector('[data-mod-action=student-prompt]').click();
 check(!!block.querySelector('.mod-student-prompt'),'El botón Texto superior permite activar las instrucciones');
+check(!block.querySelector('.mod-card .mod-prompt-tools')&&block.querySelectorAll('.mod-cell-tools [data-prompt-position]').length===4,'Las cuatro posiciones están solo en el menú del rectángulo');
 for(const edge of ['top','bottom','left','right']){
 block.querySelector(`[data-prompt-position=${edge}]`).click();
 await frames();

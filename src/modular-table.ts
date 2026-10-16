@@ -5,6 +5,7 @@ import styles from './modular.css?raw';
 import './modular.css';
 import {inlineModularLayout} from './modular-export';
 import {applyPromptLayout,promptLayout} from './modular-prompt';
+import {createModularConnection} from './modular-model';
 import {renderCenters,updateCenter,centerShapes,syncCenterText} from './modular-centers';
 import type {CenterShape} from './modular-model';
 import {exposedCorners,sharedStrokeFactors,setAllCellColors,createModularCell,activateAllCells,clearAllCells} from './modular-model';
@@ -106,7 +107,7 @@ function render(block:HTMLElement) {
         prompt.innerHTML=value.studentPromptHtml||'';prompt.title='Doble clic para editar las instrucciones';card.append(prompt);
         card.dataset.promptPosition=value.studentPromptPosition||'top';
         card.dataset.promptWidth=String(value.studentPromptWidth??35);
-        card.insertAdjacentHTML('beforeend',`<div class="mod-prompt-tools mod-tools mod-editor" role="group" aria-label="Posición de las instrucciones">${[['top','Superior','vertical_align_top'],['bottom','Inferior','vertical_align_bottom'],['left','Izquierda','align_horizontal_left'],['right','Derecha','align_horizontal_right']].map(([edge,label,symbol])=>`<button type="button" data-prompt-position="${edge}" aria-label="Instrucciones: ${label}" title="${label}" aria-pressed="${edge===(value.studentPromptPosition||'top')}">${icon(symbol)}</button>`).join('')}</div><div class="mod-prompt-resize mod-editor" role="separator" tabindex="0" aria-label="Ancho de las instrucciones" aria-orientation="vertical" aria-valuemin="20" aria-valuemax="80" title="Arrastra la división o usa las flechas izquierda y derecha"></div>`);
+        card.insertAdjacentHTML('beforeend',`<div class="mod-prompt-resize mod-editor" role="separator" tabindex="0" aria-label="Ancho de las instrucciones" aria-orientation="vertical" aria-valuemin="20" aria-valuemax="80" title="Arrastra la división o usa las flechas izquierda y derecha"></div>`);
       }
       const text=document.createElement('div');text.className=value.student?'mod-text mod-student-placeholder':'mod-text editable-text';text.innerHTML=value.student?'':value.html;card.append(text);
       applyPromptLayout(card);
@@ -116,6 +117,9 @@ function render(block:HTMLElement) {
       cell.insertAdjacentHTML('beforeend',`<div class="mod-cell-tools mod-tools mod-editor">${menu('format_color_fill','Color del rectángulo',`<div class="mod-palette">${modularPalette.map(c=>`<button type="button" data-cell-field="color" data-value="${c.value}" title="${c.name}" aria-label="${c.name}" style="background:${c.value};border:1px solid #aaa"></button>`).join('')}</div>`)}${menu('rounded_corner','Redondeado',[0,6,12,20].map(n=>choice('radius',String(n),`Redondeado ${n} px`,'rounded_corner').replace('</button>',`<small>${n}</small></button>`)).join(''))}${menu('padding','Margen del texto',`<label>Margen <output>${value.padding} px</output><input aria-label="Margen del texto" data-cell-padding type="range" min="0" max="50" value="${value.padding}"></label>`)}${menu('vertical_align_center','Alineación vertical',choice('verticalAlign','start','Texto arriba','vertical_align_top')+choice('verticalAlign','center','Texto centrado verticalmente','vertical_align_center')+choice('verticalAlign','end','Texto abajo','vertical_align_bottom'))}${button('remove','delete','Eliminar rectángulo')}</div>`);
       if(document.body.classList.contains('exercise-editor'))cell.querySelector('.mod-cell-tools')!.insertAdjacentHTML('afterbegin',`<button type="button" role="switch" aria-checked="${!!value.student}" data-mod-action="student" title="Texto para alumno" aria-label="Texto para alumno">${icon(value.student?'toggle_on':'toggle_off')}</button>`);
       if(value.student&&document.body.classList.contains('exercise-editor'))cell.querySelector('.mod-cell-tools')!.insertAdjacentHTML('afterbegin',`<button type="button" class="editor-icon-button" role="switch" aria-checked="${!!value.studentPromptEnabled}" data-mod-action="student-prompt" title="Texto superior para el alumno" aria-label="Texto superior para el alumno"><span class="mod-prompt-icon" aria-hidden="true"><span>A</span></span></button>`);
+      if(value.student&&value.studentPromptEnabled&&document.body.classList.contains('exercise-editor')){
+        cell.querySelector('[data-mod-action=student-prompt]')!.insertAdjacentHTML('afterend',menu('flip_to_front','Posición de las instrucciones',`<div class="mod-prompt-tools" role="group" aria-label="Posición de las instrucciones">${[['top','Superior','vertical_align_top'],['bottom','Inferior','vertical_align_bottom'],['left','Izquierda','align_horizontal_left'],['right','Derecha','align_horizontal_right']].map(([edge,label,symbol])=>`<button type="button" data-prompt-position="${edge}" aria-label="Instrucciones: ${label}" title="${label}" aria-pressed="${edge===(value.studentPromptPosition||'top')}">${icon(symbol)}</button>`).join('')}</div>`));
+      }
     } else cell.innerHTML=button('add','add',`Crear rectángulo ${r+1}, ${c+1}`).replace('<button ','<button class="mod-add mod-editor" ');
     if(c<m.columns.length-1)cell.insertAdjacentHTML('beforeend',`<button class="mod-editor mod-resize mod-resize-col" data-resize-col="${c}" aria-label="Ajustar columna ${c+1}" title="Arrastra para ajustar columna; flechas para ajustar con teclado"></button>`);
     cell.insertAdjacentHTML('beforeend',`<button class="mod-editor mod-resize mod-resize-row" data-resize-row="${r}" aria-label="Ajustar fila ${r+1}" title="Arrastra para ajustar fila; flechas para ajustar con teclado"></button>`);
@@ -265,7 +269,7 @@ function editConnection(block:HTMLElement,edge:HTMLElement,pinned=true) {
   panel.addEventListener('input',event=>{
     const input=event.target as HTMLInputElement;if(!input.matches('[data-edge-width],[data-edge-scale],[data-edge-offset],[data-edge-radius]'))return;
     const m=sync(block);let value=m.connections.find(e=>e.from===from&&e.to===to);
-    if(!value){value={from,to,direction:'forward',fill:'#5d428c',stroke:'#5d428c',dotted:false};m.connections.push(value);edge.dataset.direction=value.direction;edge.insertAdjacentHTML('afterbegin',`<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Conexión forward"><path fill="#5d428c" stroke="#5d428c"/></svg>`);}
+    if(!value){value=createModularConnection(from,to);m.connections.push(value);edge.dataset.direction=value.direction;edge.insertAdjacentHTML('afterbegin',`<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Conexión forward"><path fill="${value.fill}" stroke="${value.stroke}"/></svg>`);}
     if(input.hasAttribute('data-edge-scale')){value.scale=clamp(Number(input.value)/100,.5,3);edge.dataset.scale=String(value.scale);input.closest('label')!.querySelector('output')!.textContent=Math.round(value.scale*100)+'%';}
     else if(input.hasAttribute('data-edge-offset')){value.offset=clamp(Number(input.value),-100,100);edge.dataset.offset=String(value.offset);input.closest('label')!.querySelector('output')!.textContent=value.offset+' px';}
     else if(input.hasAttribute('data-edge-radius')){value.radius=clamp(Number(input.value),0,6);edge.dataset.radius=String(value.radius);input.closest('label')!.querySelector('output')!.textContent=value.radius+' px';}
@@ -282,7 +286,7 @@ function editConnection(block:HTMLElement,edge:HTMLElement,pinned=true) {
     const m=sync(block);let value=m.connections.find(e=>e.from===from&&e.to===to);
     if(choice.dataset.edgeField==='remove'){m.connections=m.connections.filter(e=>e!==value);edge.querySelector('svg')?.remove();}
     else {
-      if(!value){value={from,to,direction:'forward',fill:'#5d428c',stroke:'#5d428c',dotted:false};m.connections.push(value);}
+      if(!value){value=createModularConnection(from,to);m.connections.push(value);}
       const field=choice.dataset.edgeField!;
       if(field==='center'){value.offset=0;const input=panel.querySelector<HTMLInputElement>('[data-edge-offset]')!;input.value='0';input.closest('label')!.querySelector('output')!.textContent='0 px';}
       if(field==='dotted')value.dotted=choice.dataset.value==='true';
@@ -426,7 +430,7 @@ export function setupModularTables() {
       const cell=placement.closest<HTMLElement>('.mod-cell')!,value=sync(block).cells[cell.dataset.cell!],card=cell.querySelector<HTMLElement>('.mod-card')!;
       value.studentPromptPosition=promptLayout(placement.dataset.promptPosition).edge as typeof value.studentPromptPosition;
       card.dataset.promptPosition=value.studentPromptPosition;
-      card.querySelectorAll<HTMLElement>('[data-prompt-position]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.promptPosition===value.studentPromptPosition)));
+      cell.querySelectorAll<HTMLElement>('[data-prompt-position]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.promptPosition===value.studentPromptPosition)));
       applyPromptLayout(card);persist(block);runtimes.get(block)?.update();save();return;
     }
     const choice=target.closest<HTMLElement>('[data-cell-field]');

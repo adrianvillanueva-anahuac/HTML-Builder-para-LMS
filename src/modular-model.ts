@@ -1,5 +1,8 @@
 export type ModularCell = { html: string; color: string; radius: number; padding: number; verticalAlign?: 'start'|'center'|'end'; student?:boolean; studentPromptEnabled?:boolean; studentPromptHtml?:string; studentPromptPosition?:'top'|'bottom'|'left'|'right'; studentPromptWidth?:number };
 export type ModularConnection = { from: string; to: string; direction: 'forward'|'backward'|'both'|'none'; fill: string; stroke: string; dotted: boolean; strokeWidth?:number;scale?:number;offset?:number;radius?:number };
+export function createModularConnection(from:string,to:string):ModularConnection {
+  return {from,to,direction:'forward',fill:'#5d428c',stroke:'none',dotted:false};
+}
 export type CenterShape = {shape:'triangle'|'circle'|'square'|'diamond'|'hexagon';color:string;size:number;front:boolean;text:string;html?:string};
 export type ModularModel = { version: 1; rows: number[]; columns: number[]; gap: number; margin: number; overflow: boolean; stroke?: {width:number;color:string}; defaultRadius?:number; defaultColor?:string; cells: Record<string, ModularCell>; connections: ModularConnection[]; centers?:Record<string,CenterShape> };
 export function centerGroups(model:ModularModel):string[] {
