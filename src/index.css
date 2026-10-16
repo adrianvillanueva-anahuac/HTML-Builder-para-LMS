@@ -48,6 +48,20 @@ dialog.exercise-settings.project-prompt{margin:auto;inset:0;width:min(480px,calc
 .project-tab-info-task input[type=checkbox]{width:20px;height:20px;flex:0 0 20px;margin:2px 0 0;accent-color:#5d428c;cursor:pointer}
 .project-tab-info-task[data-done=true] input{accent-color:#188038}
 .project-tab-info-task input:focus-visible{outline:2px solid #5d428c;outline-offset:3px}
+.project-export-size{--size-color:#5d428c;border-top:1px solid #e8eaed;padding-top:12px}
+.project-export-size[data-level=warning]{--size-color:#a66300}
+.project-export-size[data-level=over]{--size-color:#b3261e}
+.project-export-total{font-size:11px;font-variant-numeric:tabular-nums;color:#5f6368}
+.project-export-total strong{display:inline!important;font-size:13px;color:var(--size-color)}
+.project-export-size progress{display:block;width:100%;height:5px;margin:9px 0;border:0;border-radius:9px;overflow:hidden;appearance:none;background:#e8eaed}
+.project-export-size progress::-webkit-progress-bar{background:#e8eaed;border-radius:9px}
+.project-export-size progress::-webkit-progress-value{background:var(--size-color);border-radius:9px}
+.project-export-size progress::-moz-progress-bar{background:var(--size-color);border-radius:9px}
+.project-export-size small{font-size:11px;color:var(--size-color)}
+.dark .project-export-size{--size-color:#d0bcff}
+.dark .project-export-size[data-level=warning]{--size-color:#ffcc80}
+.dark .project-export-size[data-level=over]{--size-color:#ffb4ab}
+.dark .project-export-total{color:#bdc1c6}
 .project-tab-info footer{border-top:1px solid #e8eaed;margin-top:12px;padding-top:10px;font-size:11px;color:#5f6368}
 .dark .project-tab-info{background:#30343d;color:#f1f3f4}
 .dark .project-tab-info :is(h3,small,footer){color:#bdc1c6}

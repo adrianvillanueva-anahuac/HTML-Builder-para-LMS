@@ -586,7 +586,7 @@ export function getCalculadoraHTML() {
         <div class="calc-placeholder w-full bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-colors hover:bg-gray-100" onpaste="window.handleCalculadoraPaste(event, this)">
             <span class="material-symbols-outlined text-5xl mb-3 text-gray-400">functions</span>
             <h3 class="text-lg font-bold text-gray-700 mb-2 font-serif">Insertar Funciones Externas (HTML/JS)</h3>
-            <p class="text-sm text-gray-500 mb-4">Sube un archivo .html o pega (Ctrl+V) tu código aquí.</p>
+            <p class="text-sm text-gray-500 mb-4">Sube un archivo .html o pega (Ctrl+V) tu código aquí. Los documentos HTML completos se conservarán intactos y se abrirán desde un botón a pantalla completa. Solo se adaptará el estilo del botón.</p>
             <div class="flex items-center justify-center gap-4">
                 <input type="file" accept=".html,.htm" class="hidden" onchange="window.handleCalculadoraUpload(this)">
                 <button type="button" class="bg-white border hover:bg-gray-100 text-gray-700 px-4 py-2 rounded shadow-sm text-sm font-bold flex items-center gap-2" onclick="this.previousElementSibling.click()">
@@ -597,6 +597,7 @@ export function getCalculadoraHTML() {
                 </div>
             </div>
             <textarea class="hidden calc-raw-code"></textarea>
+            <label class="block text-sm text-gray-600 mt-4">Presentación <select class="calc-display-mode border rounded p-2 ml-2"><option value="auto">Automática según el código</option><option value="inline">Incrustado (procesamiento habitual)</option><option value="standalone">Botón · HTML íntegro a pantalla completa</option></select></label>
             <button type="button" class="bg-anahuac-orange text-white px-6 py-2 rounded font-bold shadow hover:bg-orange-600 transition-colors mt-4 hidden calc-process-btn" onclick="window.processCalculadora(this.closest('.lms-element'))">Procesar e Insertar</button>
         </div>
         <div class="calc-result hidden w-full rounded-lg bg-white relative p-4 pt-8 group/iframe">

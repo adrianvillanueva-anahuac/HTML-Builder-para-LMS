@@ -11,9 +11,32 @@ import { tabInk,workspaceTooltip } from './project-model';
 import type { CSSProperties } from 'react';
 
 type History = ReturnType<typeof takeWorkspaceHistory>;
+const LMS_CHARACTER_LIMIT=2_000_000;
+const formatCharacters=(value:number)=>value.toLocaleString('es-MX');
 export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
   const [project, setProject] = useState<Project | null>(null);
   const [tabInfo,setTabInfo]=useState<{space:Workspace;x:number;y:number}|null>(null);
+  const [exportSize,setExportSize]=useState<{id:string;count:number|null}|null>(null);
+  useEffect(()=>{
+    if(!tabInfo)return;
+    const id=tabInfo.space.id;
+    setExportSize(null);
+    const measure=()=>{
+      try{
+        const p=current.current,space=p?.spaces.find(s=>s.id===id);
+        if(!space||!window.generateExportHTML)return;
+        let source:HTMLElement;
+        if(id===p!.activeId)source=outer();
+        else {source=document.createElement('div');source.innerHTML=space.html;source.dataset.bg=space.bg;source.style.cssText=space.style;}
+        const html=window.generateExportHTML(false,source,true) as string|null;
+        setExportSize({id,count:html===null?null:html.length});
+      }catch{setExportSize({id,count:null});}
+    };
+    let timer=setTimeout(measure,120);
+    const observer=new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(measure,300);});
+    if(outer()&&id===current.current?.activeId)observer.observe(outer(),{subtree:true,childList:true,characterData:true,attributes:true});
+    return()=>{clearTimeout(timer);observer.disconnect();};
+  },[tabInfo?.space.id]);
   const tabInfoTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
   const keepTabInfo=()=>{if(tabInfoTimer.current)clearTimeout(tabInfoTimer.current);};
   const hideTabInfo=()=>{keepTabInfo();tabInfoTimer.current=setTimeout(()=>{
@@ -280,7 +303,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     const p=capture();if(!p || projectContent(p)!==baseline.current){setSaved(false);setMessage('Guarda los últimos cambios del proyecto antes de copiar.');return;}
     const html=window.generateExportHTML(false);
     if(!html){setMessage('No se pudo generar el HTML. Revisa los ejercicios y sus recursos.');return;}
-    if(html.length>2000000){setMessage(`El espacio ocupa ${html.length.toLocaleString('es-MX')} caracteres y supera el límite de 2,000,000. Divide el contenido en más espacios o reduce los ejercicios incorporados.`);return;}
+    if(html.length>LMS_CHARACTER_LIMIT){setMessage(`El espacio ocupa ${html.length.toLocaleString('es-MX')} caracteres y supera el límite de 2,000,000. Divide el contenido en más espacios o reduce los ejercicios incorporados.`);return;}
     try {await navigator.clipboard.writeText(html);setMessage(`HTML del espacio activo copiado: ${html.length.toLocaleString('es-MX')} caracteres.`);}
     catch {setMessage('No se pudo acceder al portapapeles. Usa Chrome en HTTPS o localhost y permite copiar.');}
   }
@@ -356,6 +379,14 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
       <strong><span className="project-tab-info-dot" style={{background:tabInfo.space.tabColor||'#ffffff'}}/>{tabInfo.space.name}</strong>
       {!!tabInfo.space.notes?.length&&<section><h3>Notas</h3>{tabInfo.space.notes.map((note,i)=><p key={i}>{note}</p>)}</section>}
       {!!tabInfo.space.checklist?.length&&<section><h3>Checklist</h3>{tabInfo.space.checklist.map((item,i)=><label className="project-tab-info-task" data-done={item.done} key={i}><input type="checkbox" checked={item.done} disabled={busy} aria-label={item.text} onChange={e=>setChecklistDone(tabInfo.space.id,i,e.currentTarget.checked)}/><span>{item.text}<small>{item.done?'Completado':'Pendiente'}</small></span></label>)}</section>}
+      <section className="project-export-size" aria-label="Tamaño del código para LMS" data-level={exportSize?.count!=null&&exportSize.count>LMS_CHARACTER_LIMIT?'over':exportSize?.count!=null&&exportSize.count>=LMS_CHARACTER_LIMIT*.9?'warning':'normal'}>
+        <h3>Código para LMS</h3>
+        {exportSize?.id!==tabInfo.space.id?<p>Calculando caracteres…</p>:exportSize.count===null?<p>Completa y guarda los ejercicios y revisa sus recursos para calcular el HTML exportable.</p>:<>
+          <div className="project-export-total"><strong>{formatCharacters(exportSize.count)}</strong><span> / {formatCharacters(LMS_CHARACTER_LIMIT)} caracteres</span></div>
+          <progress max={LMS_CHARACTER_LIMIT} value={Math.min(exportSize.count,LMS_CHARACTER_LIMIT)} aria-label="Caracteres del HTML exportado" aria-valuetext={`${formatCharacters(exportSize.count)} de ${formatCharacters(LMS_CHARACTER_LIMIT)} caracteres`}/>
+          <small>{exportSize.count>LMS_CHARACTER_LIMIT?`Excede el límite por ${formatCharacters(exportSize.count-LMS_CHARACTER_LIMIT)} caracteres`:`Disponibles: ${formatCharacters(LMS_CHARACTER_LIMIT-exportSize.count)} caracteres`}</small>
+        </>}
+      </section>
       <footer>Doble clic para editar la información</footer>
     </div>,document.body)}
     {(busy || message) && <div className="project-status" role="status" onClick={()=>setMessage('')}>{busy?'Guardando…':message}</div>}

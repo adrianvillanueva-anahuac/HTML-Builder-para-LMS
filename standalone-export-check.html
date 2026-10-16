@@ -1,0 +1,29 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Prueba de funciones externas</title><body>
+<h1>Exportación de aplicación HTML íntegra</h1><pre id="results">Preparando…</pre><button id="test" disabled>Comprobar exportación</button>
+<iframe id="builder" src="/" title="Builder de prueba" style="width:100%;height:180px"></iframe>
+<iframe id="published" title="Página exportada" style="width:100%;height:500px"></iframe>
+<script type="module">
+import {getCalculadoraHTML} from '/src/templates.ts';
+import {decodeStandaloneHTML} from '/src/standalone-html.ts';
+const fixture='<!DOCTYPE html>\n<html lang="es"><head><title>Aplicación de prueba</title><style>body{background:#eff;color:#123}</style></head><body><h1>HTML original ❄️</h1><button onclick="this.textContent=\'Funciona\'">Probar interacción</button></body></html>\n';
+const builder=document.querySelector('#builder'),button=document.querySelector('#test'),results=document.querySelector('#results');
+builder.addEventListener('load',()=>{button.disabled=false;});
+button.onclick=()=>{
+ const win=builder.contentWindow,doc=win.document;results.textContent='';
+ const check=(value,label)=>{if(!value)throw Error(label);results.textContent+='✓ '+label+'\n';};
+ try{
+ const root=doc.querySelector('#canvas-container-outer');root.innerHTML=getCalculadoraHTML();
+ const block=root.querySelector('[data-type=calculadora_html]'),input=block.querySelector('.calc-raw-code');
+ input.value=fixture;win.processCalculadora(block);
+ check(decodeStandaloneHTML(block.querySelector('[data-standalone-html]').dataset.standaloneHtml)===fixture,'Documento intacto tras procesamiento automático');
+ const html=win.generateExportHTML(false),output=new DOMParser().parseFromString(html,'text/html');
+ check(decodeStandaloneHTML(output.querySelector('[data-standalone-html]').dataset.standaloneHtml)===fixture,'Documento intacto después de exportar');
+ check(!output.querySelector('.calc-placeholder'),'Exportación sin duplicar el código de edición');
+ check(html.includes('setupStandaloneHTML();'),'Visor incluido en la exportación');
+ document.querySelector('#published').srcdoc=html;
+ block.querySelector('.calc-display-mode').value='inline';input.value='<div>Fragmento habitual</div>';win.processCalculadora(block);
+ check(!!block.querySelector('.calc-result iframe')&&!block.querySelector('[data-standalone-html]'),'Procesamiento incrustado anterior conservado');
+ results.textContent+='5 comprobaciones correctas. Abre el botón de la página exportada para probar su interacción.';
+ }catch(error){results.textContent+='ERROR: '+error.message;}
+};
+</script></body></html>

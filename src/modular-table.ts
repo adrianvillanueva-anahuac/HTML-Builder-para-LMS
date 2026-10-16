@@ -560,6 +560,14 @@ export function setupModularTables() {
   },true);
 }
 export function prepareModularExport(root:HTMLElement) {
+  // Render authored state consistently, including inactive compact workspaces.
+  // Work on the export clone only; never switch or rebuild the user's canvas.
+  compactModularState(root);
+  root.querySelectorAll<HTMLElement>('.modular-table[data-modular]').forEach(block=>{
+    const model=JSON.parse(block.dataset.modular!);
+    models.set(block,model);render(block);
+    runtimes.get(block)?.destroy();runtimes.delete(block);models.delete(block);
+  });
   root.querySelectorAll<HTMLElement>('.modular-table').forEach(block=>{
     if(block.dataset.modPending){block.remove();return;}
     block.classList.add('mod-published');delete block.dataset.modular;

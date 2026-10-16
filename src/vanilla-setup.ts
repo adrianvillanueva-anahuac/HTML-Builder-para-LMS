@@ -1,4 +1,7 @@
 import Sortable from 'sortablejs';
+import {isStandaloneHTML,standaloneButton} from './standalone-html';
+import {setupStandaloneHTML} from './standalone-runtime.js';
+import standaloneRuntime from './standalone-runtime.js?raw';
 import { getModularHTML, initModularTables, setupModularTables, prepareModularExport, modularExportAssets, modularExportStyles, compactModularState } from './modular-table';
 import './icon-grid.css';
 import iconGridStyles from './icon-grid.css?raw';
@@ -139,6 +142,7 @@ export function upgradeTitleImageElements(root: ParentNode = document) {
 
 export function setupVanillaGlobals() {
     setupModularTables();
+    setupStandaloneHTML();
     window.resetExerciseHistory = () => {
         clearTimeout(historyTimeout);
         historyStack = []; historyIndex = -1; isHistoryAction = false;
@@ -1863,10 +1867,19 @@ export function setupVanillaGlobals() {
         const placeholder = container.querySelector('.calc-placeholder') as HTMLElement;
         if (!rawCodeEl || !resultDiv || !placeholder) return;
 
-        let code = rawCodeEl.value.trim();
-        if (!code) {
+        let code = rawCodeEl.value;
+        if (!code.trim()) {
             window.showToast('No hay código para procesar.', true);
             return;
+        }
+
+        // Full applications keep their original document, scripts and styling.
+        // Only the launch button inherits the institutional identity.
+        const displayMode=container.querySelector<HTMLSelectElement>('.calc-display-mode')?.value||'auto';
+        if(displayMode==='standalone'||(displayMode==='auto'&&isStandaloneHTML(code))){
+            resultDiv.replaceChildren(standaloneButton(code));
+            placeholder.classList.add('hidden');resultDiv.classList.remove('hidden');
+            window.saveHistoryState?.(true);return;
         }
 
         // Apply visual identity modifications
@@ -3522,19 +3535,27 @@ export function setupVanillaGlobals() {
     }
 
     
-    function generateExportHTML(includeEditorState = true): string | null {
-        const outerEl = document.getElementById('canvas-container-outer') || document.getElementById('canvas');
+    function generateExportHTML(includeEditorState = true, source?:HTMLElement, silent=false): string | null {
+        const outerEl = source || document.getElementById('canvas-container-outer') || document.getElementById('canvas');
         if(!outerEl) return null;
         if (Array.from(outerEl.querySelectorAll<HTMLElement>('[data-type="ejercicio_descargable"]')).some(block => !block.dataset.exerciseFile)) {
-            alert('Edita y guarda cada ejercicio descargable antes de exportar la página.');
+            if(!silent)alert('Edita y guarda cada ejercicio descargable antes de exportar la página.');
             return null;
         }
         const clone = outerEl.cloneNode(true) as HTMLElement;
         if(!clone) return null;
+        // Exclude live selection/drag state so active and stored pages produce
+        // the same export, and the size indicator matches the clipboard HTML.
+        clone.querySelectorAll('.sortable-ghost,.layout-intent-indicator,#empty-state').forEach(el=>el.remove());
+        clone.querySelectorAll('*').forEach(el=>{
+            el.removeAttribute('contenteditable');el.removeAttribute('data-sortable-active');
+            el.classList.remove('selected-img','drag-over','is-dragging','drag-item');
+        });
+        clone.querySelectorAll<HTMLElement>('.parallax-layer').forEach(el=>el.style.removeProperty('transform'));
         clone.querySelectorAll('.lms-drag-origin').forEach(el => el.remove());
         prepareModularExport(clone);
         try { externalizeImages(clone); prepareExerciseLinks(clone); }
-        catch (error) { alert(error instanceof Error ? error.message : 'No se pudo preparar la exportación.'); return null; }
+        catch (error) { if(!silent)alert(error instanceof Error ? error.message : 'No se pudo preparar la exportación.'); return null; }
         
         // Remove the editor placeholder for templates
         clone.querySelectorAll('#canvas-placeholder').forEach(el => el.remove());
@@ -3543,6 +3564,7 @@ export function setupVanillaGlobals() {
         clone.querySelectorAll('.flipcard-item-controls').forEach(el => el.remove());
         clone.querySelectorAll('.drag-handle').forEach(el => el.remove());
         clone.querySelectorAll('.embed-placeholder').forEach(el => el.remove());
+        clone.querySelectorAll('.calc-placeholder').forEach(el=>el.remove());
 
         // FIX: Ensure tab panes retain vertical layout when exported
         clone.querySelectorAll('.lms-tab-pane').forEach((el: any) => {
@@ -3846,7 +3868,8 @@ export function setupVanillaGlobals() {
             }
         });
 
-        const exportedCanvasHtml = clone.innerHTML;
+        const standaloneAssets=clone.querySelector('[data-standalone-html]')?`<script>${standaloneRuntime.replace('export function','function')}setupStandaloneHTML();<\/script>`:'';
+        const exportedCanvasHtml = clone.innerHTML+standaloneAssets;
         const editorState = includeEditorState ? `<script type="application/json" id="lms-state" data-encoding="json">${JSON.stringify(outerEl.innerHTML || '').replace(/</g, '\\u003c')}</script>` : '';
         const finalHTML = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="generator" content="anahuac-builder-lms"><title>Contenido D2L</title>${customStyles}<style>${iconGridStyles}\n${footerLayoutStyles}</style>${clone.querySelector('.modular-table') ? modularExportStyles : ''}</head><body><div class="max-w-5xl mx-auto anahuac-builder-export">${exportedCanvasHtml}</div>${finalJS}${clone.querySelector('.modular-table') ? modularExportAssets : ''}${editorState}</body></html>`;
         
