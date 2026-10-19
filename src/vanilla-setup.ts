@@ -1,4 +1,5 @@
 import Sortable from 'sortablejs';
+import {prepareExportPageLayout} from './export-page-layout';
 import {isStandaloneHTML,standaloneButton} from './standalone-html';
 import {setupStandaloneHTML} from './standalone-runtime.js';
 import standaloneRuntime from './standalone-runtime.js?raw';
@@ -3869,9 +3870,10 @@ export function setupVanillaGlobals() {
         });
 
         const standaloneAssets=clone.querySelector('[data-standalone-html]')?`<script>${standaloneRuntime.replace('export function','function')}setupStandaloneHTML();<\/script>`:'';
-        const exportedCanvasHtml = clone.innerHTML+standaloneAssets;
+        prepareExportPageLayout(clone);
+        const exportedCanvasHtml = clone.outerHTML+standaloneAssets;
         const editorState = includeEditorState ? `<script type="application/json" id="lms-state" data-encoding="json">${JSON.stringify(outerEl.innerHTML || '').replace(/</g, '\\u003c')}</script>` : '';
-        const finalHTML = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="generator" content="anahuac-builder-lms"><title>Contenido D2L</title>${customStyles}<style>${iconGridStyles}\n${footerLayoutStyles}</style>${clone.querySelector('.modular-table') ? modularExportStyles : ''}</head><body><div class="max-w-5xl mx-auto anahuac-builder-export">${exportedCanvasHtml}</div>${finalJS}${clone.querySelector('.modular-table') ? modularExportAssets : ''}${editorState}</body></html>`;
+        const finalHTML = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="generator" content="anahuac-builder-lms"><title>Contenido D2L</title>${customStyles}<style>${iconGridStyles}\n${footerLayoutStyles}\nhtml,body{margin:0;padding:0;min-height:0}body{background:transparent}</style>${clone.querySelector('.modular-table') ? modularExportStyles : ''}</head><body style="margin:0;padding:0;background:transparent">${exportedCanvasHtml}${finalJS}${clone.querySelector('.modular-table') ? modularExportAssets : ''}${editorState}</body></html>`;
         
         return finalHTML;
     }

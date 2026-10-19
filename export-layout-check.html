@@ -1,0 +1,32 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Comparación de proporciones LMS</title><body style="font:14px Arial;margin:16px">
+<h1>Builder y exportación: misma proporción</h1><pre id="results">Preparando…</pre><button id="test" disabled>Comparar proporciones</button>
+<iframe id="builder" src="/" title="Builder de prueba" style="display:block;width:1444px;height:350px;border:0"></iframe>
+<h2>HTML exportado · contenedor LMS de 865 px</h2><iframe id="published" title="Exportación LMS" style="display:block;width:865px;height:520px;border:0"></iframe>
+<script type="module">
+import {getBienvenidaHTML} from '/src/templates.ts';
+const builder=document.querySelector('#builder'),published=document.querySelector('#published'),button=document.querySelector('#test'),results=document.querySelector('#results');
+builder.addEventListener('load',()=>button.disabled=false);
+const ready=async frame=>{await frame.contentDocument.fonts.ready;await new Promise(r=>setTimeout(r,700));};
+button.onclick=async()=>{
+ results.textContent='';let passed=0;const check=(ok,label)=>{if(!ok)throw Error(label);results.textContent+='✓ '+label+'\n';passed++;};
+ try{
+ const win=builder.contentWindow,root=win.document.querySelector('#canvas-container-outer');
+ root.style.cssText='width:100%;max-width:850px;padding:15px;min-height:80vh;background:repeating-linear-gradient(45deg,#ff5900 0 16px,#eee 16px 32px)';
+ root.innerHTML='<div id="canvas" class="relative w-full border-2 border-dashed p-2">'+getBienvenidaHTML()+'</div>';
+ await ready(builder);
+ const page=root.querySelector('#canvas > div > .lms-dropzone');
+ const expectedWidth=page.getBoundingClientRect().width,expectedInset=page.getBoundingClientRect().left-root.getBoundingClientRect().left;
+ const html=win.generateExportHTML(false);const loaded=new Promise(r=>published.onload=r);published.srcdoc=html;await loaded;await ready(published);
+ const doc=published.contentDocument,exportRoot=doc.querySelector('.anahuac-builder-export'),exportPage=doc.querySelector('#canvas > div > .bg-white');
+ check(exportRoot.getBoundingClientRect().width===850,'Ancho original de 850 px dentro de 865 px');
+ check(exportPage.getBoundingClientRect().width===expectedWidth,`Página blanca igual al builder: ${expectedWidth} px`);
+ check(exportPage.getBoundingClientRect().left-exportRoot.getBoundingClientRect().left===expectedInset,`Fondo visible igual al builder: ${expectedInset} px por lado`);
+ check(published.contentWindow.getComputedStyle(doc.body).padding==='0px','Sin 32 px extra de margen exterior');
+ check(published.contentWindow.getComputedStyle(exportRoot).minHeight==='0px','Sin altura mínima artificial en el contenedor');
+ published.style.width='375px';await ready(published);
+ check(exportRoot.getBoundingClientRect().width<=375&&doc.documentElement.scrollWidth<=375,'Móvil de 375 px sin desbordamiento horizontal');
+ check(published.contentWindow.getComputedStyle(exportPage).paddingLeft==='40px','Espaciado responsivo móvil conservado');
+ published.style.width='865px';await ready(published);results.textContent+=passed+' comprobaciones correctas';
+ }catch(error){results.textContent+='ERROR: '+error.message;}
+};
+</script></body></html>

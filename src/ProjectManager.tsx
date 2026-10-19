@@ -356,8 +356,8 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
           const checkbox=document.querySelector<HTMLInputElement>('#project-tab-info input:not(:disabled)');
           if(checkbox){e.preventDefault();keepTabInfo();checkbox.focus();}
         }
-      }} style={{'--active-tab-color':project?.spaces.find(s=>s.id===project.activeId)?.tabColor||'#ffffff'} as CSSProperties}>
-      <div className="project-tabs" role="tablist" aria-label="Espacios de trabajo">{project?.spaces.map(s=><div className="project-tab" data-colored={!!s.tabColor} style={{'--tab-color':s.tabColor||'#ffffff','--tab-ink':tabInk(s.tabColor||'#ffffff')} as CSSProperties} data-active={s.id===project.activeId} key={s.id} draggable={!busy}
+      }} style={{'--active-tab-color':project?.spaces.find(s=>s.id===project.activeId)?.tabColor||'var(--default-tab-color)'} as CSSProperties}>
+      <div className="project-tabs" role="tablist" aria-label="Espacios de trabajo">{project?.spaces.map(s=><div className="project-tab" data-colored={!!s.tabColor} style={{'--tab-color':s.tabColor||'var(--default-tab-color)','--tab-ink':s.tabColor?tabInk(s.tabColor):'var(--default-tab-ink)'} as CSSProperties} data-active={s.id===project.activeId} key={s.id} draggable={!busy}
         onDragStart={e=>{setTabInfo(null);e.dataTransfer.setData('application/x-lms-space',s.id);e.dataTransfer.effectAllowed='move';}}
         onDragOver={e=>{if(e.dataTransfer.types.includes('application/x-lms-space')){e.preventDefault();e.dataTransfer.dropEffect='move';}}}
         onDrop={e=>{e.preventDefault();reorder(e.dataTransfer.getData('application/x-lms-space'),s.id);}}>

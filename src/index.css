@@ -76,6 +76,8 @@ dialog.exercise-settings.project-prompt{margin:auto;inset:0;width:min(480px,calc
 .workspace-task button{padding:2px;color:#6b7280}
 .workspace-task button{grid-column:3;grid-row:1}
 
+.project-header .project-tab-strip{--default-tab-color:#fff;--default-tab-ink:#20242b}
+.dark .project-header .project-tab-strip{--default-tab-color:#434958;--default-tab-ink:#f4f1ff}
 .project-header .project-tab-strip[style]{background:linear-gradient(to top,var(--active-tab-color,#fff) 11px,transparent 11px),#e9eaf0}
 .dark .project-header .project-tab-strip[style]{background:linear-gradient(to top,var(--active-tab-color,#fff) 11px,transparent 11px),#171a21}
 .project-header .project-tab[data-active=true][style]{background:var(--tab-color,#fff)}
@@ -272,7 +274,7 @@ body.exercise-editor [data-tour="import-file"],body.exercise-editor [data-tour="
 .dark .builder-header{background:#20232b;border-color:#393e49;color:#edf0f7}
 .dark .project-header .project-tab-strip{background:#171a21}
 .dark .project-tab:not([data-active=true]):hover{background:#303542}
-.dark .project-header .project-tab[data-active=true]{background:#343947}
+.dark .project-header .project-tab[data-active=true]{background:var(--tab-color,var(--default-tab-color))}
 .dark .project-tab [role=tab]{color:#b7bfce}
 .dark .project-tab [aria-selected=true]{color:#f4f1ff}
 .dark .project-tab::after{background:#414755}
