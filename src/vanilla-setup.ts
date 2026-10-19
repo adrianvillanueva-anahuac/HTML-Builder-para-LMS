@@ -1,4 +1,5 @@
 import Sortable from 'sortablejs';
+import {ensureDuplicateButtons,duplicateElement,applyVerticalSpacing} from './element-actions';
 import {prepareExportPageLayout} from './export-page-layout';
 import {isStandaloneHTML,standaloneButton} from './standalone-html';
 import {setupStandaloneHTML} from './standalone-runtime.js';
@@ -178,9 +179,9 @@ export function setupVanillaGlobals() {
 
     // HISTORY FUNCTIONS
     window.saveHistoryState = function(immediate = false) {
-        if (isHistoryAction || window.modularResizing || document.body.classList.contains('is-dragging')) return;
+        if (isHistoryAction || window.modularResizing || window.lmsWorkspaceDragActive || document.body.classList.contains('is-dragging')) return;
         const save = () => {
-            if (window.modularResizing || document.body.classList.contains('is-dragging')) return;
+            if (window.modularResizing || window.lmsWorkspaceDragActive || document.body.classList.contains('is-dragging')) return;
             const container = document.getElementById('canvas-container-outer') || document.getElementById('canvas');
             if (!container) return;
             
@@ -423,6 +424,7 @@ export function setupVanillaGlobals() {
     });
 
     const canvasObserver = new MutationObserver(() => {
+        ensureDuplicateButtons();
         // Skip observer triggers during history navigation or sorting etc. if we can,
         // but saveHistoryState already skips if isHistoryAction is true.
         window.saveHistoryState();
@@ -445,6 +447,8 @@ export function setupVanillaGlobals() {
             window.checkEmptyState();
         }
     }
+
+    window.duplicateBlock = duplicateElement;
 
     window.checkEmptyState = function() {
         if (window.isLmsDragging || document.body.classList.contains('is-dragging')) return;
@@ -739,24 +743,7 @@ export function setupVanillaGlobals() {
     }
 
     window.changeCuadroPadding = function(btn: HTMLElement, paddingVal: string) {
-        const lmsElement = btn.closest('.lms-element');
-        const el = lmsElement?.querySelector(':scope > div:not(.block-toolbar)') as HTMLElement;
-        if(!el) return;
-
-        // Remove existing vertical padding
-        el.classList.remove('py-2', 'py-4', 'py-6', 'py-8', 'py-10', 'py-12', 'py-16');
-
-        if (paddingVal && paddingVal.startsWith('py-')) {
-            el.className = el.className.replace(/\bp-\d+\b/g, ''); // Remove uniform p- if any, but replace with px-8 + new py
-            if (!el.classList.contains('px-8')) {
-                 el.classList.add('px-8');
-            }
-            el.classList.add(paddingVal);
-        } else {
-             // Fallback
-             el.classList.add('py-8');
-             el.classList.add('px-8');
-        }
+        applyVerticalSpacing(btn,paddingVal);
     }
 
     window.changeCajaTextoColor = function(btn: HTMLElement, colorType: string) {
@@ -789,25 +776,7 @@ export function setupVanillaGlobals() {
     }
 
     window.changeCajaTextoPadding = function(btn: HTMLElement, paddingVal: string) {
-        const lmsElement = btn.closest('.lms-element');
-        const el = lmsElement?.querySelector(':scope > div:not(.block-toolbar)') as HTMLElement;
-        if(!el) return;
-
-        el.classList.remove('py-2', 'py-4', 'py-6', 'py-8', 'py-10', 'py-12', 'py-16');
-
-        if (paddingVal && paddingVal.startsWith('py-')) {
-            el.className = el.className.replace(/\bp-\d+\b/g, ''); 
-            el.className = el.className.replace(/\bmd:p-\d+\b/g, ''); 
-            if (!el.classList.contains('px-6')) {
-                 el.classList.add('px-6');
-                 el.classList.add('md:px-8');
-            }
-            el.classList.add(paddingVal);
-        } else {
-             el.classList.add('py-6');
-             el.classList.add('px-6');
-             el.classList.add('md:px-8');
-        }
+        applyVerticalSpacing(btn,paddingVal);
     }
 
     window.toggleFlipcardsSide = function(btn: HTMLElement) {
@@ -2963,7 +2932,7 @@ export function setupVanillaGlobals() {
             if (isMerged) {
                 merge.innerHTML = `<button type="button" class="w-6 h-6 bg-white border border-gray-300 shadow rounded flex items-center justify-center text-blue-600 hover:bg-blue-50 z-20 pointer-events-auto" onclick="window.unmergeTableCell(this)" title="Separar celdas"><span class="material-symbols-outlined text-[14px]">splitscreen</span></button>`;
             } else {
-                merge.innerHTML = `<button type="button" class="w-6 h-6 bg-white border border-gray-300 shadow rounded flex items-center justify-center text-blue-600 hover:bg-blue-50 z-20 pointer-events-auto" onclick="window.mergeTableCellRight(this)" title="Combinar con derecha"><span class="material-symbols-outlined text-[14px]">merge</span></button>
+                merge.innerHTML = `<button type="button" class="w-6 h-6 bg-white border border-gray-300 shadow rounded flex items-center justify-center text-blue-600 hover:bg-blue-50 z-20 pointer-events-auto" onclick="window.mergeTableCellRight(this)" title="Combinar con derecha"><span class="material-symbols-outlined text-[14px]" style="transform:rotate(90deg)" aria-hidden="true">merge</span></button>
                                    <button type="button" class="w-5 h-5 bg-white border border-gray-300 shadow rounded flex items-center justify-center text-blue-600 hover:bg-blue-50 z-20 pointer-events-auto" onclick="window.mergeTableCellDown(this)" title="Combinar abajo"><span class="material-symbols-outlined text-[14px]">merge_type</span></button>`;
             }
 
@@ -4072,6 +4041,7 @@ export function setupVanillaGlobals() {
     let proposedSlot: {zone: HTMLElement; target: HTMLElement; after: boolean} | null = null;
     let dragOrigin: HTMLElement | null = null;
     window.lmsOnSortableStart = function(evt: any) {
+        window.lmsBeginWorkspaceDrag?.(evt.item);
         dragOrigin?.remove();
         dragOrigin = null;
         proposedSlot = null;
@@ -4101,11 +4071,12 @@ export function setupVanillaGlobals() {
     };
     
     window.lmsOnSortableEnd = function(evt: any) {
+        const workspaceHandled=window.lmsEndWorkspaceDrag?.();
         dragOrigin?.remove();
         dragOrigin = null;
         proposedSlot = null;
         document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-        if (window.lmsLayoutIntent && window.lmsLayoutIntentTarget) {
+        if (!workspaceHandled && window.lmsLayoutIntent && window.lmsLayoutIntentTarget) {
             const item = evt.item;
             const intent = window.lmsLayoutIntent;
             const target = window.lmsLayoutIntentTarget;
@@ -4128,6 +4099,11 @@ export function setupVanillaGlobals() {
     };
 
     function updateLayoutIndicator(e: MouseEvent | TouchEvent) {
+        if(window.lmsWorkspaceDragSwitched){
+            window.lmsLayoutIntent=null;window.lmsLayoutIntentTarget=null;
+            if(layoutIndicator)layoutIndicator.style.display='none';
+            document.body.classList.remove('layout-intent-active');return;
+        }
         if (!window.isLmsDragging) {
              if (layoutIndicator && layoutIndicator.style.display !== 'none') layoutIndicator.style.display = 'none';
              document.body.classList.remove('layout-intent-active');
@@ -4498,6 +4474,7 @@ export function setupVanillaGlobals() {
 
     window.initNestedDropzones = function() {
         initModularTables();
+        ensureDuplicateButtons();
         document.querySelectorAll('.lms-dropzone').forEach(zone => { 
             const htmlZone = zone as HTMLElement;
             if(htmlZone.dataset.sortableActive !== "true") { 

@@ -1,0 +1,36 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Prueba de herramientas de elementos</title>
+<body style="font:14px Arial;margin:16px"><h1>Duplicación y espacio vertical</h1><button id="run" disabled>Verificar herramientas</button><pre id="results">Cargando…</pre><iframe id="editor" src="/" style="width:1200px;height:550px;border:1px solid #ccc"></iframe>
+<script type="module">
+import {getCajaTextoHTML,getCuadroNaranjaHTML,getTabsHTML} from '/src/templates.ts';
+import {getModularHTML} from '/src/modular-table.ts';
+import {createModular} from '/src/modular-model.ts';
+const frame=document.querySelector('#editor'),run=document.querySelector('#run'),results=document.querySelector('#results');
+frame.onload=()=>run.disabled=false;
+run.onclick=async()=>{results.textContent='';const check=(ok,label)=>{if(!ok)throw Error(label);results.textContent+='✓ '+label+'\n';};try{
+ const win=frame.contentWindow,doc=frame.contentDocument,canvas=doc.querySelector('#canvas');
+ canvas.innerHTML=getCajaTextoHTML()+getCuadroNaranjaHTML()+getTabsHTML()+getModularHTML();const mod=canvas.querySelector('.modular-table');mod.removeAttribute('data-mod-pending');mod.dataset.modular=JSON.stringify(createModular(2,2));win.initNestedDropzones();
+ const box=canvas.querySelector('[data-type=caja_texto]'),body=box.querySelector(':scope > div:not(.block-toolbar)'),text=body.querySelector('.editable-text');
+ for(const [label,pad,line,margin] of [['Justo',8,1.25,8],['Normal',24,1.625,24],['Amplio',48,1.9,40]]){
+  box.querySelector(`button[title="${label}"]`).click();const css=win.getComputedStyle(body),tc=win.getComputedStyle(text);
+  check(parseFloat(css.paddingTop)===pad&&parseFloat(css.paddingBottom)===pad&&Math.abs(parseFloat(tc.lineHeight)/parseFloat(tc.fontSize)-line)<0.01&&parseFloat(win.getComputedStyle(box).marginBottom)===margin,`Caja: ${label} ajusta padding, interlineado y margen`);
+ }
+ const orange=canvas.querySelector('[data-type=cuadro_naranja]');
+ for(const [label,pad] of [['Justo',8],['Normal',32],['Amplio',64]]){orange.querySelector(`button[title="${label}"]`).click();check(parseFloat(win.getComputedStyle(orange.querySelector(':scope > div:not(.block-toolbar)')).paddingTop)===pad,`Cuadro: ${label}`);}
+ check([...canvas.querySelectorAll('.block-toolbar')].every(t=>t.querySelector('[data-duplicate-element]')),'Todas las barras incluyen content_copy');
+ box.querySelector('[data-duplicate-element]').click();check(box.nextElementSibling.dataset.type==='caja_texto'&&box.nextElementSibling.style.marginBottom==='40px','Duplicar conserva contenido, estilo y ubicación');
+ const tabs=canvas.querySelector('[data-type=pestanas]');tabs.querySelector('[data-duplicate-element]').click();const copy=tabs.nextElementSibling;
+ check(copy.querySelector('[id]').id!==tabs.querySelector('[id]').id,'Pestañas duplicadas tienen IDs propios');
+ copy.querySelectorAll('.tab-buttons-container > button')[1].click();check(copy.querySelectorAll('.lms-tab-pane')[1].style.display!=='none'&&tabs.querySelectorAll('.lms-tab-pane')[1].style.display==='none','Pestañas de la copia funcionan sin modificar el original');
+ const pane=tabs.querySelector('.lms-tab-pane'),paragraph=pane.querySelector('[data-type=parrafo_basico]');
+ check(paragraph?.querySelector('.editable-text').textContent==='Contenido pestaña 1.'&&!!paragraph.querySelector('[title="Eliminar elemento"]'),'Contenido interno conservado con controles de párrafo');
+ paragraph.querySelector('[title="Alternar columnas"]').click();check(paragraph.querySelector('.editable-text').classList.contains('md:columns-2'),'Opciones de párrafo operativas dentro de la pestaña');
+ paragraph.querySelector('[data-duplicate-element]').click();check(pane.querySelectorAll('[data-type=parrafo_basico]').length===2,'Puede duplicarse solo el párrafo interno');
+ paragraph.querySelector('[title="Eliminar elemento"]').click();check(tabs.isConnected&&pane.isConnected&&pane.querySelectorAll('[data-type=parrafo_basico]').length===1,'Eliminar párrafo no elimina pestaña ni otros elementos');
+ win.addTab(tabs.querySelector('.block-toolbar button'));check(tabs.querySelector('.lms-tab-pane:last-child > [data-type=parrafo_basico] .block-toolbar'),'Pestañas nuevas incluyen párrafo con herramientas');
+ const blocks=tabs.querySelectorAll('[data-type=parrafo_basico]').length;win.initNestedDropzones();check(tabs.querySelectorAll('[data-type=parrafo_basico]').length===blocks,'Reinicializar no duplica controles ni contenido');
+ const modular=canvas.querySelector('.modular-table');modular.querySelector('[data-duplicate-element]').click();check(modular.nextElementSibling.querySelector('.mod-grid')&&modular.nextElementSibling!==modular,'Tabla modular duplicada e inicializada');
+ const count=canvas.children.length;win.undo();check(doc.querySelector('#canvas').children.length===count-1,'Deshacer elimina solo la última copia');win.redo();check(doc.querySelector('#canvas').children.length===count,'Rehacer restaura la copia');
+ const exported=win.generateExportHTML(false);check(!exported.includes('data-duplicate-element'),'Los botones de duplicar no se exportan al LMS');
+ results.textContent+='Todas las comprobaciones correctas';
+ }catch(error){results.textContent+='ERROR: '+error.message;}};
+</script></body></html>

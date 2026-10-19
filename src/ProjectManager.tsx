@@ -8,6 +8,7 @@ import { startTutorial } from './tutorial';
 import { projectDialog } from './project-dialog';
 import { workspaceDialog } from './workspace-dialog';
 import { tabInk,workspaceTooltip } from './project-model';
+import {installWorkspaceDrag} from './workspace-drag';
 import type { CSSProperties } from 'react';
 
 type History = ReturnType<typeof takeWorkspaceHistory>;
@@ -43,6 +44,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     if(!document.activeElement?.closest('.project-tab-info'))setTabInfo(null);
   },250);};
   const showTabInfo=(space:Workspace,element:HTMLElement)=>{
+    if(window.isLmsDragging||window.lmsWorkspaceDragActive)return;
     keepTabInfo();const rect=element.getBoundingClientRect();
     setTabInfo({space,x:Math.max(12,Math.min(rect.left,window.innerWidth-332)),y:rect.bottom+12});
   };
@@ -60,6 +62,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
   const histories = useRef(new Map<string, History>());
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
+  const busyRef=useRef(false);busyRef.current=busy;
   const [showVideoNotice, setShowVideoNotice] = useState(false);
   const [menu, setMenu] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -87,12 +90,12 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     return () => window.clearTimeout(timeout);
   }, [notice.sequence, message, busy]);
   const outer = () => document.getElementById('canvas-container-outer')!;
-  function snapshot(): Pick<Workspace,'html'|'bg'|'style'> {
-    const el = outer(), clone = el.cloneNode(true) as HTMLElement;
+  function snapshot(el:HTMLElement=outer()): Pick<Workspace,'html'|'bg'|'style'> {
+    const clone = el.cloneNode(true) as HTMLElement;
     clone.querySelectorAll('.sortable-ghost,.layout-intent-indicator,#empty-state').forEach(n => n.remove());
     clone.querySelectorAll('*').forEach(n => {
       n.removeAttribute('contenteditable'); n.removeAttribute('data-sortable-active');
-      n.classList.remove('selected-img','drag-over','is-dragging','drag-item');
+      n.classList.remove('selected-img','drag-over','is-dragging','drag-item','ghost-element','sortable-chosen');
     });
     clone.querySelectorAll<HTMLElement>('.parallax-layer').forEach(n => n.style.removeProperty('transform'));
     const placeholder = clone.querySelector<HTMLElement>('#canvas-placeholder');
@@ -104,6 +107,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
   function capture() {
     const p = current.current;
     if (!p) return null;
+    if(window.lmsWorkspaceDragActive)return p;
     const next = {...p, spaces:p.spaces.map(s => s.id === p.activeId ? {...s,...snapshot()} : s)};
     current.current = next;
     return next;
@@ -263,6 +267,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     return false;
   }
   function change(id:string) {
+    if(window.lmsWorkspaceDragActive)return;
     if(busy || document.querySelector('iframe[title="Diseñar ejercicio descargable"]'))return;
     const p=capture()!;histories.current.set(p.activeId,takeWorkspaceHistory());
     const s=p.spaces.find(s=>s.id===id)!;restore(s);publish({...p,activeId:id});
@@ -307,17 +312,39 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     try {await navigator.clipboard.writeText(html);setMessage(`HTML del espacio activo copiado: ${html.length.toLocaleString('es-MX')} caracteres.`);}
     catch {setMessage('No se pudo acceder al portapapeles. Usa Chrome en HTTPS o localhost y permite copiar.');}
   }
+  useEffect(()=>installWorkspaceDrag({
+    begin:()=>{
+      if(busyRef.current||document.querySelector('iframe[title="Diseñar ejercicio descargable"]'))return null;
+      const p=capture();if(!p)return null;
+      histories.current.set(p.activeId,takeWorkspaceHistory());setTabInfo(null);return p;
+    },
+    show:id=>{const p=current.current;if(p)publish({...p,activeId:id});},
+    serialize:snapshot,
+    finish:(before,updates,activeId,cancelled)=>{
+      const spaces=before.spaces.map(s=>updates.has(s.id)?{...s,...updates.get(s.id)!}:s);
+      for(const s of spaces){
+        const original=before.spaces.find(previous=>previous.id===s.id)!;
+        if(original.html===s.html)continue;
+        const history=histories.current.get(s.id);
+        const stack=history?history.stack.slice(0,history.index+1):[];
+        if(stack.at(-1)!==original.html)stack.push(original.html);
+        stack.push(s.html);histories.current.set(s.id,{stack,index:stack.length-1});
+      }
+      publish({...before,spaces,activeId});loadWorkspaceHistory(histories.current.get(activeId));
+      setMessage(cancelled?'Movimiento cancelado. El elemento permanece en su posición original.':'Elemento movido al espacio seleccionado.');
+    }
+  }),[]);
   useEffect(()=>{
     // Parent initializes the imperative editor after mounting.
     let timer: ReturnType<typeof setTimeout>;
     const inspect=()=>{
-      if(!outer() || !window.initNestedDropzones || document.body.classList.contains('is-dragging') || window.isLmsDragging)return;
+      if(!outer() || !window.initNestedDropzones || document.body.classList.contains('is-dragging') || window.isLmsDragging || window.lmsWorkspaceDragActive)return;
       if(!blank.current)blank.current=emptyWorkspace();
       const p=capture();if(p)setSaved(projectContent(p)===baseline.current);
     };
     const schedule=()=>{
       clearTimeout(timer);
-      if(document.body.classList.contains('is-dragging') || window.isLmsDragging)return;
+      if(document.body.classList.contains('is-dragging') || window.isLmsDragging || window.lmsWorkspaceDragActive)return;
       timer=setTimeout(inspect,250);
     };
     const observer=new MutationObserver(schedule);
@@ -357,7 +384,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
           if(checkbox){e.preventDefault();keepTabInfo();checkbox.focus();}
         }
       }} style={{'--active-tab-color':project?.spaces.find(s=>s.id===project.activeId)?.tabColor||'var(--default-tab-color)'} as CSSProperties}>
-      <div className="project-tabs" role="tablist" aria-label="Espacios de trabajo">{project?.spaces.map(s=><div className="project-tab" data-colored={!!s.tabColor} style={{'--tab-color':s.tabColor||'var(--default-tab-color)','--tab-ink':s.tabColor?tabInk(s.tabColor):'var(--default-tab-ink)'} as CSSProperties} data-active={s.id===project.activeId} key={s.id} draggable={!busy}
+      <div className="project-tabs" role="tablist" aria-label="Espacios de trabajo">{project?.spaces.map(s=><div className="project-tab" data-workspace-id={s.id} data-colored={!!s.tabColor} style={{'--tab-color':s.tabColor||'var(--default-tab-color)','--tab-ink':s.tabColor?tabInk(s.tabColor):'var(--default-tab-ink)'} as CSSProperties} data-active={s.id===project.activeId} key={s.id} draggable={!busy}
         onDragStart={e=>{setTabInfo(null);e.dataTransfer.setData('application/x-lms-space',s.id);e.dataTransfer.effectAllowed='move';}}
         onDragOver={e=>{if(e.dataTransfer.types.includes('application/x-lms-space')){e.preventDefault();e.dataTransfer.dropEffect='move';}}}
         onDrop={e=>{e.preventDefault();reorder(e.dataTransfer.getData('application/x-lms-space'),s.id);}}>
