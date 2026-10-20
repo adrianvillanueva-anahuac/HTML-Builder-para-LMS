@@ -4,6 +4,7 @@ import runtimeSource from './modular-runtime.js?raw';
 import styles from './modular.css?raw';
 import './modular.css';
 import {inlineModularLayout} from './modular-export';
+import {addStrokeControls,applyScopedStroke,updateIndividualStrokes} from './modular-stroke';
 import {applyPromptLayout,promptLayout} from './modular-prompt';
 import {createModularConnection} from './modular-model';
 import {renderCenters,updateCenter,centerShapes,syncCenterText} from './modular-centers';
@@ -56,6 +57,7 @@ function layout(block:HTMLElement) {
   block.dataset.overflow=String(m.overflow);
   block.style.setProperty('--mod-stroke-width',(m.stroke?.width||0)+'px');
   block.style.setProperty('--mod-stroke-color',m.stroke?.color||'#5d428c');
+  updateIndividualStrokes(block,m);
   const strokeRange=block.querySelector<HTMLInputElement>('[data-mod-stroke-width]');
   if(strokeRange){strokeRange.value=String(m.stroke?.width||0);strokeRange.closest('label')!.querySelector('output')!.textContent=(m.stroke?.width||0)+' px';}
   const overflowButton=block.querySelector<HTMLElement>('[data-mod-action=overflow]');
@@ -138,6 +140,7 @@ function render(block:HTMLElement) {
   block.querySelector<HTMLButtonElement>('[data-mod-action=row]')!.disabled=m.rows.length>=10;
   block.querySelector<HTMLButtonElement>('[data-mod-action=column]')!.disabled=m.columns.length>=10;
   renderCenters(grid,m);
+  addStrokeControls(block);
   layout(block);persist(block);runtimes.set(block,mountModularRuntime(block));
 }
 function modal(title:string,content:string,onConfirm:(panel:HTMLElement)=>boolean|void,onCancel=()=>{}) {
@@ -320,13 +323,31 @@ function positionCellMenus() {
     const minY=Math.max(8,(bounds?.top||0)+8),maxY=Math.min(window.innerHeight-8,(bounds?.bottom||window.innerHeight)-8);
     panel.style.maxWidth=Math.max(0,maxX-minX)+'px';panel.style.maxHeight=Math.max(0,maxY-minY)+'px';
     const width=panel.offsetWidth,height=panel.offsetHeight;
-    const left=Math.max(minX,Math.min(rect.right-width,maxX-width));
-    const top=menu.closest('.mod-column-tools')&&rect.top-height-4>=minY?rect.top-height-4:rect.bottom+height+4<=maxY?Math.max(minY,rect.bottom+4):Math.max(minY,rect.top-height-4);
+    const clampX=(x:number)=>Math.max(minX,Math.min(x,maxX-width));
+    const clampY=(y:number)=>Math.max(minY,Math.min(y,maxY-height));
+    const toolbar=menu.closest<HTMLElement>('.mod-tools')!;
+    const bar=toolbar.getBoundingClientRect();
+    const obstacles=Array.from(menu.closest('.modular-table')?.querySelectorAll<HTMLElement>('.block-toolbar,.mod-cell-tools,.mod-row-tools,.mod-column-tools')||[])
+      .filter(el=>el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden'&&getComputedStyle(el).opacity!=='0')
+      .map(el=>(el.matches('.block-toolbar')?el.querySelector(':scope > .mod-tools')||el:el).getBoundingClientRect());
+    const candidates=[
+      {left:clampX(rect.right-width),top:clampY(bar.bottom+6)},
+      {left:clampX(rect.right-width),top:clampY(bar.top-height-6)},
+      {left:clampX(bar.right+6),top:clampY(rect.top)},
+      {left:clampX(bar.left-width-6),top:clampY(rect.top)}
+    ];
+    const overlap=(p:{left:number;top:number})=>obstacles.reduce((sum,r)=>sum+
+      Math.max(0,Math.min(p.left+width,r.right+4)-Math.max(p.left,r.left-4))*
+      Math.max(0,Math.min(p.top+height,r.bottom+4)-Math.max(p.top,r.top-4)),0);
+    candidates.sort((a,b)=>overlap(a)-overlap(b));
+    const {left,top}=candidates[0];
     panel.style.left=left+'px';panel.style.top=top+'px';
   });
 }
 export function setupModularTables() {
   if(installed)return;installed=true;
+  const hoverTimers=new WeakMap<Element,ReturnType<typeof setTimeout>>();
+  const cancelHoverClose=(el:Element)=>{clearTimeout(hoverTimers.get(el));hoverTimers.delete(el);};
   window.addEventListener('scroll',positionConnector,true);window.addEventListener('resize',positionConnector);
   window.addEventListener('scroll',positionCellMenus,true);window.addEventListener('resize',positionCellMenus);
   document.addEventListener('toggle',event=>{if((event.target as HTMLElement).matches?.('.mod-cell-tools details,.mod-row-tools details,.mod-column-tools details,.mod-preview-tools details'))positionCellMenus();},true);
@@ -335,6 +356,7 @@ export function setupModularTables() {
     if(target.closest?.('.mod-info'))closeConnector();
     const menu=target.closest?.<HTMLDetailsElement>('.modular-table .mod-tools details');
     if(menu){
+      cancelHoverClose(menu);
       const toolbar=menu.closest('.mod-tools')!;
       if(!toolbar.querySelector('details[data-menu-pinned=true]')||menu.dataset.menuPinned==='true'){
         toolbar.querySelectorAll<HTMLDetailsElement>('details[open]').forEach(other=>{if(other!==menu)other.open=false;});
@@ -342,6 +364,7 @@ export function setupModularTables() {
       }
     }
     const cell=target.closest?.<HTMLElement>('.mod-cell');
+    if(cell){cancelHoverClose(cell);cell.classList.add('mod-cell-hover-active');}
     if(cell)cell.closest('.modular-table')!.querySelectorAll<HTMLElement>('[data-row-tools]').forEach(tool=>tool.classList.toggle('is-row-hovered',tool.dataset.rowTools===cell.dataset.row));
     if(trigger){const block=trigger.closest<HTMLElement>('.modular-table')!;if(models.has(block))editConnection(block,trigger.closest<HTMLElement>('.mod-edge')!,false);}
   });
@@ -349,7 +372,17 @@ export function setupModularTables() {
     const target=event.target as HTMLElement;
     if(target.closest?.('.mod-edge'))deferConnectorClose();
     const menu=target.closest?.<HTMLDetailsElement>('.modular-table .mod-tools details');
-    if(menu)setTimeout(()=>{if(menu.isConnected&&!menu.matches(':hover')&&menu.dataset.menuPinned!=='true')menu.open=false;},160);
+    if(menu&&!menu.contains(event.relatedTarget as Node)){
+      cancelHoverClose(menu);
+      hoverTimers.set(menu,setTimeout(()=>{if(menu.isConnected&&!menu.matches(':hover,:focus-within')&&menu.dataset.menuPinned!=='true')menu.open=false;},450));
+    }
+    const cell=target.closest?.<HTMLElement>('.mod-cell');
+    if(cell&&!cell.contains(event.relatedTarget as Node)){
+      cancelHoverClose(cell);
+      hoverTimers.set(cell,setTimeout(()=>{
+        if(!cell.matches(':hover,:focus-within'))cell.classList.remove('mod-cell-hover-active');
+      },450));
+    }
     const block=target.closest?.('.modular-table');
     if(block)setTimeout(()=>block.querySelectorAll<HTMLElement>('[data-row-tools]').forEach(tool=>{
       const row=tool.dataset.rowTools;
@@ -401,6 +434,12 @@ export function setupModularTables() {
       }
       return;
     }
+    const strokeChoice=target.closest<HTMLElement>('[data-stroke-scope]');
+    if(strokeChoice){
+      event.preventDefault();event.stopPropagation();const m=sync(block);
+      applyScopedStroke(m,strokeChoice.dataset.strokeScope!,strokeChoice.dataset.strokeKey!,strokeChoice.dataset.strokeColor!);
+      updateIndividualStrokes(block,m);persist(block);save();return;
+    }
     const columnColor=target.closest<HTMLElement>('[data-column-color]');
     if(columnColor){
       event.preventDefault();event.stopPropagation();const m=sync(block),column=columnColor.dataset.colorColumn!;
@@ -420,7 +459,7 @@ export function setupModularTables() {
         setAllCellColors(m,globalChoice.dataset.modFillColor);
         block.querySelectorAll<HTMLElement>('.mod-cell').forEach(cell=>{const value=m.cells[cell.dataset.cell!];if(value)updateCellAppearance(cell,value);});
       }
-      if(globalChoice.dataset.modStrokeColor)m.stroke={width:m.stroke?.width||1,color:globalChoice.dataset.modStrokeColor};
+      if(globalChoice.dataset.modStrokeColor){m.stroke={width:m.stroke?.width||1,color:globalChoice.dataset.modStrokeColor};Object.values(m.cells).forEach(cell=>delete cell.strokeColor);}
       if(globalChoice.dataset.modRadius!==undefined){m.defaultRadius=Number(globalChoice.dataset.modRadius);Object.values(m.cells).forEach(c=>c.radius=m.defaultRadius!);block.querySelectorAll<HTMLElement>('.mod-cell').forEach(c=>{if(m.cells[c.dataset.cell!])updateCellAppearance(c,m.cells[c.dataset.cell!]);});}
       layout(block);persist(block);save();return;
     }

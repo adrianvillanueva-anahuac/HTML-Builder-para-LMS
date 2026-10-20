@@ -1,4 +1,4 @@
-export type ModularCell = { html: string; color: string; radius: number; padding: number; verticalAlign?: 'start'|'center'|'end'; student?:boolean; studentPromptEnabled?:boolean; studentPromptHtml?:string; studentPromptPosition?:'top'|'bottom'|'left'|'right'; studentPromptWidth?:number };
+export type ModularCell = { html: string; color: string; strokeColor?:string; radius: number; padding: number; verticalAlign?: 'start'|'center'|'end'; student?:boolean; studentPromptEnabled?:boolean; studentPromptHtml?:string; studentPromptPosition?:'top'|'bottom'|'left'|'right'; studentPromptWidth?:number };
 export type ModularConnection = { from: string; to: string; direction: 'forward'|'backward'|'both'|'none'; fill: string; stroke: string; dotted: boolean; strokeWidth?:number;scale?:number;offset?:number;radius?:number };
 export function createModularConnection(from:string,to:string):ModularConnection {
   return {from,to,direction:'forward',fill:'#5d428c',stroke:'none',dotted:false};

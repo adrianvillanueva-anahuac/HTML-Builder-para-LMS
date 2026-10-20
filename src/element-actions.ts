@@ -1,20 +1,24 @@
 import {compactModularState} from './modular-table';
 import {getBlockToolbar} from './templates';
+import {normalizeElementSpacing,setElementSpacing} from './element-spacing';
 
 // Upgrade both existing projects and newly inserted tab panes without replacing
 // the editable node (and therefore without losing its formatting or selection).
 export function upgradeTabParagraphs(root:ParentNode=document) {
-  root.querySelectorAll<HTMLElement>('#canvas .lms-tab-pane > .editable-text:not(.lms-element)').forEach(text=>{
+  root.querySelectorAll<HTMLElement>('#canvas .lms-tab-pane > .editable-text:not(.lms-element),#canvas [data-type="caja_texto"] > .lms-dropzone > .editable-text:not(.lms-element)').forEach(text=>{
     const block=document.createElement('div');
     block.className='relative mb-6 lms-element is-rendered';
-    block.dataset.type='parrafo_basico';
-    block.innerHTML=getBlockToolbar('parrafo_basico');
+    block.dataset.type=/^H[1-6]$/.test(text.tagName)?'titulo_basico':'parrafo_basico';
+    block.innerHTML=getBlockToolbar(block.dataset.type);
+    text.querySelectorAll('button[title="Eliminar texto"]').forEach(button=>button.remove());
+    text.style.marginTop='0px';text.style.marginBottom='0px';
     text.before(block);block.append(text);
   });
 }
 
 export function ensureDuplicateButtons() {
   upgradeTabParagraphs();
+  const canvas=document.getElementById('canvas-container-outer');if(canvas)normalizeElementSpacing(canvas);
   document.querySelectorAll<HTMLElement>('#canvas .block-toolbar').forEach(toolbar=>{
     if(toolbar.querySelector('[data-duplicate-element]'))return;
     const handle=toolbar.querySelector('.drag-handle');
@@ -75,8 +79,7 @@ export function applyVerticalSpacing(button:HTMLElement,padding:string) {
   content.style.paddingTop=content.style.paddingBottom=`${Number(padding.slice(3))*4}px`;
   content.style.minHeight='0';content.style.rowGap=`${values.gap}px`;
   // Dropzones reset child margins with !important; an explicit spacing choice must win.
-  block.style.setProperty('margin-top',`${values.margin}px`,'important');
-  block.style.setProperty('margin-bottom',`${values.margin}px`,'important');
+  setElementSpacing(block,Math.min(30,values.margin),Math.min(30,values.margin));
   content.querySelectorAll<HTMLElement>('.editable-text,.editable-text p,.editable-text li,.editable-text h1,.editable-text h2,.editable-text h3,.editable-text div').forEach(text=>{
     text.style.lineHeight=values.line;text.style.marginTop='0';text.style.marginBottom=`${values.gap}px`;
   });

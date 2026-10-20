@@ -44,6 +44,12 @@ export function mountModularRuntime(block) {
     const base=grid.getBoundingClientRect();
     const scrollBounds=block.querySelector('.mod-scroll').getBoundingClientRect();
     // Clamp the whole toolbar, not just its menus, inside the clipping scroll area.
+    const secondaryBars=[];
+    const primary=block.querySelector(':scope > .block-toolbar');
+    const primaryBar=primary?.querySelector(':scope > .mod-tools');
+    const primaryRect=primary?.getBoundingClientRect();
+    const shift=primary?getComputedStyle(primary).translate.split(' ').map(v=>parseFloat(v)||0):[0,0];
+    const primaryBounds=primaryRect?{left:primaryRect.left-shift[0],right:primaryRect.right-shift[0],top:primaryRect.top-(shift[1]||0),bottom:primaryRect.bottom-(shift[1]||0)}:null;
     block.querySelectorAll('.mod-cell-tools').forEach(tool=>{
       if(!tool.getClientRects().length)return;
       const cell=tool.parentElement.getBoundingClientRect();
@@ -52,12 +58,45 @@ export function mountModularRuntime(block) {
       tool.style.maxWidth=Math.max(30,rightLimit-leftLimit)+'px';
       const width=tool.getBoundingClientRect().width;
       const left=Math.max(leftLimit,Math.min(cell.right-width,rightLimit-width));
+      const height=tool.offsetHeight;
+      const firstRow=tool.parentElement.dataset.cell?.split(':')[0]==='0';
+      const alignedTop=firstRow&&primaryBounds&&primaryBounds.top>=4&&primaryBounds.bottom<=window.innerHeight-4
+        ?primaryBounds.top:cell.top-height-6;
+      const top=Math.max(4,Math.min(alignedTop,window.innerHeight-height-4));
       tool.style.right='auto';
-      tool.style.left=(left-cell.left-tool.parentElement.clientLeft)+'px';
+      tool.style.left=left+'px';tool.style.top=top+'px';
+      if(firstRow)secondaryBars.push({left,right:left+width,top,bottom:top+height});
     });
+    if(primaryBar){
+      // Measure the unshifted wrapper: reading the animated child would feed
+      // intermediate positions back into the next layout and cause jitter.
+      const r=primaryBounds,width=primaryBar.offsetWidth;
+      const hit=secondaryBars.find(s=>r.left<s.right+8&&r.left+width>s.left-8&&r.top<s.bottom+8&&r.bottom>s.top-8);
+      let dx=0,dy=0;
+      if(hit){
+        const preferLeft=(hit.left+hit.right)/2>=r.left+width/2;
+        const choices=preferLeft?[hit.left-width-8,hit.right+8]:[hit.right+8,hit.left-width-8];
+        const area=block.closest('#scroll-container')?.getBoundingClientRect();
+        const minX=Math.max(8,area?.left??8),maxX=Math.min(window.innerWidth-8,area?.right??window.innerWidth-8);
+        const free=choices.find(x=>x>=minX&&x+width<=maxX);
+        if(free!==undefined)dx=free-r.left;
+        else{
+          // On narrow screens keep both readable in two staggered levels.
+          dx=Math.max(minX,Math.min(r.left+(preferLeft?-48:48),maxX-width))-r.left;
+          const above=hit.top-8-primaryBar.offsetHeight;
+          dy=(above>=Math.max(8,area?.top??8)?above:hit.bottom+8)-r.top;
+        }
+      }
+      primaryBar.style.removeProperty('translate');
+      primary.style.translate=`${dx}px ${dy}px`;
+    }
     block.querySelectorAll('.mod-row-tools').forEach(tool=>{
       const row=tool.closest('.mod-cell').getBoundingClientRect();
-      set(tool,'style',`left:${scrollBounds.left-44}px;top:${row.top+row.height/2-20}px`);
+      set(tool,'style',`left:${Math.max(4,row.left-tool.offsetWidth-8)}px;top:${row.top+row.height/2-20}px`);
+    });
+    block.querySelectorAll('.mod-column-tools').forEach(tool=>{
+      const cell=tool.closest('.mod-cell').getBoundingClientRect();
+      set(tool,'style',`left:${Math.max(4,Math.min(window.innerWidth-tool.offsetWidth-4,cell.left+(cell.width-tool.offsetWidth)/2))}px;top:${cell.bottom+6}px`);
     });
     block.querySelectorAll('.mod-card').forEach(card=>{
       const text=card.querySelector('.mod-text');
@@ -164,11 +203,12 @@ export function mountModularRuntime(block) {
   observer.observe(block,{childList:true,subtree:true,characterData:true});
   block.addEventListener('input',schedule);
   block.addEventListener('pointerover',schedule);
+  block.addEventListener('pointerout',schedule);
   block.addEventListener('focusin',schedule);
   block.addEventListener('toggle',schedule,true);
   window.addEventListener('scroll',schedule,true);
   document.addEventListener('click',closeOutside);
   document.fonts?.ready.then(schedule);
   schedule();
-  return {update:schedule,destroy:()=>{resize.disconnect();observer.disconnect();cancelAnimationFrame(frame);block.removeEventListener('input',schedule);block.removeEventListener('pointerover',schedule);block.removeEventListener('focusin',schedule);block.removeEventListener('toggle',schedule,true);window.removeEventListener('scroll',schedule,true);document.removeEventListener('click',closeOutside);}};
+  return {update:schedule,destroy:()=>{resize.disconnect();observer.disconnect();cancelAnimationFrame(frame);block.removeEventListener('input',schedule);block.removeEventListener('pointerover',schedule);block.removeEventListener('pointerout',schedule);block.removeEventListener('focusin',schedule);block.removeEventListener('toggle',schedule,true);window.removeEventListener('scroll',schedule,true);document.removeEventListener('click',closeOutside);}};
 }

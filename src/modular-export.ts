@@ -5,13 +5,13 @@ export function inlineModularLayout(root:ParentNode) {
   root.querySelectorAll<HTMLElement>('.modular-table').forEach(block=>{
     const variable=(el:HTMLElement,key:string,fallback:string)=>el.style.getPropertyValue(key).trim()||fallback;
     const apply=(selector:string,styles:Partial<CSSStyleDeclaration>)=>block.querySelectorAll<HTMLElement>(selector).forEach(el=>Object.assign(el.style,styles));
-    Object.assign(block.style,{position:'relative',width:'100%',margin:'24px 0',clear:'both'});
-    apply('.mod-shell',{paddingInline:variable(block,'--mod-margin','0%'),boxSizing:'border-box'});
-    apply('.mod-scroll',{overflowX:'auto',padding:'28px 14px 24px',marginInline:'-14px'});
+    Object.assign(block.style,{position:'relative',width:'100%',clear:'both'});
+    apply('.mod-shell',{padding:variable(block,'--mod-margin','0%'),boxSizing:'border-box'});
+    apply('.mod-scroll',{overflowX:'auto',padding:'0px',margin:'0px'});
     apply('.mod-grid',{position:'relative',display:'grid',gap:variable(block,'--mod-gap','20px'),boxSizing:'border-box'});
     apply('.mod-cell',{position:'relative',minWidth:'0',minHeight:'0',border:'0',boxSizing:'border-box'});
-    const stroke=variable(block,'--mod-stroke-width','0px'),strokeColor=variable(block,'--mod-stroke-color','#5d428c');
     block.querySelectorAll<HTMLElement>('.mod-card').forEach(card=>{
+      const stroke=variable(card,'--mod-stroke-width',variable(block,'--mod-stroke-width','0px')),strokeColor=variable(card,'--mod-stroke-color',variable(block,'--mod-stroke-color','#5d428c'));
       const color=variable(card,'--card-color','#f3eef9'),ink=variable(card,'--card-text','#333333');
       const radius=variable(card,'--card-radius','6px'),padding=variable(card,'--card-padding','12px');
       Object.assign(card.style,{position:'relative',width:'100%',height:'100%',boxSizing:'border-box',display:'flex',flexDirection:'column',

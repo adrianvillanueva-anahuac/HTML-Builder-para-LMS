@@ -1,4 +1,5 @@
 import Sortable from 'sortablejs';
+import {normalizeElementSpacing,setupSpacingHandles} from './element-spacing';
 import {ensureDuplicateButtons,duplicateElement,applyVerticalSpacing} from './element-actions';
 import {prepareExportPageLayout} from './export-page-layout';
 import {isStandaloneHTML,standaloneButton} from './standalone-html';
@@ -143,6 +144,7 @@ export function upgradeTitleImageElements(root: ParentNode = document) {
 }
 
 export function setupVanillaGlobals() {
+    setupSpacingHandles();
     setupModularTables();
     setupStandaloneHTML();
     window.resetExerciseHistory = () => {
@@ -535,7 +537,7 @@ export function setupVanillaGlobals() {
 
     // Funcionalidad de bloques
     window.switchTitleType = function(btn: HTMLElement, type: 'T1' | 'T2') {
-        const title = btn.closest('.lms-element')?.querySelector('h2');
+        const title = btn.closest('.lms-element')?.querySelector('h1,h2,h3,h4,h5,h6');
         if (!title) return;
 
         if (type === 'T1') {
@@ -3513,6 +3515,7 @@ export function setupVanillaGlobals() {
             return null;
         }
         const clone = outerEl.cloneNode(true) as HTMLElement;
+        normalizeElementSpacing(clone);
         if(!clone) return null;
         // Exclude live selection/drag state so active and stored pages produce
         // the same export, and the size indicator matches the clipboard HTML.

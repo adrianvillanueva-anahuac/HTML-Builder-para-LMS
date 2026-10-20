@@ -1,6 +1,7 @@
 .modular-table{position:relative;width:100%;margin:24px 0;clear:both}
-.mod-shell{padding-inline:var(--mod-margin,0%);box-sizing:border-box}
-.mod-scroll{overflow-x:auto;padding:44px 14px 24px;margin-inline:-14px}
+.mod-shell{padding:var(--mod-margin,0%);box-sizing:border-box}
+.mod-scroll{overflow-x:auto;padding:0;margin:0}
+.modular-table:not(.mod-published) .mod-scroll{overflow:visible}
 .mod-grid{position:relative;display:grid;gap:var(--mod-gap,20px);box-sizing:border-box}
 .mod-cell{position:relative;min-width:0;min-height:0;border:1px dashed #cdd5dc;box-sizing:border-box}
 .modular-table[data-joined=true] .mod-cell:has(>.mod-card){border:0}
@@ -37,6 +38,8 @@
 .modular-table[data-overflow=true] .mod-card:focus-within,.modular-table[data-overflow=true] .mod-cell:hover{z-index:5}
 .mod-add{position:absolute;inset:0;margin:auto;width:30px;height:30px;border-radius:50%;background:#f3eef9;color:#5d428c;display:grid;place-items:center;cursor:pointer}
 .mod-tools{display:flex;align-items:center;gap:3px;padding:4px;background:white;color:#5d428c;border:1px solid #d5d8df;border-radius:8px;box-shadow:0 3px 10px #0002;white-space:nowrap}
+.modular-table>.block-toolbar{top:auto;bottom:100%;padding-bottom:6px;transform:translateX(-50%);transition:opacity .2s ease,translate 180ms ease-out}
+@media(prefers-reduced-motion:reduce){.modular-table>.block-toolbar{transition:none}}
 .mod-tools button,.mod-tools summary{width:30px;height:30px;display:grid;place-items:center;border-radius:5px;cursor:pointer}
 .mod-tools button:hover,.mod-tools summary:hover{background:#f0eaf7}
 .mod-tools .material-symbols-outlined{font-size:20px}
@@ -44,9 +47,12 @@
 .mod-tools details>div{position:absolute;top:100%;left:0;padding:12px;background:white;box-shadow:0 4px 12px #0003;border-radius:8px;min-width:180px;z-index:100}
 .mod-tools label{display:block;font-size:12px;margin:6px 0}
 .mod-tools input{max-width:160px;accent-color:#5d428c}
-.mod-cell-tools{position:absolute;bottom:100%;right:0;z-index:30;display:none;align-items:flex-start;width:max-content;flex-wrap:wrap}
+.mod-cell-tools{position:fixed;bottom:auto;right:auto;z-index:75;display:none;align-items:flex-start;width:max-content;flex-wrap:wrap}
 .mod-cell-tools>button,.mod-cell-tools>details{flex-shrink:0}
 .mod-cell:hover>.mod-cell-tools,.mod-cell:focus-within>.mod-cell-tools{display:flex}
+.mod-cell-hover-active>.mod-cell-tools,.mod-cell:has(>.mod-cell-tools details[open])>.mod-cell-tools{display:flex}
+.mod-cell-tools::before{content:'';position:absolute;left:0;right:0;top:100%;height:8px}
+.mod-cell:has(>.mod-cell-tools details[open]){z-index:76}
 .modular-table[data-pinned-cell] .mod-cell:not(.mod-cell-selected)>.mod-cell-tools{display:none}
 .mod-cell-selected>.mod-cell-tools{display:flex}
 .mod-cell-selected{z-index:35}
@@ -70,10 +76,10 @@
 .mod-row-tools .mod-palette{display:grid;grid-template-columns:repeat(4,30px);gap:6px}
 .mod-row-tools .mod-palette button{border-radius:50%}
 /* Controls sit outside the grid, leaving the column dimensions untouched. */
-.mod-scroll:has(.mod-column-tools){padding-bottom:58px}
-.mod-column-tools{position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);z-index:75;opacity:0;pointer-events:none}
+.mod-scroll:has(.mod-column-tools){padding-bottom:0}
+.mod-column-tools{position:fixed;top:0;left:0;z-index:75;opacity:0;pointer-events:none}
 .modular-table:hover .mod-column-tools,.mod-column-tools:focus-within,.mod-column-tools:has(details[open]){opacity:1;pointer-events:auto}
-.mod-column-tools:has(details[open]){transform:none;margin-left:-20px}
+.mod-column-tools:has(details[open]){transform:none;margin-left:0}
 .mod-cell:has(.mod-column-tools details[open]){z-index:75}
 .mod-column-tools details>div{position:fixed;left:8px;top:8px;right:auto;z-index:100;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:auto;box-sizing:border-box}
 .mod-column-tools .mod-palette{display:grid;grid-template-columns:repeat(4,30px);gap:6px}
@@ -133,7 +139,7 @@ body:has(.mod-modal) #rtf-toolbar{z-index:10001!important}
 .mod-pending{height:0!important;margin:0!important;overflow:hidden}
 .dark .mod-modal section,.dark .mod-tools,.dark .mod-tools details>div{background:#252a35;color:#eee}
 .mod-published .mod-editor{display:none!important}
-.mod-published .mod-scroll{padding-top:28px}
+.mod-published .mod-scroll{padding:0}
 .mod-published .mod-cell{border:0}
 .mod-published .mod-text:empty::before{content:none}
 .mod-published .mod-preview-content{cursor:default}
