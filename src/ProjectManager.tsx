@@ -6,6 +6,7 @@ import { parseProject, projectContent, projectNameFromFile, emptyWorkspace, type
 
 import { startTutorial } from './tutorial';
 import { projectDialog } from './project-dialog';
+import { pageListDialog } from './page-list-dialog';
 import { workspaceDialog } from './workspace-dialog';
 import { tabInk,workspaceTooltip } from './project-model';
 import {installWorkspaceDrag} from './workspace-drag';
@@ -277,9 +278,10 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     if(document.querySelector('iframe[title="Diseñar ejercicio descargable"]'))return;
     const index=p.spaces.findIndex(s=>s.id===(targetId || p.activeId)),spaces=[...p.spaces];
     if(action==='add') {
-      const name=await projectDialog('Nombre de la nueva página',`Página ${spaces.length+1}`);if(!name)return;
+      const names=await pageListDialog(`Página ${spaces.length+1}`);if(!names?.length)return;
       histories.current.set(p.activeId,takeWorkspaceHistory());
-      const s={...emptyWorkspace(),id:crypto.randomUUID(),name};spaces.push(s);restore(s);publish({...p,spaces,activeId:s.id});return;
+      const added=names.map(name=>({...emptyWorkspace(),id:crypto.randomUUID(),name}));
+      spaces.push(...added);const s=added[0];restore(s);publish({...p,spaces,activeId:s.id});return;
     }
     if(action==='rename') {const settings=await workspaceDialog(spaces[index]);if(!settings)return;spaces[index]={...spaces[index],...settings};}
     if(action==='delete') {

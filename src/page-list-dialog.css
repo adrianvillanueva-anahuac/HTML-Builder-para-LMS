@@ -1,0 +1,16 @@
+.page-list-dialog header{display:flex;align-items:flex-start;gap:12px;justify-content:space-between}
+.page-list-dialog button:where(:not(.exercise-dialog-actions button)){border:0;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:6px;border-radius:8px;background:transparent;color:inherit;flex-shrink:0}
+.page-list-dialog button.page-list-mode{background:#ff5900;color:#fff}
+.page-list-dialog .page-name-list{display:flex;flex-direction:column;gap:10px;max-height:50dvh;overflow:auto;padding:4px}
+.page-list-dialog .page-name-row{display:flex;align-items:center;gap:6px}
+.page-list-dialog .page-name-row input{flex:1;min-width:0;width:100%}
+.page-list-dialog button.page-name-add{border-radius:50%;background:#5d428c;color:#fff;width:34px;height:34px}
+.page-list-dialog .page-name-grip,.page-list-dialog .page-name-delete{visibility:hidden}
+.page-list-dialog:not(.is-list) .page-name-grip,.page-list-dialog:not(.is-list) .page-name-delete{display:none}
+.page-list-dialog.is-list .page-name-row:is(:hover,:focus-within) :is(.page-name-grip,.page-name-delete){visibility:visible}
+.page-list-dialog .page-name-grip{cursor:grab!important;touch-action:none}
+.page-list-dialog .page-name-delete:disabled{opacity:.3;cursor:default}
+.page-list-dialog .page-list-help{font-size:12px;color:#646464;margin:12px 0 0}
+.dark .page-list-dialog .page-list-help{color:#bdc1c6}
+.page-list-dialog [hidden]{display:none!important}
+@media(hover:none){.page-list-dialog.is-list :is(.page-name-grip,.page-name-delete){visibility:visible}}

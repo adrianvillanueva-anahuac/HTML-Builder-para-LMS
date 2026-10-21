@@ -1,0 +1,6 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Prueba de lista de páginas</title><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"><body><button id="open">Crear páginas</button><pre id="result"></pre><script type="module">
+import '/src/index.css';
+import {pageListDialog,nextPageName} from '/src/page-list-dialog.ts';
+document.querySelector('#result').textContent=[['Unidad 4','Unidad 5'],['Unidad 09','Unidad 10'],['Tema','Tema 2']].map(([a,b])=>(nextPageName(a)===b?'PASS ':'FAIL ')+a+' → '+b).join('\n');
+document.querySelector('#open').onclick=async()=>{document.querySelector('#result').textContent=JSON.stringify(await pageListDialog('Unidad 4'));};
+</script></body></html>
