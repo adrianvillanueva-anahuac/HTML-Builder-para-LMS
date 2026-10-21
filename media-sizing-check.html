@@ -1,0 +1,34 @@
+<!doctype html><meta charset="utf-8"><title>Pruebas Medios</title><style>body{font:16px system-ui;padding:20px}#fixture{width:600px}iframe{background:#eee}pre{white-space:pre-wrap}</style>
+<h1>Medios: altura y pantalla completa</h1><button id="run">Probar Medios</button><pre id="out"></pre><div id="fixture"></div>
+<script type="module">
+import {setupMediaEmbeds} from '/src/media-runtime.js';
+import {normalizeCanvaEmbeds} from '/src/canva-embed.ts';
+const fixture=document.querySelector('#fixture'),out=document.querySelector('#out');
+document.querySelector('#run').onclick=async()=>{
+const results=[]; const check=(name,ok)=>results.push(`${ok?'PASS':'FAIL'} ${name}`);
+fixture.innerHTML='<section data-type="embed_canva"><div class="block-toolbar"></div><input class="embed-input"><div class="embed-result bg-black pt-6"><iframe></iframe></div></section>';
+const block=fixture.firstElementChild,frame=block.querySelector('iframe');
+block.querySelector('input').value='<iframe width="600" height="400"></iframe>';
+frame.srcdoc='<body style="margin:0"><div style="height:900px;background:#ede7f6">Contenido local de prueba</div></body>';
+await new Promise(resolve=>frame.onload=resolve);setupMediaEmbeds(fixture,true);
+await new Promise(resolve=>setTimeout(resolve,100));
+check('Altura automática local',frame.style.height==='900px');
+frame.contentDocument.querySelector('div').style.height='1100px';await new Promise(resolve=>setTimeout(resolve,100));check('Crece con el contenido',frame.style.height==='1100px');
+frame.contentDocument.querySelector('div').style.height='700px';await new Promise(resolve=>setTimeout(resolve,100));check('Reduce con el contenido',frame.style.height==='700px');
+const handle=block.querySelector('[data-media-resize]');
+handle.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true}));
+check('Control inferior',Math.abs(frame.clientHeight-710)<2&&!!block.dataset.mediaUserRatio);
+fixture.style.width='300px';check('Proporción al reducir ancho',Math.abs(frame.clientHeight-355)<2&&frame.clientWidth===300);fixture.style.width='600px';
+const saved=document.createElement('div');saved.innerHTML=block.outerHTML;setupMediaEmbeds(saved);check('Persistencia al exportar',saved.querySelector('iframe').style.aspectRatio===frame.style.aspectRatio&&!saved.querySelector('[data-media-resize]'));
+normalizeCanvaEmbeds(fixture);setupMediaEmbeds(fixture,true);
+const mo=new MutationObserver(()=>{});mo.observe(fixture,{attributes:true,subtree:true});normalizeCanvaEmbeds(fixture);setupMediaEmbeds(fixture,true);check('Normalización estable',mo.takeRecords().length===0);mo.disconnect();
+check('Pantalla completa disponible',!!block.querySelector('[data-media-fullscreen]'));
+for(const type of ['youtube','vimeo','sketchfab','gamma','genially']){
+ const item=document.createElement('section');item.dataset.type='embed_'+type;item.innerHTML='<div class="block-toolbar"></div><div class="embed-result"><iframe src="https://example.invalid/"></iframe></div>';fixture.append(item);setupMediaEmbeds(fixture,true);
+ check(type+' proporción predeterminada',item.querySelector('iframe').style.aspectRatio==='16 / 9');
+ check(type+' controles',!!item.querySelector('[data-media-resize]')&&!!item.querySelector('[data-media-fullscreen]'));
+}
+handle.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));check('Doble clic vuelve a automático',!block.dataset.mediaUserRatio&&frame.style.height==='700px');
+out.textContent=results.join('\n');
+};
+</script>

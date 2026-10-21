@@ -1,0 +1,25 @@
+<!doctype html><meta charset="utf-8"><title>Verificación Canva</title>
+<style>body{font:16px system-ui;padding:24px}#fixtures{width:640px;max-width:100%}.embed-result{background:black;padding-top:24px}iframe{background:#eee}pre{white-space:pre-wrap}</style>
+<h1>Canva: proporciones responsivas</h1><button id="run">Probar Canva</button><pre id="result"></pre><div id="fixtures"></div>
+<script type="module">
+import {canvaDimensions,insertCanvaEmbed,normalizeCanvaEmbeds} from '/src/canva-embed.ts';
+const fixtures=document.querySelector('#fixtures'),result=document.querySelector('#result');
+document.querySelector('#run').onclick=async()=>{
+ fixtures.replaceChildren();const checks=[];const check=(name,ok)=>checks.push(`${ok?'PASS':'FAIL'} ${name}`);
+ for(const [name,html,ratio] of [
+ ['Horizontal','<div style="padding-top:56.25%"><iframe src="http://127.0.0.1:3000/"></iframe></div>',16/9],
+ ['Cuadrado','<iframe width="1000" height="1000" src="http://127.0.0.1:3000/"></iframe>',1],
+ ['Vertical','<div style="aspect-ratio:3/4"><iframe src="http://127.0.0.1:3000/"></iframe></div>',.75]]){
+  check(name+' detectado',canvaDimensions(html).ratio===ratio);
+  const block=document.createElement('section');block.dataset.type='embed_canva';block.innerHTML='<input class="embed-input"><div class="embed-placeholder"></div><div class="embed-result bg-black pt-6"></div>';fixtures.append(block);
+  check(name+' insertado',insertCanvaEmbed(block,html));const frame=block.querySelector('iframe');frame.removeAttribute('src');frame.srcdoc='<body style="background:#ede7f6;color:#59418b;font:22px system-ui">'+name+'</body>';
+  check(name+' altura',Math.abs(frame.getBoundingClientRect().height-640/ratio)<1);
+  check(name+' sin franja',getComputedStyle(block.querySelector('.embed-result')).paddingTop==='0px');
+  fixtures.style.width='320px';check(name+' responsivo',Math.abs(frame.getBoundingClientRect().height-320/ratio)<1);fixtures.style.width='640px';
+  const observer=new MutationObserver(()=>{});observer.observe(block,{attributes:true,subtree:true});normalizeCanvaEmbeds(fixtures);check(name+' normalización estable',observer.takeRecords().length===0);observer.disconnect();
+  const saved=document.createElement('div');saved.innerHTML=block.outerHTML;normalizeCanvaEmbeds(saved);check(name+' guardado/exportación',saved.querySelector('iframe').style.aspectRatio===frame.style.aspectRatio);
+ }
+ check('URL sin dimensiones usa 16:9',canvaDimensions('https://www.canva.com/design/test/view').ratio===null);
+ result.textContent=checks.join('\n');
+};
+</script>

@@ -1,4 +1,7 @@
 import Sortable from 'sortablejs';
+import {setupMediaEmbeds} from './media-runtime.js';
+import mediaRuntime from './media-runtime.js?raw';
+import {insertCanvaEmbed,normalizeCanvaEmbeds} from './canva-embed';
 import {setupGroupSelection} from './group-selection';
 import {normalizeElementSpacing,setupSpacingHandles} from './element-spacing';
 import {ensureDuplicateButtons,duplicateElement,applyVerticalSpacing} from './element-actions';
@@ -429,6 +432,8 @@ export function setupVanillaGlobals() {
 
     const canvasObserver = new MutationObserver(() => {
         ensureDuplicateButtons();
+        normalizeCanvaEmbeds(document.getElementById('canvas')!);
+        setupMediaEmbeds(document.getElementById('canvas') || document, true);
         // Skip observer triggers during history navigation or sorting etc. if we can,
         // but saveHistoryState already skips if isHistoryAction is true.
         window.saveHistoryState();
@@ -1946,6 +1951,14 @@ export function setupVanillaGlobals() {
         const resultDiv = container.querySelector('.embed-result'); 
         const placeholder = container.querySelector('.embed-placeholder'); 
         if (!inputVal || !resultDiv || !placeholder) return; 
+        const mediaBlock=container as HTMLElement;
+        delete mediaBlock.dataset.mediaRatio;
+        delete mediaBlock.dataset.mediaMeasuredHeight;
+        container.querySelector('.embed-input')?.setAttribute('value',inputVal);
+        if(platform==='embed_canva'){
+            if(!insertCanvaEmbed(container as HTMLElement,inputVal))window.alert('Pega una URL válida o el código de incrustación de Canva.');
+            return;
+        }
         
         let iframeHTML = inputVal; 
         const containsIframe = /<iframe/i.test(inputVal);
@@ -3518,6 +3531,8 @@ export function setupVanillaGlobals() {
         }
         const clone = outerEl.cloneNode(true) as HTMLElement;
         normalizeElementSpacing(clone);
+        normalizeCanvaEmbeds(clone);
+        setupMediaEmbeds(clone);
         if(!clone) return null;
         // Exclude live selection/drag state so active and stored pages produce
         // the same export, and the size indicator matches the clipboard HTML.
@@ -3845,7 +3860,8 @@ export function setupVanillaGlobals() {
 
         const standaloneAssets=clone.querySelector('[data-standalone-html]')?`<script>${standaloneRuntime.replace('export function','function')}setupStandaloneHTML();<\/script>`:'';
         prepareExportPageLayout(clone);
-        const exportedCanvasHtml = clone.outerHTML+standaloneAssets;
+        const mediaAssets=clone.querySelector('[data-type^="embed_"] iframe')?`<script>${mediaRuntime.replace('export function','function')}setupMediaEmbeds();<\/script>`:'';
+        const exportedCanvasHtml = clone.outerHTML+standaloneAssets+mediaAssets;
         const editorState = includeEditorState ? `<script type="application/json" id="lms-state" data-encoding="json">${JSON.stringify(outerEl.innerHTML || '').replace(/</g, '\\u003c')}</script>` : '';
         const finalHTML = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="generator" content="anahuac-builder-lms"><title>Contenido D2L</title>${customStyles}<style>${iconGridStyles}\n${footerLayoutStyles}\nhtml,body{margin:0;padding:0;min-height:0}body{background:transparent}</style>${clone.querySelector('.modular-table') ? modularExportStyles : ''}</head><body style="margin:0;padding:0;background:transparent">${exportedCanvasHtml}${finalJS}${clone.querySelector('.modular-table') ? modularExportAssets : ''}${editorState}</body></html>`;
         
@@ -4480,6 +4496,8 @@ export function setupVanillaGlobals() {
     window.initNestedDropzones = function() {
         initModularTables();
         ensureDuplicateButtons();
+        normalizeCanvaEmbeds(document.getElementById('canvas')!);
+        setupMediaEmbeds(document.getElementById('canvas') || document, true);
         document.querySelectorAll('.lms-dropzone').forEach(zone => { 
             const htmlZone = zone as HTMLElement;
             if(htmlZone.dataset.sortableActive !== "true") { 
