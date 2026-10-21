@@ -37,6 +37,12 @@ export function duplicateElement(button:HTMLElement) {
   const source=button.closest<HTMLElement>('.lms-element');
   if(!source)return;
   window.saveHistoryState(true);
+  const clone=cloneElement(source);
+  source.after(clone);
+  window.initNestedDropzones();ensureDuplicateButtons();window.checkEmptyState();window.saveHistoryState(true);
+}
+
+export function cloneElement(source:HTMLElement) {
   const clone=source.cloneNode(true) as HTMLElement;
   // Preserve live form values, which cloneNode does not always serialize.
   const originals=source.querySelectorAll<HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement>('input,textarea,select');
@@ -65,8 +71,7 @@ export function duplicateElement(button:HTMLElement) {
     el.classList.remove('sortable-ghost','sortable-chosen','sortable-drag','mod-cell-selected');
     if(el.hasAttribute('contenteditable'))el.setAttribute('contenteditable','false');
   });
-  source.after(clone);
-  window.initNestedDropzones();ensureDuplicateButtons();window.checkEmptyState();window.saveHistoryState(true);
+  return clone;
 }
 
 export function applyVerticalSpacing(button:HTMLElement,padding:string) {

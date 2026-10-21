@@ -1,4 +1,5 @@
 import Sortable from 'sortablejs';
+import {setupGroupSelection} from './group-selection';
 import {normalizeElementSpacing,setupSpacingHandles} from './element-spacing';
 import {ensureDuplicateButtons,duplicateElement,applyVerticalSpacing} from './element-actions';
 import {prepareExportPageLayout} from './export-page-layout';
@@ -145,6 +146,7 @@ export function upgradeTitleImageElements(root: ParentNode = document) {
 
 export function setupVanillaGlobals() {
     setupSpacingHandles();
+    setupGroupSelection();
     setupModularTables();
     setupStandaloneHTML();
     window.resetExerciseHistory = () => {

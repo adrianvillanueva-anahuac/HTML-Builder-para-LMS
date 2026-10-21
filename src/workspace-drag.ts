@@ -58,8 +58,9 @@ export function installWorkspaceDrag(adapter:Adapter) {
     drag={item,parent:item.parentElement,next:item.nextSibling,before,activeId:before.activeId,parked:new Map(),switched:false,cancelled:false,ending:false,x:-1,y:-1};
     window.lmsWorkspaceDragActive=true;
   };
-  const end=()=>{
+  const end=(cancelled=false)=>{
     const d=drag;if(!d)return false;
+    if(cancelled)d.cancelled=true;
     clearHover();
     const zone=hit(d.x,d.y)?.closest('.lms-dropzone');
     const valid=!d.cancelled&&!!zone&&outer().contains(zone)&&outer().contains(d.item)&&!!d.item.parentElement?.closest('.lms-dropzone');
@@ -84,6 +85,7 @@ export function installWorkspaceDrag(adapter:Adapter) {
     return true;
   };
   const escape=(event:KeyboardEvent)=>{
+    if(document.body.classList.contains('lms-group-moving'))return;
     if(event.key!=='Escape'||!drag||drag.ending)return;
     event.preventDefault();event.stopImmediatePropagation();drag.cancelled=true;clearHover();
     // Support both Pointer Events and the legacy mouse fallback without using private Sortable APIs.
