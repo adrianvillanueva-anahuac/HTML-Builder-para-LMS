@@ -2206,6 +2206,7 @@ export function setupVanillaGlobals() {
     }
 
     window.openFooterModal = function(wrapper: HTMLElement) {
+        window.isGlobalFooterConfig = false;
         window.currentFooterWrapper = wrapper;
         window.tempFooterType = wrapper.dataset.footerType || 'lineas';
         window.tempFooterLogo = parseInt(wrapper.dataset.footerLogo || '1');
@@ -2307,6 +2308,7 @@ export function setupVanillaGlobals() {
                 window.applyFooterConfigBase(wrapper as HTMLElement);
             });
             window.currentFooterWrapper = null;
+            window.dispatchEvent(new CustomEvent('lms-global-footer-changed',{detail:{...(window as any).globalFooterConfig}}));
             
             document.getElementById('footer-modal')?.classList.add('hidden');
             window.isGlobalFooterConfig = false;

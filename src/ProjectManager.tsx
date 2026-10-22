@@ -114,6 +114,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     return next;
   }
   function publish(p: Project) {
+    (window as any).globalFooterConfig=p.footerConfig;
     current.current=p; setProject(p); setSaved(projectContent(p) === baseline.current);
     setTabInfo(info=>{if(!info)return null;const space=p.spaces.find(s=>s.id===info.space.id);return space?{...info,space}:null;});
   }
@@ -307,13 +308,46 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     const [moved]=spaces.splice(a,1);spaces.splice(b,0,moved);publish({...p,spaces});
   }
   async function copy() {
-    const p=capture();if(!p || projectContent(p)!==baseline.current){setSaved(false);setMessage('Guarda los últimos cambios del proyecto antes de copiar.');return;}
+    if(busy){setMessage('Espera a que termine el guardado y vuelve a copiar.');return;}
+    const p=capture();if(!p)return;
+    if(projectContent(p)!==baseline.current){
+      setSaved(false);
+      const choice=await projectDialog('Recuerda guardar los cambios para conservar la última versión del proyecto.',undefined,[{value:'save',label:'Guardar progreso y copiar'},{value:'copy',label:'Continuar sin guardar'},{value:'cancel',label:'Cancelar'}]);
+      if(choice==='save'){
+        let name:string|undefined;
+        if(p.name.trim().toLocaleLowerCase()==='proyecto nuevo'){
+          const value=await projectDialog('Nombre del proyecto para guardar',p.name);if(!value)return;name=value;
+        }
+        if(!(await save(false,name)))return;
+      }else if(choice!=='copy')return;
+    }
     const html=window.generateExportHTML(false);
     if(!html){setMessage('No se pudo generar el HTML. Revisa los ejercicios y sus recursos.');return;}
     if(html.length>LMS_CHARACTER_LIMIT){setMessage(`El espacio ocupa ${html.length.toLocaleString('es-MX')} caracteres y supera el límite de 2,000,000. Divide el contenido en más espacios o reduce los ejercicios incorporados.`);return;}
     try {await navigator.clipboard.writeText(html);setMessage(`HTML del espacio activo copiado: ${html.length.toLocaleString('es-MX')} caracteres.`);}
     catch {setMessage('No se pudo acceder al portapapeles. Usa Chrome en HTTPS o localhost y permite copiar.');}
   }
+  useEffect(()=>{
+    const applyGlobal=(event:Event)=>{
+      const p=capture();if(!p)return;
+      const footerConfig=(event as CustomEvent).detail;
+      const spaces=p.spaces.map(space=>{
+        if(space.id===p.activeId)return space;
+        const container=document.createElement('div');container.innerHTML=space.html;
+        container.querySelectorAll<HTMLElement>('.lms-footer-wrapper').forEach(wrapper=>window.applyFooterConfigBase(wrapper));
+        const html=container.innerHTML;
+        if(html!==space.html){
+          const history=histories.current.get(space.id);
+          const stack=history?history.stack.slice(0,history.index+1):[space.html];
+          stack.push(html);histories.current.set(space.id,{stack,index:stack.length-1});
+        }
+        return {...space,html};
+      });
+      publish({...p,spaces,footerConfig});
+    };
+    window.addEventListener('lms-global-footer-changed',applyGlobal);
+    return ()=>window.removeEventListener('lms-global-footer-changed',applyGlobal);
+  },[]);
   useEffect(()=>installWorkspaceDrag({
     begin:()=>{
       if(busyRef.current||document.querySelector('iframe[title="Diseñar ejercicio descargable"]'))return null;
@@ -395,7 +429,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
       </div>)}</div>
       {project && <button className="project-tab-add" disabled={busy} title="Agregar página" aria-label="Agregar página" onClick={()=>edit('add')}><span className="material-symbols-outlined">add</span></button>}
       </div>
-      <button className="project-copy" data-tour="export-copy" disabled={!saved||busy} title={saved?'Copiar espacio activo a Brightspace':'Guarda los cambios para copiar a Brightspace'} aria-label="Copiar a Brightspace" onClick={copy}><span className="material-symbols-outlined">content_copy</span></button>
+      <button className="project-copy" data-tour="export-copy" title="Copiar espacio activo a Brightspace" aria-label="Copiar a Brightspace" onClick={copy}><span className="material-symbols-outlined">content_copy</span></button>
     </div>
     {tabInfo && createPortal(<div id="project-tab-info" className="project-tab-info" role="region" aria-label={'Información de '+tabInfo.space.name} style={{left:tabInfo.x,top:tabInfo.y,maxHeight:`calc(100dvh - ${tabInfo.y+12}px)`}} onMouseEnter={keepTabInfo} onMouseLeave={hideTabInfo} onFocus={keepTabInfo} onBlur={hideTabInfo} onKeyDown={e=>{
       if(e.key==='Escape') {
@@ -419,6 +453,6 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
       <footer>Doble clic para editar la información</footer>
     </div>,document.body)}
     {(busy || message) && <div className="project-status" role="status" onClick={()=>setMessage('')}>{busy?'Guardando…':message}</div>}
-    {!project && <div className="project-welcome" role="dialog" aria-modal="true" aria-label="Comenzar proyecto"><section><h2>Tu proyecto de aprendizaje</h2><p>Diseña varias páginas en un proyecto. Puedes empezar sin guardar; para copiar a Brightspace tendrás que guardar en PC.</p><div className="welcome-actions"><button onClick={()=>create()}>Nuevo proyecto</button><button onClick={()=>open()}>Abrir proyecto o HTML</button><button className="welcome-icon-action" title="Recorrido de app" aria-label="Recorrido de app" onClick={async()=>{if(await create())requestAnimationFrame(()=>startTutorial('interfaz'));}}><span className="material-symbols-outlined" aria-hidden="true">school</span></button><button className="welcome-icon-action" title="Tutoriales en video" aria-label="Tutoriales en video" onClick={()=>setShowVideoNotice(true)}><span className="material-symbols-outlined" aria-hidden="true">smart_display</span></button></div>{showVideoNotice && <p className="welcome-video-notice" role="status">Se están preparando los tutoriales</p>}</section></div>}
+    {!project && <div className="project-welcome" role="dialog" aria-modal="true" aria-label="Comenzar proyecto"><section><h2>Tu proyecto de aprendizaje</h2><p>Diseña varias páginas en un proyecto. Puedes copiar a Brightspace sin guardar. Recuerda guardar en PC para conservar la última versión de tu proyecto.</p><div className="welcome-actions"><button onClick={()=>create()}>Nuevo proyecto</button><button onClick={()=>open()}>Abrir proyecto o HTML</button><button className="welcome-icon-action" title="Recorrido de app" aria-label="Recorrido de app" onClick={async()=>{if(await create())requestAnimationFrame(()=>startTutorial('interfaz'));}}><span className="material-symbols-outlined" aria-hidden="true">school</span></button><button className="welcome-icon-action" title="Tutoriales en video" aria-label="Tutoriales en video" onClick={()=>setShowVideoNotice(true)}><span className="material-symbols-outlined" aria-hidden="true">smart_display</span></button></div>{showVideoNotice && <p className="welcome-video-notice" role="status">Se están preparando los tutoriales</p>}</section></div>}
   </div>;
 }
