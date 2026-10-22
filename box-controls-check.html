@@ -1,0 +1,28 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Prueba de cuadros</title><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"><button id="run">Probar cuadro</button><pre id="result"></pre><div id="canvas" style="margin:260px auto 80px;max-width:650px"></div>
+<script type="module">
+import '/src/index.css';import Sortable from 'sortablejs';import {setupBoxControls} from '/src/box-controls.ts';import {getCuadroNaranjaHTML,getParrafoBasicoHTML} from '/src/templates.ts';
+window.saveHistoryState=()=>{};
+window.initNestedDropzones=()=>{
+ setupBoxControls();
+ document.querySelectorAll('.lms-dropzone,#canvas').forEach(zone=>{if(!Sortable.get(zone))Sortable.create(zone,{group:'blocks',handle:'.drag-handle',draggable:'.lms-element',animation:150});});
+};
+document.querySelector('#canvas').innerHTML=getCuadroNaranjaHTML()+getParrafoBasicoHTML();window.initNestedDropzones();
+document.querySelector('#run').onclick=()=>{
+ const results=[],check=(n,v)=>results.push((v?'PASS ':'FAIL ')+n);
+ const block=document.querySelector('[data-type="cuadro_naranja"]'),surface=block.querySelector(':scope>.lms-dropzone'),toolbar=block.querySelector(':scope>.block-toolbar>div');
+ check('Contenido original conservado',surface.textContent.includes('Escribe aquí una conclusión'));
+ check('Drag and drop habilitado',!!Sortable.get(surface));
+ check('Sin botón para agregar',!block.querySelector('[data-box-control="insert"]'));
+ check('Eliminar al extremo derecho',toolbar.lastElementChild.title==='Eliminar elemento');
+ check('Solo cinco colores institucionales',toolbar.querySelectorAll('[data-box-color]').length===5&&!toolbar.querySelector('input[type=color]'));
+ toolbar.querySelector('.box-stroke-trigger').focus();
+ toolbar.querySelector('[data-box-color="#5d428c"]').click();
+ const width=toolbar.querySelector('.box-stroke-width input');width.value='4';width.dispatchEvent(new Event('change'));
+ toolbar.querySelector('[data-box-line=dashed]').click();
+ check('Color, grosor y línea aplicados',surface.style.borderColor==='rgb(93, 66, 140)'&&surface.style.borderWidth==='4px'&&surface.style.borderStyle==='dashed');
+ check('Sin ventanas emergentes',!document.querySelector('dialog'));
+ setupBoxControls();check('Menú único',toolbar.querySelectorAll('.box-stroke-menu').length===1);
+ const clone=block.cloneNode(true);clone.querySelectorAll('.block-toolbar').forEach(n=>n.remove());check('Borde y contenido persistentes',clone.querySelector('.lms-dropzone').style.borderStyle==='dashed'&&clone.textContent.includes('Escribe aquí una conclusión'));
+ document.querySelector('#result').textContent=results.join('\n');
+};
+</script></html>

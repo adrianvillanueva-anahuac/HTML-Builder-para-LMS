@@ -1,4 +1,8 @@
 import Sortable from 'sortablejs';
+import {getInteractiveButtonHTML,setupInteractiveButtons,prepareInteractiveButtonExport} from './interactive-button';
+import interactiveButtonRuntime from './interactive-button-runtime.js?raw';
+import interactiveButtonStyles from './interactive-button.css?raw';
+import {setupBoxControls} from './box-controls';
 import {setupMediaEmbeds} from './media-runtime.js';
 import mediaRuntime from './media-runtime.js?raw';
 import {insertCanvaEmbed,normalizeCanvaEmbeds} from './canva-embed';
@@ -502,6 +506,7 @@ export function setupVanillaGlobals() {
         else if(type === 'pagina_basica') newHTML = getPaginaBasicaHTML();
         else if(type === 'titulo_imagen') newHTML = getTituloImagenHTML();
         else if(type === 'tabla_modular') newHTML = getModularHTML();
+        else if(type === 'boton_interactivo') newHTML = getInteractiveButtonHTML();
         else newHTML = getExerciseBlock(type);
         
         if (!newHTML) return;
@@ -1027,6 +1032,7 @@ export function setupVanillaGlobals() {
             else if(type === 'grid_2x2') draggedTemplateHTML = getGrid2x2HTML();
             else if(type === 'tabla_modular') draggedTemplateHTML = getModularHTML();
             else if(type === 'cuadro_naranja') draggedTemplateHTML = getCuadroNaranjaHTML();
+            else if(type === 'boton_interactivo') draggedTemplateHTML = getInteractiveButtonHTML();
             else if(type === 'acordeon') draggedTemplateHTML = getAcordeonHTML();
             else if(type === 'separador') draggedTemplateHTML = getSeparadorHTML();
             else if(type === 'icono_suelto') draggedTemplateHTML = getIconoSueltoHTML();
@@ -3533,6 +3539,7 @@ export function setupVanillaGlobals() {
         }
         const clone = outerEl.cloneNode(true) as HTMLElement;
         normalizeElementSpacing(clone);
+        prepareInteractiveButtonExport(clone);
         normalizeCanvaEmbeds(clone);
         setupMediaEmbeds(clone);
         if(!clone) return null;
@@ -3569,6 +3576,8 @@ export function setupVanillaGlobals() {
         
         // Remove interactive edit-only buttons from grid cards, accordions, etc.
         clone.querySelectorAll('button').forEach(btn => {
+            // The circular collapse controls belong to the published content.
+            if(btn.hasAttribute('data-ib-collapse')&&btn.closest('[data-type="boton_interactivo"]'))return;
             const onclick = btn.getAttribute('onclick') || '';
             const title = btn.getAttribute('title') || '';
             
@@ -3863,9 +3872,11 @@ export function setupVanillaGlobals() {
         const standaloneAssets=clone.querySelector('[data-standalone-html]')?`<script>${standaloneRuntime.replace('export function','function')}setupStandaloneHTML();<\/script>`:'';
         prepareExportPageLayout(clone);
         const mediaAssets=clone.querySelector('[data-type^="embed_"] iframe')?`<script>${mediaRuntime.replace('export function','function')}setupMediaEmbeds();<\/script>`:'';
-        const exportedCanvasHtml = clone.outerHTML+standaloneAssets+mediaAssets;
+        const buttonStyles=clone.querySelector('[data-type="boton_interactivo"]')?`<style>${interactiveButtonStyles}</style>`:'';
+        const buttonAssets=buttonStyles?`<script>${interactiveButtonRuntime.replace('export function','function')}setupInteractiveButtonRuntime();<\/script>`:'';
+        const exportedCanvasHtml = clone.outerHTML+standaloneAssets+mediaAssets+buttonAssets;
         const editorState = includeEditorState ? `<script type="application/json" id="lms-state" data-encoding="json">${JSON.stringify(outerEl.innerHTML || '').replace(/</g, '\\u003c')}</script>` : '';
-        const finalHTML = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="generator" content="anahuac-builder-lms"><title>Contenido D2L</title>${customStyles}<style>${iconGridStyles}\n${footerLayoutStyles}\nhtml,body{margin:0;padding:0;min-height:0}body{background:transparent}</style>${clone.querySelector('.modular-table') ? modularExportStyles : ''}</head><body style="margin:0;padding:0;background:transparent">${exportedCanvasHtml}${finalJS}${clone.querySelector('.modular-table') ? modularExportAssets : ''}${editorState}</body></html>`;
+        const finalHTML = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="generator" content="anahuac-builder-lms"><title>Contenido D2L</title>${customStyles}<style>${iconGridStyles}\n${footerLayoutStyles}\nhtml,body{margin:0;padding:0;min-height:0}body{background:transparent}</style>${buttonStyles}${clone.querySelector('.modular-table') ? modularExportStyles : ''}</head><body style="margin:0;padding:0;background:transparent">${exportedCanvasHtml}${finalJS}${clone.querySelector('.modular-table') ? modularExportAssets : ''}${editorState}</body></html>`;
         
         return finalHTML;
     }
@@ -4294,6 +4305,7 @@ export function setupVanillaGlobals() {
                     else if(type === 'grid_2x2') newHTML = getGrid2x2HTML();
                     else if(type === 'tabla_modular') newHTML = getModularHTML();
                     else if(type === 'cuadro_naranja') newHTML = getCuadroNaranjaHTML();
+                    else if(type === 'boton_interactivo') newHTML = getInteractiveButtonHTML();
                     else if(type === 'acordeon') newHTML = getAcordeonHTML();
                     else if(type === 'tabla_dinamica') newHTML = getTablaDinamicaHTML();
                     else if(type === 'separador') newHTML = getSeparadorHTML();
@@ -4497,6 +4509,8 @@ export function setupVanillaGlobals() {
 
     window.initNestedDropzones = function() {
         initModularTables();
+        setupInteractiveButtons();
+        setupBoxControls();
         ensureDuplicateButtons();
         normalizeCanvaEmbeds(document.getElementById('canvas')!);
         setupMediaEmbeds(document.getElementById('canvas') || document, true);

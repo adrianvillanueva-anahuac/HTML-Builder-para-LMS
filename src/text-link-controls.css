@@ -1,0 +1,13 @@
+.text-link-dialog label{display:flex;flex-direction:column;gap:6px}
+.text-link-dialog input{width:100%}
+.text-link-error{color:#b3261e;font-size:12px}
+.text-link-tools{position:fixed;z-index:1000;display:flex;align-items:center;flex-wrap:wrap;gap:8px;max-width:calc(100vw - 16px);padding:6px 8px;border:1px solid #cdd5dc;border-radius:8px;background:#fff;color:#374151;box-shadow:0 4px 14px #0003;font:13px/1.4 Roboto,Arial,sans-serif}
+.text-link-tools[hidden]{display:none!important}
+.text-link-tools>div{display:flex;align-items:center;gap:4px}
+.text-link-tools button{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:4px 6px;background:transparent;color:inherit;border:0;border-radius:4px;cursor:pointer;font:inherit}
+.text-link-tools button:hover{background:#f3f4f6;color:#5d428c}
+.text-link-tools .material-symbols-outlined{font-size:18px}
+.text-link-tools .text-link-colors button{width:22px;min-height:22px;height:22px;padding:0;border:1px solid #aeb6be;border-radius:50%}
+.text-link-tools button:focus-visible{outline:2px solid #5d428c;outline-offset:2px}
+.dark .text-link-tools{background:#292f3b;color:#e4e9f2;border-color:#475268}
+.dark .text-link-tools button:hover{background:#3b4351;color:#dcc8ff}

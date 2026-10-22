@@ -6,6 +6,7 @@ import { exerciseMode, setupExercises, saveExercise } from './exercise';
 import ProjectManager from './ProjectManager';
 import { setupToolbarSelection } from './toolbar-selection';
 import { setupEditingContrast } from './editing-contrast';
+import { openTextLinkDialog,setupTextLinkControls } from './text-link-controls';
 
 const GITHUB_REPOSITORY = 'adrianvillanueva-anahuac/HTML-Builder-para-LMS';
 const GITHUB_IMAGES_API_URL = `https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/public/imagenes`;
@@ -326,6 +327,7 @@ export default function App() {
 
   useEffect(() => setupToolbarSelection(), []);
   useEffect(() => setupEditingContrast(), []);
+  useEffect(() => setupTextLinkControls(), []);
 
   useEffect(() => {
     if (isInitialized.current) return;
@@ -454,7 +456,7 @@ export default function App() {
                 
                 const blurHandler = (ev: Event) => { 
                     setTimeout(() => { 
-                        if(!rtfToolbar.contains(document.activeElement) && document.activeElement?.id !== "rtf-image-input") { 
+                        if(!rtfToolbar.contains(document.activeElement) && document.activeElement?.id !== "rtf-image-input" && !document.activeElement?.closest('.text-link-dialog,#text-link-tools')) {
                             textTarget.contentEditable = "false"; 
                             rtfToolbar.classList.add('hidden'); 
                             textTarget.removeEventListener('blur', blurHandler); 
@@ -586,6 +588,7 @@ export default function App() {
           <button onClick={() => document.execCommand('bold', false, undefined)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded text-gray-700" title="Negrita"><span className="material-symbols-outlined text-[18px]">format_bold</span></button>
           <button onClick={() => document.execCommand('italic', false, undefined)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded text-gray-700" title="Cursiva"><span className="material-symbols-outlined text-[18px]">format_italic</span></button>
           <button onClick={() => document.execCommand('underline', false, undefined)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded text-gray-700" title="Subrayado"><span className="material-symbols-outlined text-[18px]">format_underlined</span></button>
+          <button type="button" onClick={() => openTextLinkDialog()} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded text-gray-700" title="Agregar hipervínculo" aria-label="Agregar hipervínculo"><span className="material-symbols-outlined text-[18px]" aria-hidden="true">link</span></button>
           <div className="w-px h-6 bg-gray-300 my-auto mx-1"></div>
           <button onClick={() => document.execCommand('justifyLeft', false, undefined)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded text-gray-700"><span className="material-symbols-outlined text-[18px]">format_align_left</span></button>
           <button onClick={() => document.execCommand('justifyCenter', false, undefined)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded text-gray-700"><span className="material-symbols-outlined text-[18px]">format_align_center</span></button>
@@ -800,6 +803,7 @@ export default function App() {
                           </summary>
                           <div className="space-y-3 catalog-list pt-1">
                               {!exerciseMode && <div data-type="ejercicio_descargable" className="catalog-item exercise-catalog-item"><span className="material-symbols-outlined">download</span><span>Ejercicio descargable</span><button type="button" title="Añadir ejercicio descargable" onClick={()=>window.insertTemplate('ejercicio_descargable')}><span className="material-symbols-outlined">add_circle</span></button></div>}
+                              <div data-type="boton_interactivo" className="catalog-item exercise-catalog-item"><span className="material-symbols-outlined">touch_app</span><span>Botón interactivo</span><button type="button" title="Añadir botón interactivo" onPointerDown={event=>event.stopPropagation()} onClick={event=>{event.stopPropagation();window.insertTemplate('boton_interactivo');}}><span className="material-symbols-outlined">add_circle</span></button></div>
                               <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab" data-type="pestanas"><span className="material-symbols-outlined text-anahuac-purple dark:text-white">tab</span> <span className="text-sm font-medium">Pestañas (Tabs)</span></div>
                               <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab" data-type="acordeon"><span className="material-symbols-outlined text-anahuac-purple dark:text-white">arrow_drop_down_circle</span> <span className="text-sm font-medium">Tema Desplegable (Acordeón)</span></div>
                               <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab" data-type="flipcard"><span className="material-symbols-outlined text-anahuac-orange">flip</span> <span className="text-sm font-medium">Flipcard (Girable)</span></div>

@@ -1,0 +1,43 @@
+<!doctype html><meta charset="utf-8"><title>Prueba de hipervínculos</title><button id="run">Probar hipervínculos</button><button id="preview">Mostrar ejemplo final</button><pre id="result"></pre><iframe id="app" src="/" style="width:100%;height:720px;border:0"></iframe>
+<script type="module">
+import {getParrafoBasicoHTML} from '/src/templates.ts';
+import {contrastingLinkColor,normalizeTextLinkURL} from '/src/text-link-controls.ts';
+const app=document.querySelector('#app'),out=document.querySelector('#result');
+document.querySelector('#preview').onclick=()=>{
+ const w=app.contentWindow,d=w.document,editor=d.querySelector('#canvas .editable-text');if(!editor)return;
+ editor.innerHTML='<p style="font-family:Lato,sans-serif">Consulta nuestra guía y continúa.</p>';editor.dispatchEvent(new w.MouseEvent('dblclick',{bubbles:true}));
+ const node=editor.querySelector('p').firstChild,range=d.createRange();range.setStart(node,9);range.setEnd(node,21);w.getSelection().removeAllRanges();w.getSelection().addRange(range);w.lastKnownRange=range.cloneRange();
+ d.querySelector('[aria-label="Agregar hipervínculo"]').click();out.hidden=true;document.querySelector('#app').style.height='820px';
+};
+document.querySelector('#run').onclick=async()=>{
+ const results=[],check=(name,value)=>{results.push((value?'PASS ':'FAIL ')+name);out.textContent=results.join('\n');};
+ try{
+ const w=app.contentWindow,d=w.document,wait=()=>new Promise(r=>setTimeout(r,180));
+ if(!d.querySelector('.project-tab-add')){d.querySelector('.project-menu-toggle').click();Array.from(d.querySelectorAll('button')).find(b=>b.textContent==='Nuevo proyecto').click();await wait();}
+ const canvas=d.querySelector('#canvas');canvas.innerHTML='<div style="background:white;padding:48px;color:#374151">'+getParrafoBasicoHTML()+'</div>';
+ const editor=canvas.querySelector('.editable-text');editor.innerHTML='<p><span style="font-family:Lato,sans-serif">Consulta nuestra guía y continúa.</span></p>';
+ w.initNestedDropzones();w.saveHistoryState(true);
+ const select=()=>{
+  editor.dispatchEvent(new w.MouseEvent('dblclick',{bubbles:true}));
+  const node=editor.querySelector('span').firstChild,start=node.textContent.indexOf('nuestra guía'),range=d.createRange();range.setStart(node,start);range.setEnd(node,start+'nuestra guía'.length);
+  w.getSelection().removeAllRanges();w.getSelection().addRange(range);w.lastKnownRange=range.cloneRange();
+ };
+ const open=()=>d.querySelector('[aria-label="Agregar hipervínculo"]').click();
+ select();const original=editor.innerHTML;open();await wait();d.querySelector('.text-link-dialog button[value=cancel]').click();await wait();check('Cancelar conserva texto y selección',editor.innerHTML===original&&w.getSelection().toString()==='nuestra guía');
+ select();open();await wait();d.querySelector('.text-link-dialog input').value='https://www.anahuac.mx/';d.querySelector('.text-link-dialog button[value=ok]').click();await wait();
+ let link=editor.querySelector('a');
+ check('Enlace aplicado solo a la selección',link?.textContent==='nuestra guía'&&editor.textContent==='Consulta nuestra guía y continúa.');
+ check('Conserva fuente, negrita y subrayado',link&&w.getComputedStyle(link).fontFamily.includes('Lato')&&link.style.fontWeight==='700'&&link.style.textDecoration.includes('underline'));
+ check('Color automático sobre blanco',link?.style.color==='rgb(93, 66, 140)');
+ check('Destino y apertura',link?.href==='https://www.anahuac.mx/'&&link.target==='_blank'&&link.rel.includes('noopener'));
+ link.dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true}));await wait();const tools=d.querySelector('#text-link-tools');check('Rollover accesible',!tools.hidden&&tools.querySelectorAll('[data-link-color]').length===4);
+ tools.querySelector('[data-link-font="0"]').click();tools.querySelector('[data-link-color="#ff5900"]').click();check('Fuente y color desde rollover',link.style.fontFamily.includes('Zilla')&&link.style.color==='rgb(255, 89, 0)');
+ tools.querySelector('[data-link-edit]').click();await wait();d.querySelector('.text-link-dialog input').value='https://www.anahuac.mx/queretaro/';d.querySelector('.text-link-dialog button[value=ok]').click();await wait();
+ check('Reemplazar conserva texto y formato',link.href==='https://www.anahuac.mx/queretaro/'&&link.textContent==='nuestra guía'&&link.style.color==='rgb(255, 89, 0)'&&link.style.fontFamily.includes('Zilla'));
+ const html=w.generateExportHTML(false);const published=new DOMParser().parseFromString(html,'text/html');check('Exportación conserva enlace sin menús',published.querySelector('a[href="https://www.anahuac.mx/queretaro/"]')?.style.fontWeight==='700'&&!published.querySelector('#text-link-tools,.text-link-dialog'));
+ link.dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true}));tools.querySelector('[data-link-remove]').click();check('Quitar enlace conserva texto',!editor.querySelector('a')&&editor.textContent==='Consulta nuestra guía y continúa.');
+ check('URL inválida rechazada',normalizeTextLinkURL('javascript:alert(1)')===null);
+ const sample=document.createElement('div');sample.style.backgroundColor='#5d428c';document.body.append(sample);check('Contraste en fondo morado',contrastingLinkColor(sample)==='#ffffff');sample.style.backgroundColor='oklch(96.7% 0.003 264.542)';check('Contraste en gris claro de la app',contrastingLinkColor(sample)==='#5d428c');sample.remove();
+ }catch(error){results.push('FAIL '+error.message);out.textContent=results.join('\n');}
+};
+</script>

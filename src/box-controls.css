@@ -1,0 +1,19 @@
+.box-stroke-menu{position:relative;display:flex;align-items:center}
+.box-stroke-trigger{display:flex;align-items:center;justify-content:center;border:0;padding:4px;border-radius:4px;background:transparent;color:#9ca3af;cursor:pointer}
+.box-stroke-trigger .material-symbols-outlined{font-size:18px}
+.box-stroke-trigger:hover{color:#ff5900;background:#fff7ed}
+.box-stroke-popover{position:absolute;bottom:100%;right:0;padding-bottom:6px;z-index:80;visibility:hidden;opacity:0;pointer-events:none;transition:opacity .15s ease,visibility .15s ease}
+.box-stroke-menu:is(:hover,:focus-within):not(.is-dismissed)>.box-stroke-popover{visibility:visible;opacity:1;pointer-events:auto}
+.box-stroke-panel{width:234px;max-width:calc(100vw - 32px);padding:12px;background:#fff;color:#374151;border:1px solid #cdd5dc;border-radius:10px;box-shadow:0 6px 18px #0002;font:12px/1.4 Roboto,Arial,sans-serif}
+.box-stroke-label{font-weight:500;margin-bottom:6px}
+.box-stroke-colors{display:flex;gap:8px;margin-bottom:12px}
+.box-stroke-colors button{width:24px;height:24px;padding:0;border-radius:50%;border:1px solid #aeb6be;cursor:pointer}
+.box-stroke-panel button[aria-pressed=true]{outline:2px solid #5d428c;outline-offset:2px}
+.box-stroke-width{display:flex;align-items:center;gap:8px;margin:0 0 12px}
+.box-stroke-width input{width:64px;min-width:0;border:1px solid #cdd5dc;border-radius:4px;background:transparent;color:inherit;padding:4px;font:inherit}
+.box-stroke-lines{display:flex;flex-wrap:wrap;gap:6px}
+.box-stroke-lines button{display:flex;align-items:center;gap:6px;border:1px solid #cdd5dc;border-radius:4px;padding:5px 6px;background:transparent;color:inherit;font:inherit;cursor:pointer}
+.box-stroke-lines button span{width:20px;border-top-width:3px;border-top-color:currentColor}
+.box-stroke-panel :is(button,input):focus-visible{outline:2px solid #5d428c;outline-offset:2px}
+.dark .box-stroke-panel{background:#292f3b;color:#e4e9f2;border-color:#475268}
+.dark .box-stroke-panel button[aria-pressed=true]{outline-color:#dcc8ff}

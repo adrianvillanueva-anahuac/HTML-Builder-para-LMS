@@ -1,0 +1,82 @@
+<!doctype html><meta charset="utf-8"><title>Verificación botón interactivo</title><button id="run">Probar botón interactivo</button><button id="preview">Ver ejemplo</button><button id="preview-published">Ver exportación</button><pre id="result"></pre><iframe id="app" src="/" style="width:100%;height:750px;border:0"></iframe><iframe id="published" title="HTML exportado" style="width:100%;height:700px;border:1px solid #ddd"></iframe>
+<script type="module">
+import {getParrafoBasicoHTML} from '/src/templates.ts';
+import appStyles from '/src/index.css?inline';
+const app=document.querySelector('#app'),published=document.querySelector('#published'),out=document.querySelector('#result');
+document.querySelector('#preview').onclick=()=>{out.hidden=true;app.contentWindow.document.querySelector('#canvas [data-type="boton_interactivo"] [data-ib-settings]')?.click();};
+document.querySelector('#preview-published').onclick=()=>{out.hidden=true;app.hidden=true;published.style.width='100%';published.scrollIntoView();};
+document.querySelector('#run').onclick=async()=>{
+ const results=[],check=(name,value)=>{results.push((value?'PASS ':'FAIL ')+name);out.textContent=results.join('\n');};
+ try{
+ const w=app.contentWindow,d=w.document,wait=(ms=120)=>new Promise(r=>setTimeout(r,ms));
+ if(!d.querySelector('.project-tab-add')){d.querySelector('.project-menu-toggle').click();Array.from(d.querySelectorAll('button')).find(b=>b.textContent==='Nuevo proyecto').click();await wait();}
+ w.insertTemplate('pagina_basica');await wait();
+ const page=d.querySelector('#canvas .lms-dropzone.bg-white'),reference=page.querySelector('h2');
+ w.insertTemplate('boton_interactivo');await wait();
+ check('Pregunta acción al insertar',!!d.querySelector('.ib-dialog')&&d.querySelectorAll('.ib-dialog input[name=action]').length===3);
+ const choose=async(action,url)=>{d.querySelector('.ib-dialog input[value="'+action+'"]').click();if(url)d.querySelector('.ib-dialog [aria-label="Hipervínculo del botón"]').value=url;d.querySelector('.ib-dialog button[value=ok]').click();await wait(550);};
+ await choose('encapsulate');
+ const block=d.querySelector('#canvas [data-type="boton_interactivo"]'),trigger=block.querySelector('[data-ib-trigger]'),content=block.querySelector('.ib-content');
+ page.insertBefore(block,page.querySelector('.lms-footer-wrapper'));w.initNestedDropzones();await wait(650);
+ check('Contenido abierto para arrastrar',block.classList.contains('ib-open')&&content.classList.contains('lms-dropzone')&&w.getComputedStyle(content,'::before').content.includes('Escoge'));
+ content.innerHTML=getParrafoBasicoHTML()+getParrafoBasicoHTML();content.querySelectorAll('p').forEach((p,i)=>p.textContent='Contenido encapsulado '+(i+1));
+ const below=d.createElement('p');below.id='below-button';below.textContent='Contenido de la página después del botón';block.after(below);w.initNestedDropzones();await wait(550);
+ const openY=below.getBoundingClientRect().top;block.querySelector('[data-ib-collapse]').click();await wait(550);
+ const closedY=below.getBoundingClientRect().top;check('Contraer devuelve el contenido inferior',openY-closedY>80&&!block.classList.contains('ib-open')&&block.querySelector('.ib-panel').hasAttribute('inert'));
+ trigger.click();await wait(550);check('Expandir desplaza el contenido inferior',below.getBoundingClientRect().top>closedY+80&&trigger.getAttribute('aria-expanded')==='true');
+ const near=(a,b)=>Math.abs(a-b)<1.5;
+ const geometry=(doc,button)=>{
+   const page=button.parentElement,p=page.getBoundingClientRect(),panel=button.querySelector('.ib-panel-inner').getBoundingClientRect(),child=button.querySelector('.ib-content').firstElementChild.getBoundingClientRect(),ref=page.querySelector('h2').getBoundingClientRect();
+   return near(panel.left-p.left,10)&&near(p.right-panel.right,10)&&near(child.left,ref.left)&&near(child.right,ref.right);
+ };
+ check('Fondo a 10 px e interior con margen estándar',geometry(d,block));
+ const row=trigger.parentElement;check('Botón original desaparece al expandir',row.getBoundingClientRect().height<1&&w.getComputedStyle(row).opacity==='0'&&row.hasAttribute('inert'));
+ const panelRect=block.querySelector('.ib-panel-inner').getBoundingClientRect(),closes=block.querySelectorAll('[data-ib-collapse]'),top=closes[0].getBoundingClientRect(),bottom=closes[1].getBoundingClientRect();
+ check('X circulares centradas y a medio borde',near(top.width,32)&&near(top.height,32)&&near(top.left+top.width/2,panelRect.left+panelRect.width/2)&&near(top.top+top.height/2,panelRect.top)&&near(bottom.top+bottom.height/2,panelRect.bottom)&&closes[0].textContent==='close'&&closes[1].textContent==='close');
+ block.querySelectorAll('[data-ib-collapse]')[1].click();await wait(550);check('Control inferior contrae',!block.classList.contains('ib-open'));
+ block.querySelector('[data-ib-settings]').click();await wait(550);check('Engranaje abre contenido existente',block.classList.contains('ib-open')&&!d.querySelector('.ib-dialog'));
+ block.querySelector('[data-ib-color=orange]').click();block.querySelector('[data-ib-tone=soft]').click();
+ check('Gradiente y tinte institucional',w.getComputedStyle(trigger).backgroundImage.includes('gradient')&&block.style.getPropertyValue('--ib-tint')==='#ff59000d');
+ block.querySelector('[data-ib-text]').click();d.querySelector('.ib-dialog input').value='Explorar unidad';d.querySelector('.ib-dialog [data-icon=menu_book]').click();d.querySelector('.ib-dialog button[value=ok]').click();await wait();
+ check('Texto e icono editables',block.querySelector('.ib-label').textContent==='Explorar unidad'&&block.querySelector('.ib-icon').textContent==='menu_book');
+ const toolbar=block.querySelector(':scope>.block-toolbar>div');check('Herramientas obligatorias',!!toolbar.querySelector('.drag-handle')&&!!toolbar.querySelector('[data-duplicate-element]')&&toolbar.lastElementChild.title==='Eliminar elemento');
+ toolbar.querySelector('[data-duplicate-element]').click();await wait();
+ const copy=d.querySelectorAll('#canvas [data-type="boton_interactivo"]')[1];check('Duplicado conserva elementos y usa IDs únicos',copy.querySelectorAll('.ib-content>.lms-element').length===2&&copy.querySelector('.ib-panel').id!==block.querySelector('.ib-panel').id);
+ copy.querySelector('[data-ib-change-action]').click();await choose('link','https://www.anahuac.mx/');check('Acción hipervínculo',copy.querySelector('[data-ib-trigger]').getAttribute('href')==='https://www.anahuac.mx/');
+ block.querySelector('[data-ib-change-action]').click();await choose('none');check('Elegir después conserva contenido',!trigger.hasAttribute('href')&&content.querySelectorAll(':scope>.lms-element').length===2);
+ block.querySelector('[data-ib-settings]').click();await choose('encapsulate');
+ const html=w.generateExportHTML(false),doc=new DOMParser().parseFromString(html,'text/html');check('Exportación cerrada y sin herramientas',!doc.querySelector('.ib-open,.ib-editor,.block-toolbar,.ib-dialog')&&!!doc.querySelector('.ib-content p')&&html.includes('setupInteractiveButtonRuntime();'));
+ doc.querySelectorAll('script[src],link').forEach(n=>n.remove());const utilities=doc.createElement('style');utilities.textContent=appStyles;doc.head.append(utilities);published.srcdoc='<!doctype html>'+doc.documentElement.outerHTML;await new Promise(resolve=>published.onload=resolve);await wait();
+ const pd=published.contentDocument,pb=pd.querySelector('[data-type="boton_interactivo"]'),pt=pb.querySelector('[data-ib-trigger]');
+ check('Alumno inicia con contenido contraído',!pb.classList.contains('ib-open')&&pt.getAttribute('aria-expanded')==='false');
+ pt.click();await wait(550);check('HTML exportado expande',pb.classList.contains('ib-open')&&pb.querySelector('.ib-panel').getBoundingClientRect().height>80);
+ check('Exportación conserva los márgenes',geometry(pd,pb));
+ published.style.width='420px';await wait(700);check('Márgenes responsivos en móvil',geometry(pd,pb)&&pd.documentElement.scrollWidth<=published.clientWidth+1);
+ published.style.width='100%';await wait(700);
+ pb.querySelectorAll('[data-ib-collapse]')[1].click();await wait(550);check('HTML exportado contrae',!pb.classList.contains('ib-open')&&pb.querySelector('.ib-panel').getBoundingClientRect().height<1);
+ pt.dispatchEvent(new published.contentWindow.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));await wait(550);check('Teclado accesible',pt.getAttribute('aria-expanded')==='true');
+ check('Hipervínculo exportado nativo',pd.querySelectorAll('[data-ib-trigger]')[1].href==='https://www.anahuac.mx/');
+ check('Exportar no modifica el elemento del builder',!block.hasAttribute('data-ib-published')&&trigger.tagName==='A'&&!block.querySelector('details.ib-shell'));
+ const fallback=new DOMParser().parseFromString(html,'text/html');
+ fallback.querySelectorAll('style,link,script[src]').forEach(n=>n.remove());
+ const layout=fallback.createElement('style');layout.textContent=appStyles;fallback.head.append(layout);
+ const mount=async(doc)=>{published.srcdoc='<!doctype html>'+doc.documentElement.outerHTML;await new Promise(resolve=>published.onload=resolve);await wait();return published.contentDocument;};
+ let fd=await mount(fallback),fb=fd.querySelector('[data-type="boton_interactivo"]'),ft=fb.querySelector('[data-ib-trigger]');
+ const face=ft.querySelector('.ib-trigger');
+ check('Sin CSS del botón conserva gradiente y fuente',published.contentWindow.getComputedStyle(face).backgroundImage.includes('gradient')&&published.contentWindow.getComputedStyle(face).fontWeight==='700'&&face.querySelector('svg'));
+ check('Sin CSS del botón comienza cerrado',fb.querySelector('.ib-panel').getBoundingClientRect().height===0&&!fb.querySelector('details').open);
+ ft.click();await wait(550);check('Sin CSS del botón expande con márgenes y X',geometry(fd,fb)&&fb.querySelector('[data-ib-collapse]').getBoundingClientRect().width===32&&ft.getBoundingClientRect().height===0);
+ fb.querySelectorAll('[data-ib-collapse]')[1].click();await wait(550);check('Sin CSS del botón contrae',!fb.querySelector('details').open&&fb.querySelector('.ib-panel').getBoundingClientRect().height===0);
+ published.style.width='420px';ft.click();await wait(700);check('Sin CSS del botón mantiene adaptación horizontal',geometry(fd,fb)&&fd.documentElement.scrollWidth<=published.clientWidth+1);published.style.width='100%';
+ const native=new DOMParser().parseFromString(html,'text/html');native.querySelectorAll('style,link,script').forEach(n=>n.remove());
+ fd=await mount(native);fb=fd.querySelector('[data-type="boton_interactivo"]');ft=fb.querySelector('[data-ib-trigger]');
+ check('Sin scripts ni CSS: resumen nativo y contenido oculto',ft.tagName==='SUMMARY'&&!fb.querySelector('details').open&&!fb.querySelector('.ib-content').checkVisibility()&&!fb.querySelector('.ib-panel').hasAttribute('inert'));
+ ft.click();await wait();check('Sin scripts ni CSS: contenido accesible al abrir',fb.querySelector('details').open&&fb.querySelector('.ib-content').getBoundingClientRect().height>0&&published.contentWindow.getComputedStyle(fb.querySelector('.ib-panel-inner')).backgroundColor!=='rgba(0, 0, 0, 0)');
+ check('Sin scripts no muestra controles inoperantes',Array.from(fb.querySelectorAll('[data-ib-collapse]')).every(n=>n.getBoundingClientRect().width===0));
+ ft.click();await wait();check('Sin scripts ni CSS: puede volver a contraer',!fb.querySelector('details').open);
+ published.style.width='420px';await wait();check('Respaldo nativo sin desbordamiento móvil',fd.documentElement.scrollWidth<=published.clientWidth+1);published.style.width='100%';
+ // Leave a styled preview with just the interactive stylesheet removed.
+ await mount(fallback);
+ }catch(error){results.push('FAIL '+error.message);out.textContent=results.join('\n');}
+};
+</script>
