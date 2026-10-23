@@ -1,4 +1,4 @@
-import {clamp,normalizeCrop,resizeCrop,cropForAspect,imageAdjustments,imageTextLayout,imageFilter,type CropRect,type ImageTextLayout} from './image-model';
+import {clamp,normalizeCrop,resizeCrop,cropForAspect,imageAdjustments,imageTextLayout,transformImageText,imageFilter,type CropRect,type ImageTextLayout} from './image-model';
 import './image-controls.css';
 
 const selector='[data-type="imagen_suelta"],[data-type="profesor_img"]';
@@ -49,7 +49,7 @@ function paint(block:HTMLElement){
   if(layer&&text){
     const t=textState(block);
     apply(layer,{position:'absolute',inset:t.margin+'%',zIndex:'2',pointerEvents:'none',minWidth:'0',minHeight:'0'});
-    apply(text,{position:'absolute',boxSizing:'border-box',left:t.x+'%',top:t.y+'%',width:t.width+'%',maxWidth:'100%',maxHeight:'100%',overflow:'hidden',overflowWrap:'anywhere',transform:`translate(-${t.x}%,-${t.y}%)`,pointerEvents:'auto',margin:'0',lineHeight:'1.3'});
+    apply(text,{position:'absolute',boxSizing:'border-box',left:t.x+'%',top:t.y+'%',width:t.width+'%',height:t.height==null?'auto':t.height+'%',maxWidth:'100%',maxHeight:'100%',overflow:'hidden',overflowWrap:'anywhere',transform:`translate(-${t.x}%,-${t.y}%)`,pointerEvents:'auto',margin:'0',lineHeight:'1.3'});
     if(!text.isContentEditable)apply(text,{fontSize:`clamp(8px, ${t.size/4}cqw, 96px)`});
   }
 }
@@ -79,7 +79,7 @@ function addText(block:HTMLElement){
   if(!frame.querySelector(':scope > .image-text-layer'))change(block,()=>{
     const layer=document.createElement('div');layer.className='image-text-layer';
     const text=document.createElement('div');text.className='image-overlay-text editable-text';text.textContent='Escribe tu texto aquí';
-    text.title='Doble clic para editar; arrastra para mover';text.style.cssText='font-family:Roboto,Arial,sans-serif;font-weight:700;color:#ffffff;text-align:center;text-shadow:0 1px 4px #000b;';
+    text.title='Doble clic para editar; arrastra para mover; usa los bordes para redimensionar';text.style.cssText='font-family:Roboto,Arial,sans-serif;font-weight:700;color:#ffffff;text-align:center;text-shadow:0 1px 4px #000b;';
     layer.append(text);frame.append(layer);setData(block,'imageTextLayout',textState(block));paint(block);
   });
 }
@@ -179,7 +179,7 @@ function installEvents(){
       const s=state(block);popup.innerHTML='<h3>Editar imagen</h3>'+slider('hue','Matiz (HUE)',s.hue,-180,180,'°')+slider('contrast','Contraste',s.contrast,0,200)+slider('brightness','Brillo',s.brightness,0,200)+slider('saturation','Saturación',s.saturation,0,200)+slider('tintHue','Color del filtro',s.tintHue,0,360,'°')+slider('tint','Intensidad del filtro',s.tint,0,100)+'<div class="image-menu-actions"><button type="button" data-image-reset>Restablecer ajustes</button></div>';
     }else{
       const s=textState(block),exists=!!frameOf(block)?.querySelector('.image-overlay-text');
-      popup.innerHTML='<h3>Texto sobre la imagen</h3><small>Doble clic para editar. Arrastra el texto para moverlo.</small><div class="image-menu-actions"><button type="button" data-image-text-edit>'+(exists?'Editar texto':'Agregar texto')+'</button></div>'+(exists?slider('margin','Márgenes',s.margin,0,25)+slider('x','Posición horizontal',s.x,0,100)+slider('y','Posición vertical',s.y,0,100)+slider('width','Ancho del texto',s.width,10,100)+slider('size','Tamaño del texto',s.size,10,72,'')+'<div class="image-menu-actions"><button type="button" data-image-text-remove>Quitar texto</button></div>':'');
+      popup.innerHTML='<h3>Texto sobre la imagen</h3><small>Doble clic para editar. Arrastra la caja para moverla y sus bordes para cambiar sus dimensiones.</small>'+(exists?slider('size','Tamaño del texto',s.size,10,72,'')+'<div class="image-menu-actions"><button type="button" data-image-text-remove>Quitar texto</button></div>':'<div class="image-menu-actions"><button type="button" data-image-text-activate>Activar texto</button></div>');
     }
     popup.hidden=false;
     // Pin the source toolbar through a stylesheet, not authored classes/history.
@@ -195,7 +195,7 @@ function installEvents(){
   document.addEventListener('click',event=>{
     const target=event.target as Element,tool=target.closest<HTMLElement>('[data-image-tool]'),free=target.closest<HTMLElement>('[data-image-free-crop]');
     if(free){event.preventDefault();const block=free.closest<HTMLElement>(selector);hide();if(block)beginCrop(block);return;}
-    if(tool){event.preventDefault();if(tool.dataset.imageTool==='text'){const block=tool.closest<HTMLElement>(selector);if(block&&!block.querySelector('.image-overlay-text')){addText(block);hide();}}show(tool);return;}
+    if(tool){event.preventDefault();show(tool);return;}
     if(!popup.contains(target)&&!target.closest('#rtf-toolbar,#text-link-tools'))hide();
   });
   popup.addEventListener('pointerdown',event=>{if((event.target as Element).matches('input[type=range]')&&active){stay();window.saveHistoryState?.(true);sliderDrag=true;window.modularResizing=true;}});
@@ -212,30 +212,66 @@ function installEvents(){
   popup.addEventListener('click',event=>{
     const target=event.target as Element;if(!active)return;
     if(target.closest('[data-image-reset]')){const block=active,button=anchor!;change(block,()=>{setData(block,'imageAdjustments',imageAdjustments());paint(block);});hide();show(button);}
-    if(target.closest('[data-image-text-edit]')){const block=active;addText(block);const text=frameOf(block)?.querySelector<HTMLElement>('.image-overlay-text');hide();text?.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));}
+    if(target.closest('[data-image-text-activate]')){const block=active,button=anchor!;addText(block);hide();show(button);}
     if(target.closest('[data-image-text-remove]')){const block=active;change(block,()=>{frameOf(block)?.querySelector('.image-text-layer')?.remove();});hide();}
   });
   document.addEventListener('keydown',event=>{if(event.key==='Escape')hide();});window.addEventListener('resize',locate);window.addEventListener('scroll',()=>{if(!popup.hidden)locate();},true);
-  installTextMove();
+  installTextManipulation();
 }
 
-function installTextMove(){
-  let drag:{block:HTMLElement;text:HTMLElement;x:number;y:number;layout:ImageTextLayout;started:boolean;pointer:number}|null=null;
+function installTextManipulation(){
+  // The rollover lives outside the authored DOM: no handles enter history,
+  // duplication, saved projects or exported student content.
+  const controls=document.createElement('div');controls.id='image-text-controls';controls.hidden=true;controls.setAttribute('role','group');controls.setAttribute('aria-label','Ajustar caja de texto sobre la imagen');
+  const names:Record<string,string>={nw:'Esquina superior izquierda',n:'Borde superior',ne:'Esquina superior derecha',e:'Borde derecho',se:'Esquina inferior derecha',s:'Borde inferior',sw:'Esquina inferior izquierda',w:'Borde izquierdo'};
+  for(const [handle,name] of Object.entries(names)){
+    const button=document.createElement('button');button.type='button';button.dataset.imageTextHandle=handle;button.setAttribute('aria-label',name+' de la caja de texto');button.title=name;button.style.left=(handle.includes('w')?0:handle.includes('e')?100:50)+'%';button.style.top=(handle.includes('n')?0:handle.includes('s')?100:50)+'%';button.style.cursor=({nw:'nwse',se:'nwse',ne:'nesw',sw:'nesw',n:'ns',s:'ns',e:'ew',w:'ew'} as Record<string,string>)[handle]+'-resize';controls.append(button);
+  }
+  document.body.append(controls);
+  let selected:HTMLElement|null=null,timer=0,animation=0;
+  let drag:{block:HTMLElement;text:HTMLElement;x:number;y:number;layout:ImageTextLayout;rect:CropRect;frame:DOMRect;handle:string;target:HTMLElement;started:boolean;pointer:number}|null=null;
+  const hide=()=>{clearTimeout(timer);cancelAnimationFrame(animation);controls.hidden=true;selected=null;};
+  const draw=()=>{
+    if(!selected?.isConnected||selected.isContentEditable||window.isLmsDragging){hide();return;}
+    const r=selected.getBoundingClientRect();
+    if(!r.width||!r.height){hide();return;}
+    apply(controls,{left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px'});controls.hidden=false;
+    animation=requestAnimationFrame(draw);
+  };
+  const show=(text:HTMLElement)=>{clearTimeout(timer);selected=text;cancelAnimationFrame(animation);draw();};
+  const later=()=>{clearTimeout(timer);timer=window.setTimeout(()=>{if(!drag&&!controls.contains(document.activeElement))hide();},250);};
+  const boxRect=(text:HTMLElement,frame:DOMRect):CropRect=>{const r=text.getBoundingClientRect();return normalizeCrop({x:(r.left-frame.left)/frame.width,y:(r.top-frame.top)/frame.height,width:r.width/frame.width,height:r.height/frame.height});};
+  document.addEventListener('pointerover',event=>{const text=(event.target as Element).closest<HTMLElement>('.image-overlay-text');if(text)show(text);});
+  document.addEventListener('pointerout',event=>{if((event.target as Element).closest('.image-overlay-text'))later();});
+  controls.addEventListener('pointerenter',()=>clearTimeout(timer));controls.addEventListener('pointerleave',later);controls.addEventListener('focusin',()=>clearTimeout(timer));controls.addEventListener('focusout',later);
   document.addEventListener('pointerdown',event=>{
-    const text=(event.target as Element).closest<HTMLElement>('.image-overlay-text');if(!text||text.isContentEditable||event.button!==0)return;
-    const block=text.closest<HTMLElement>(selector);if(!block)return;
-    event.preventDefault();drag={block,text,x:event.clientX,y:event.clientY,layout:textState(block),started:false,pointer:event.pointerId};
+    const target=event.target as Element,handle=target.closest<HTMLElement>('[data-image-text-handle]');
+    const text=handle?selected:target.closest<HTMLElement>('.image-overlay-text');
+    if(!text||text.isContentEditable||event.button!==0){if(!controls.contains(target))hide();return;}
+    const block=text.closest<HTMLElement>(selector),frame=block&&frameOf(block)?.getBoundingClientRect();if(!block||!frame?.width||!frame.height)return;
+    event.preventDefault();show(text);if(handle)handle.focus({preventScroll:true});
+    drag={block,text,x:event.clientX,y:event.clientY,layout:textState(block),rect:boxRect(text,frame),frame,handle:handle?.dataset.imageTextHandle||'move',target:handle||text,started:false,pointer:event.pointerId};
   });
   document.addEventListener('pointermove',event=>{
-    if(!drag)return;const dx=event.clientX-drag.x,dy=event.clientY-drag.y;
+    if(!drag||event.pointerId!==drag.pointer)return;const dx=event.clientX-drag.x,dy=event.clientY-drag.y;
     if(!drag.started&&Math.hypot(dx,dy)<4)return;
-    if(!drag.started){window.saveHistoryState?.(true);window.modularResizing=true;drag.started=true;drag.text.setPointerCapture(drag.pointer);}
-    const parent=drag.text.parentElement!.getBoundingClientRect(),r=drag.text.getBoundingClientRect();
-    const layout={...drag.layout,x:clamp(drag.layout.x+dx/Math.max(1,parent.width-r.width)*100,0,100),y:clamp(drag.layout.y+dy/Math.max(1,parent.height-r.height)*100,0,100)};
+    if(!drag.text.isConnected){end();return;}
+    if(!drag.started){window.saveHistoryState?.(true);window.modularResizing=true;drag.started=true;drag.target.setPointerCapture(drag.pointer);}
+    const layout=transformImageText(drag.layout,drag.rect,drag.handle,dx/drag.frame.width,dy/drag.frame.height,.1,Math.max(.02,Math.min(1,20/drag.frame.height)));
     setData(drag.block,'imageTextLayout',layout);paint(drag.block);event.preventDefault();
   },{passive:false});
-  const end=()=>{if(!drag)return;const {block,started}=drag;drag=null;if(started){window.modularResizing=false;changed(block);window.saveHistoryState?.(true);}};
+  const end=()=>{if(!drag)return;const {block,started,target,pointer}=drag;drag=null;if(target.hasPointerCapture(pointer))target.releasePointerCapture(pointer);if(started){window.modularResizing=false;changed(block);window.saveHistoryState?.(true);}later();};
   document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);window.addEventListener('blur',end);
+  controls.addEventListener('lostpointercapture',end);
+  controls.addEventListener('keydown',event=>{
+    if(event.key==='Escape'){end();hide();return;}
+    if(!selected||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key))return;
+    const block=selected.closest<HTMLElement>(selector),frame=block&&frameOf(block)?.getBoundingClientRect();if(!block||!frame?.width||!frame.height)return;
+    event.preventDefault();event.stopPropagation();const step=event.shiftKey?10:1,handle=(event.target as HTMLElement).dataset.imageTextHandle!;
+    const layout=transformImageText(textState(block),boxRect(selected,frame),handle,(event.key==='ArrowLeft'?-step:event.key==='ArrowRight'?step:0)/frame.width,(event.key==='ArrowUp'?-step:event.key==='ArrowDown'?step:0)/frame.height);
+    change(block,()=>{setData(block,'imageTextLayout',layout);paint(block);});
+  });
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'){end();hide();}});
   document.addEventListener('focusout',event=>{
     const text=(event.target as Element).closest<HTMLElement>('.image-overlay-text');if(!text)return;
     setTimeout(()=>{

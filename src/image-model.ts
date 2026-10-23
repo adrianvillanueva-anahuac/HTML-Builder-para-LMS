@@ -1,6 +1,6 @@
 export type CropRect={x:number;y:number;width:number;height:number};
 export type ImageAdjustments={hue:number;contrast:number;brightness:number;saturation:number;tintHue:number;tint:number};
-export type ImageTextLayout={margin:number;x:number;y:number;width:number;size:number};
+export type ImageTextLayout={margin:number;x:number;y:number;width:number;height?:number;size:number};
 export const clamp=(value:number,min:number,max:number)=>Math.min(max,Math.max(min,Number.isFinite(value)?value:min));
 const number=(value:unknown,fallback:number,min:number,max:number)=>clamp(value==null?fallback:Number(value),min,max);
 export const fullCrop:CropRect={x:0,y:0,width:1,height:1};
@@ -26,6 +26,13 @@ export function imageAdjustments(value:Partial<ImageAdjustments>={}):ImageAdjust
   return {hue:number(value.hue,0,-180,180),contrast:number(value.contrast,100,0,200),brightness:number(value.brightness,100,0,200),saturation:number(value.saturation,100,0,200),tintHue:number(value.tintHue,270,0,360),tint:number(value.tint,0,0,100)};
 }
 export function imageTextLayout(value:Partial<ImageTextLayout>={}):ImageTextLayout{
-  return {margin:number(value.margin,5,0,25),x:number(value.x,50,0,100),y:number(value.y,50,0,100),width:number(value.width,100,10,100),size:number(value.size,28,10,72)};
+  const layout:ImageTextLayout={margin:number(value.margin,5,0,25),x:number(value.x,50,0,100),y:number(value.y,50,0,100),width:number(value.width,100,10,100),size:number(value.size,28,10,72)};
+  // Old projects keep automatic text height until the box is manipulated.
+  if(value.height!=null)layout.height=number(value.height,100,2,100);
+  return layout;
+}
+export function transformImageText(layout:ImageTextLayout,rect:CropRect,handle:string,dx:number,dy:number,minWidth=.1,minHeight=.02):ImageTextLayout{
+  const next=resizeCrop(rect,handle,dx,dy,minWidth,minHeight);
+  return imageTextLayout({...layout,margin:0,x:next.width<1-1e-6?next.x/(1-next.width)*100:0,y:next.height<1-1e-6?next.y/(1-next.height)*100:0,width:next.width*100,height:next.height*100});
 }
 export function imageFilter(value:ImageAdjustments){return `hue-rotate(${value.hue}deg) contrast(${value.contrast}%) brightness(${value.brightness}%) saturate(${value.saturation}%)`;}
