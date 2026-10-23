@@ -1,0 +1,52 @@
+<!doctype html><meta charset="utf-8"><title>Verificación del recorrido Builder</title>
+<button id="run">Probar los recorridos</button><button id="preview">Ver recorrido actualizado</button><pre id="result"></pre>
+<iframe id="app" src="/" style="width:100%;height:650px;border:0" title="Builder de prueba"></iframe>
+<script type="module">
+import {TUTORIAL_TOPICS,TUTORIALS} from '/src/tutorial-content.ts';
+import {getParrafoBasicoHTML} from '/src/templates.ts';
+const app=document.querySelector('#app'),out=document.querySelector('#result');
+const wait=(ms=80)=>new Promise(resolve=>setTimeout(resolve,ms));
+document.querySelector('#preview').onclick=()=>{
+ out.hidden=true;app.style.height='720px';app.style.width='100%';
+ app.contentWindow.tutorialCheckAPI?.startTutorial('imagenes');
+};
+document.querySelector('#run').onclick=async()=>{
+ const results=[],check=(name,pass)=>{results.push((pass?'PASS ':'FAIL ')+name);out.textContent=results.join('\n');};
+ try{
+  const w=app.contentWindow,d=w.document;
+  if(!d.querySelector('.project-tab-add'))d.querySelector('.project-welcome button').click();await wait();w.insertTemplate('pagina_basica');await wait();
+  const page=d.querySelector('#canvas .lms-dropzone.bg-white');for(let i=0;i<35;i++)page.insertAdjacentHTML('beforeend',getParrafoBasicoHTML());w.initNestedDropzones();await wait(200);
+  const script=d.createElement('script');script.type='module';script.textContent="import {startTutorial,cancelActiveTutorial} from '/src/tutorial.ts';window.tutorialCheckAPI={startTutorial,cancelActiveTutorial};window.dispatchEvent(new Event('tutorial-api-ready'));";
+  const ready=new Promise(resolve=>w.addEventListener('tutorial-api-ready',resolve,{once:true}));d.head.append(script);await ready;
+  const api=w.tutorialCheckAPI,sidebar=d.querySelector('[data-tour=sidebar]>.overflow-y-auto'),canvas=d.querySelector('#scroll-container');
+  w.switchTab('elements');d.querySelector('#tab-elements details').open=false;sidebar.scrollTop=100;canvas.scrollTop=620;await wait();
+  const snapshot=()=>({tab:d.querySelector('.btn-tab.border-anahuac-orange')?.dataset.target,side:sidebar.scrollTop,canvas:canvas.scrollTop,details:Array.from(d.querySelectorAll('[data-tour=sidebar] details')).map(node=>node.open)});
+  const original=snapshot(),html=d.querySelector('#canvas-container-outer').innerHTML,parentY=window.scrollY;
+  const shellOK=()=>Array.from(d.querySelectorAll('html,body,#root,#root>div,#root main,[data-tour=sidebar],.builder-header')).every(node=>!node.scrollTop&&!node.scrollLeft)&&Math.abs(d.querySelector('.builder-header').getBoundingClientRect().top)<1;
+  const cardOK=tour=>{const el=tour.getCurrentStep()?.getElement();if(!el)return false;const r=el.getBoundingClientRect(),buttons=el.querySelectorAll('.shepherd-footer button');return r.left>=-1&&r.top>=-1&&r.right<=w.innerWidth+1&&r.bottom<=w.innerHeight+1&&w.getComputedStyle(el).position==='fixed'&&Array.from(buttons).every(button=>{const b=button.getBoundingClientRect();return b.top>=r.top&&b.bottom<=r.bottom+1;});};
+  for(const topic of TUTORIAL_TOPICS){
+   const tour=api.startTutorial(topic.id);await wait(200);let stable=true;
+   for(const step of TUTORIALS[topic.id].steps){
+    stable=stable&&tour.getCurrentStep()?.id===step.id&&shellOK()&&cardOK(tour);tour.next();await wait(60);
+   }
+   await wait(100);check(topic.title+': todos los pasos visibles y sin desplazar la app',stable);
+   check(topic.title+': recupera catálogo y lienzo al finalizar',JSON.stringify(snapshot())===JSON.stringify(original)&&shellOK());
+  }
+  check('El recorrido no cambia el contenido del proyecto',d.querySelector('#canvas-container-outer').innerHTML===html);
+  check('No desplaza la ventana que contiene el Builder',window.scrollY===parentY);
+  check('No deja resaltados ni una capa bloqueando la app',!d.querySelector('.shepherd-enabled,.shepherd-target,.shepherd-modal-is-visible'));
+  let tour=api.startTutorial('disena');await wait(200);tour.next();await wait();tour.back();await wait();check('Anterior y Siguiente conservan el encuadre',tour.getCurrentStep()?.id==='design-catalog'&&shellOK()&&cardOK(tour));
+  tour.getCurrentStep().getElement().querySelector('.lms-tour-exit').click();await wait();check('Salir restaura la posición',JSON.stringify(snapshot())===JSON.stringify(original)&&shellOK());
+  tour=api.startTutorial('imagenes');await wait(200);tour.getCurrentStep().getElement().querySelector('.shepherd-cancel-icon').click();await wait();check('La X restaura la posición',JSON.stringify(snapshot())===JSON.stringify(original)&&shellOK());
+  tour=api.startTutorial('medios');await wait(200);tour.getCurrentStep().getElement().dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',code:'Escape',keyCode:27,bubbles:true}));await wait();check('Escape cierra sin dejar la app desplazada',!tour.isActive()&&JSON.stringify(snapshot())===JSON.stringify(original)&&shellOK());
+  api.startTutorial('imagenes');api.cancelActiveTutorial();await wait(400);check('Cancelar antes de iniciar no deja un recorrido tardío',!d.querySelector('.shepherd-enabled')&&shellOK());
+  api.startTutorial('tablas');tour=api.startTutorial('medios');await wait(450);check('Inicios rápidos dejan un único recorrido',tour.isActive()&&d.querySelectorAll('.shepherd-element.shepherd-enabled').length===1);api.cancelActiveTutorial();await wait();
+  const image=d.querySelector('#tab-elements [data-type=imagen_suelta]'),style=image.getAttribute('style');image.style.display='none';tour=api.startTutorial('imagenes');await wait(200);check('Sin control visible usa una tarjeta legible',cardOK(tour)&&shellOK());api.cancelActiveTutorial();if(style==null)image.removeAttribute('style');else image.setAttribute('style',style);
+  app.style.height='320px';app.style.width='520px';await wait(200);const compact=snapshot();tour=api.startTutorial('disena');await wait(200);let compactOK=true;
+  for(let i=0;i<TUTORIALS.disena.steps.length;i++){compactOK=compactOK&&cardOK(tour)&&shellOK();tour.next();await wait(60);}
+  await wait();check('Ventana de 520 × 320: texto desplazable y botones siempre visibles',compactOK&&JSON.stringify(snapshot())===JSON.stringify(compact));
+  app.style.height='650px';app.style.width='100%';await wait();
+  check('La app queda utilizable después de todos los recorridos',shellOK()&&!d.querySelector('.shepherd-modal-is-visible'));
+ }catch(error){results.push('FAIL '+error.message);out.textContent=results.join('\n');}
+};
+</script>

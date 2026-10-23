@@ -551,7 +551,14 @@ details[open] summary ~ * { animation: fadeIn 0.3s ease-in-out; }
     box-shadow: 0 22px 55px rgba(24, 24, 27, 0.24);
     color: #374151;
     z-index: 10002;
+    max-height: calc(100dvh - 24px);
+    overflow: hidden;
 }
+
+.lms-shepherd-theme .shepherd-content{display:flex;flex-direction:column;max-height:calc(100dvh - 26px);min-height:0}
+.lms-shepherd-theme .shepherd-text{overflow-y:auto;min-height:0;overscroll-behavior:contain}
+.lms-shepherd-theme .shepherd-header,.lms-shepherd-theme .shepherd-footer{flex-shrink:0}
+.lms-shepherd-theme .shepherd-footer{flex-wrap:wrap}
 
 .lms-shepherd-theme .shepherd-content,
 .lms-shepherd-theme .shepherd-header {
