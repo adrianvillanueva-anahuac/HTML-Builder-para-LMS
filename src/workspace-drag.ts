@@ -1,14 +1,15 @@
 import Sortable from 'sortablejs';
 import type {Project,Workspace} from './project-model';
+import {restoreBackgroundMetadata} from './workspace-appearance';
 
-type Content=Pick<Workspace,'html'|'style'|'bg'>;
+type Content=Pick<Workspace,'html'|'style'|'bg'|'bgColor'|'bgMargin'>;
 type Adapter={
   begin:()=>Project|null;
   show:(id:string)=>void;
   serialize:(root:HTMLElement)=>Content;
   finish:(before:Project,updates:Map<string,Content>,activeId:string,cancelled:boolean)=>void;
 };
-type Parked={node:HTMLElement;style:string;bg:string;scroll:number};
+type Parked={node:HTMLElement;style:string;bg:string;bgColor?:string;bgMargin?:string;scroll:number};
 type Drag={item:HTMLElement;parent:HTMLElement;next:Node|null;before:Project;activeId:string;parked:Map<string,Parked>;switched:boolean;cancelled:boolean;ending:boolean;x:number;y:number};
 
 // Keep the source Sortable and its nodes alive until mouseup. Rebuilding the
@@ -22,11 +23,12 @@ export function installWorkspaceDrag(adapter:Adapter) {
     if(!d||!s||id===d.activeId||d.ending)return;
     const root=outer(),scroll=document.getElementById('scroll-container');
     const node=document.createElement('div');node.dataset.workspaceParking=d.activeId;node.style.display='none';node.inert=true;document.body.append(node);
-    const parked={node,style:root.style.cssText,bg:root.dataset.bg||'blanco',scroll:scroll?.scrollTop||0};
+    const parked={node,style:root.style.cssText,bg:root.dataset.bg||'blanco',bgColor:root.dataset.bgColor,bgMargin:root.dataset.bgMargin,scroll:scroll?.scrollTop||0};
+    restoreBackgroundMetadata(node,parked);
     while(root.firstChild)node.append(root.firstChild);
     d.parked.set(d.activeId,parked);
     const existing=d.parked.get(id);
-    root.style.cssText=existing?.style??s.style;root.dataset.bg=existing?.bg??s.bg;
+    root.style.cssText=existing?.style??s.style;restoreBackgroundMetadata(root,existing||s);
     if(existing){while(existing.node.firstChild)root.append(existing.node.firstChild);existing.node.remove();d.parked.delete(id);}
     else root.innerHTML=s.html;
     d.activeId=id;d.switched=true;window.lmsWorkspaceDragSwitched=true;

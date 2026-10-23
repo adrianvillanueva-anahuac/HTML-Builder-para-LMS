@@ -1,0 +1,40 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Verificación glass Info. pestaña</title>
+<style>body{margin:0;font:13px Arial}#controls{padding:8px;background:#eee}pre{white-space:pre-wrap;margin:8px;max-height:150px;overflow:auto}iframe{width:100%;height:calc(100vh - 42px);border:0}</style>
+<div id="controls"><button id="run">Probar Info. pestaña glass</button> <button id="inspect">Mostrar Info. pestaña</button> <button id="dark">Alternar modo oscuro de prueba</button></div><pre id="result"></pre><iframe id="app" src="/"></iframe>
+<script type="module">
+const frame=document.querySelector('#app'),out=document.querySelector('#result'),wait=()=>new Promise(r=>setTimeout(r,250));
+const env=()=>({w:frame.contentWindow,d:frame.contentWindow.document});
+let results=[];
+const check=(name,ok)=>{results.push((ok?'PASS ':'FAIL ')+name);out.textContent=results.join('\n');};
+const open=async()=>{const {w,d}=env();d.querySelector('.project-tabs [role=tab]').dispatchEvent(new w.KeyboardEvent('keydown',{key:'F2',bubbles:true}));await wait();return d.querySelector('dialog.workspace-settings');};
+async function setup(){const {w,d}=env();if(d.querySelector('.project-welcome')){d.querySelector('.project-welcome .welcome-actions button').click();await wait();w.insertTemplate('conclusiones');await wait();}}
+document.querySelector('#run').onclick=async()=>{
+ results=[];out.textContent='Preparando…';
+ try{
+  await setup();const {w,d}=env();let dialog=await open();
+  const style=w.getComputedStyle(dialog),backdrop=w.getComputedStyle(dialog,'::backdrop');
+  check('Glass con desenfoque y saturación',style.backdropFilter.includes('blur(24px)')&&style.backdropFilter.includes('saturate(1.5)'));
+  check('Borde translúcido y reflejo interior',style.borderTopWidth==='1px'&&style.boxShadow.includes('inset'));
+  check('Fondo exterior suavizado',backdrop.backdropFilter.includes('blur(2px)'));
+  dialog.querySelector('[name=page-name]').value='No guardar';dialog.querySelector('[data-add-note]').click();dialog.querySelector('textarea').value='Borrador';dialog.querySelector('button[value=cancel]').click();await wait();
+  check('Cancelar no cambia la pestaña',d.querySelector('.project-tabs [role=tab]').textContent==='Página 1');
+  dialog=await open();check('Cancelar no guarda notas',!dialog.querySelector('textarea'));
+  dialog.querySelector('[name=page-name]').value='Unidad final';dialog.querySelector('[data-add-note]').click();dialog.querySelector('textarea').value='Revisar fuentes';dialog.querySelector('[data-add-task]').click();dialog.querySelector('.workspace-task input[type=text]').value='Revisión completa';dialog.querySelector('.workspace-task input[type=checkbox]').click();
+  dialog.querySelector('.workspace-color-trigger').click();
+  const palette=dialog.querySelector('.workspace-colors'),rect=palette.getBoundingClientRect(),frameRect=dialog.getBoundingClientRect();
+  check('Paleta visible dentro de la ventana glass',!palette.hidden&&rect.left>=frameRect.left&&rect.right<=frameRect.right&&rect.top>frameRect.top);
+  dialog.querySelector('.workspace-color[data-color="#5d428c"]').click();
+  check('Selección de color accesible',palette.hidden&&dialog.querySelector('.workspace-color-trigger').getAttribute('aria-expanded')==='false');
+  dialog.querySelector('button[value=ok]').click();await wait();
+  const tab=d.querySelector('.project-tabs [role=tab]');check('Aceptar conserva nombre y color',tab.textContent==='Unidad final'&&tab.closest('.project-tab').style.getPropertyValue('--tab-color')==='#5d428c');
+  check('Notas y checklist conservados',tab.getAttribute('aria-description').includes('Revisar fuentes')&&tab.getAttribute('aria-description').includes('Completado: Revisión completa'));
+  dialog=await open();d.documentElement.classList.add('dark');
+  const dark=w.getComputedStyle(dialog);check('Glass también en modo oscuro',dark.backdropFilter.includes('blur(24px)')&&dark.color==='rgb(232, 237, 245)');
+  check('Campos y acciones legibles en oscuro',w.getComputedStyle(dialog.querySelector('input')).color==='rgb(237, 240, 247)'&&w.getComputedStyle(dialog.querySelector('button[value=cancel]')).color==='rgb(220, 200, 255)');
+  d.documentElement.classList.remove('dark');dialog.querySelector('button[value=cancel]').click();await wait();
+  out.textContent=results.join('\n')+'\nTOTAL: '+results.length+' / FAIL: '+results.filter(x=>x.startsWith('FAIL')).length;
+ }catch(error){out.textContent+='\nERROR '+error.stack;}
+};
+document.querySelector('#inspect').onclick=async()=>{await setup();out.hidden=true;await open();};
+document.querySelector('#dark').onclick=()=>env().d.documentElement.classList.toggle('dark');
+</script></html>

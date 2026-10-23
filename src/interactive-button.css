@@ -51,6 +51,33 @@
 .ib-icon-choices{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .ib-icon-choices button{width:36px;height:36px;border:1px solid #cdd5dc;border-radius:7px;background:transparent;color:#5d428c;cursor:pointer}
 .ib-icon-choices button[aria-pressed=true]{border:2px solid #5d428c;background:#ede7f6}
+dialog.exercise-settings.project-prompt.ib-dialog{border:1px solid #ffffffb8;background:linear-gradient(135deg,#ffffff70,#f4f0ff30 55%,#ffffff15),#fcfbffba;backdrop-filter:blur(24px) saturate(150%);-webkit-backdrop-filter:blur(24px) saturate(150%);box-shadow:0 18px 64px #211b3a40,inset 0 1px 0 #ffffffc9}
+dialog.exercise-settings.project-prompt.ib-dialog::backdrop{background:#211b3a42;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+.exercise-settings.project-prompt.ib-dialog .ib-label-row{display:flex;align-items:flex-end;gap:10px}
+.exercise-settings.project-prompt.ib-dialog .ib-label-field{flex:1;min-width:0;margin:0}
+.exercise-settings.project-prompt.ib-dialog .ib-icon-catalog-trigger{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;padding:8px;border:1px solid #b9aacd;border-radius:11px;background:#ede7f680;color:#5d428c;cursor:pointer;transition:background-color .16s,border-color .16s,box-shadow .16s}
+.ib-icon-catalog-trigger:hover{background:#ede7f6!important;border-color:#5d428c!important;box-shadow:0 0 0 3px #5d428c18}
+.ib-icon-choices button{display:grid;place-items:center;padding:5px}
+dialog.exercise-settings.project-prompt.ib-icon-catalog-dialog{width:min(640px,calc(100vw - 32px))}
+.ib-icon-catalog-scroll{max-height:min(45dvh,380px);overflow:auto;overscroll-behavior:contain;padding:4px 8px 4px 4px;margin-top:12px}
+.ib-icon-category+.ib-icon-category{margin-top:18px}
+.ib-icon-category h3{font-size:12px;font-weight:600;color:#5d428c;border-bottom:1px solid #5d428c20;padding-bottom:6px;margin:0 0 8px}
+.ib-icon-catalog-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:7px}
+.ib-catalog-icon{display:grid;place-items:center;min-width:0;min-height:42px;padding:7px;border:1px solid #cdd5dc;border-radius:9px;color:#5d428c;background:#ffffff40;cursor:pointer}
+.ib-catalog-icon:hover{border-color:#ff5900;background:#fff4eeb3;color:#ff5900}
+.ib-catalog-icon[aria-pressed=true]{border:2px solid #5d428c;background:#ede7f6a6}
+.ib-icon-category[hidden],.ib-catalog-icon[hidden],.ib-icon-catalog-empty[hidden]{display:none}
+.ib-icon-catalog-current,.ib-icon-catalog-empty{font-size:12px;color:#646464;margin:10px 0 0}
+.dark dialog.exercise-settings.project-prompt.ib-dialog{background:linear-gradient(135deg,#ffffff13,#39324614 55%,#ffffff04),#252a35c9;border-color:#ffffff30;box-shadow:0 18px 64px #0007,inset 0 1px 0 #ffffff21}
+.dark .exercise-settings.project-prompt.ib-dialog input{background:#191e2866;border-color:#69758b;color:#edf0f7}
+.dark .exercise-settings.project-prompt.ib-dialog .ib-icon-catalog-trigger{background:#7d67992e;border-color:#a68acb88;color:#e1d3ff}
+.dark .ib-icon-choices button,.dark .ib-catalog-icon{color:#e1d3ff;border-color:#8a7c9f80;background:#ffffff08}
+.dark .ib-icon-choices button[aria-pressed=true],.dark .ib-catalog-icon[aria-pressed=true]{background:#6b508a66;border-color:#c3a6e6}
+.dark .ib-catalog-icon:hover,.dark .ib-icon-catalog-trigger:hover{color:#fff;background:#7755a655!important;border-color:#bfa0e2!important}
+.dark .ib-icon-category h3{color:#dcc8ff;border-color:#c3a6e633}
+.dark .ib-icon-catalog-current,.dark .ib-icon-catalog-empty{color:#bdc6d6}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){dialog.exercise-settings.project-prompt.ib-dialog{background:#fdfcff}.dark dialog.exercise-settings.project-prompt.ib-dialog{background:#252a35}}
+@media(max-width:480px){.ib-icon-catalog-grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
 .dark .ib-tool-panel{background:#292f3b;color:#e4e9f2;border-color:#475268}
 .dark .ib-action-options small{color:#bdc1c6}
 @media(prefers-reduced-motion:reduce){.ib-trigger,.ib-collapse,.ib-button-row,.ib-panel,.ib-panel-inner,.ib-collapse-row{transition-duration:.01ms!important;transition-delay:0s!important}}

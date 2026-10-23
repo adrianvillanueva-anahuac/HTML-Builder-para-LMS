@@ -7,6 +7,7 @@ import ProjectManager from './ProjectManager';
 import { setupToolbarSelection } from './toolbar-selection';
 import { setupEditingContrast } from './editing-contrast';
 import { openTextLinkDialog,setupTextLinkControls } from './text-link-controls';
+import {iconCatalog} from './icon-catalog';
 
 const GITHUB_REPOSITORY = 'adrianvillanueva-anahuac/HTML-Builder-para-LMS';
 const GITHUB_IMAGES_API_URL = `https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/public/imagenes`;
@@ -73,6 +74,12 @@ const includeLocalFooterLogos = (logos: FooterLogo[]): FooterLogo[] => {
 export default function App() {
   const [sidebarWidth, setSidebarWidth] = useState(340);
   const [elementView, setElementView] = useState<'list'|'grid'>('list');
+  const [workspaceCount,setWorkspaceCount]=useState(0);
+  useEffect(()=>{
+    const update=()=>setWorkspaceCount(window.lmsWorkspaceCount||0);
+    update();window.addEventListener('lms-project-spaces-changed',update);
+    return()=>window.removeEventListener('lms-project-spaces-changed',update);
+  },[]);
   useEffect(() => {
     document.querySelectorAll<HTMLElement>('#tab-elements .catalog-item').forEach(item => {
       const label = item.querySelector('span:not(.material-symbols-outlined):not(.catalog-icon)')?.textContent?.trim();
@@ -380,19 +387,9 @@ export default function App() {
 
     // 4. Iniciar Íconos de Google en el Modal
     const gridContainer = document.getElementById('icon-grid');
-    const googleIconsByCategory = {
-        "Referencias y Recursos": ['play_circle', 'menu_book', 'devices', 'article', 'language', 'description', 'book', 'public', 'web', 'smart_display'],
-        "Educación y Aprendizaje": ['school', 'menu_book', 'article', 'assignment', 'quiz', 'library_books', 'history_edu', 'science', 'psychology', 'import_contacts', 'workspace_premium', 'calculate', 'draw', 'functions'],
-        "Alertas y Estados": ['warning', 'error', 'check_circle', 'info', 'help_center', 'new_releases', 'priority_high', 'task_alt', 'fact_check', 'report_problem', 'campaign', 'tips_and_updates', 'verified', 'block'],
-        "Comunicación": ['chat', 'forum', 'mail', 'support_agent', 'perm_phone_msg', 'contact_mail', 'question_answer', 'alternate_email', 'speaker_notes', 'record_voice_over'],
-        "Media y Multimedia": ['play_circle', 'videocam', 'image', 'mic', 'headset', 'movie', 'photo_camera', 'headphones', 'volume_up', 'volume_off', 'palette', 'music_note', 'collections', 'art_track'],
-        "Acciones e Interactividad": ['ads_click', 'touch_app', 'mouse', 'pan_tool_alt', 'drag_indicator', 'swipe', 'pinch', 'open_in_new', 'search', 'settings', 'build', 'download', 'cloud_download', 'upload', 'edit', 'delete', 'share', 'reply', 'save', 'filter_alt'],
-        "General y Varios": ['lightbulb', 'star', 'flag', 'group', 'insights', 'timeline', 'table_chart', 'language', 'attach_money', 'emoji_objects', 'public', 'bolt', 'rocket_launch', 'extension', 'visibility', 'lock', 'explore', 'event'],
-        "Tecnología y Dispositivos": ['laptop_mac', 'smartphone', 'computer', 'desktop_mac', 'window', 'keyboard', 'memory', 'sd_card', 'cast', 'print', 'developer_mode', 'devices']
-    };
 
     if (gridContainer && gridContainer.children.length === 0) {
-        Object.entries(googleIconsByCategory).forEach(([category, icons]) => {
+        Object.entries(iconCatalog).forEach(([category, icons]) => {
             const catDiv = document.createElement('div');
             const title = document.createElement('h3');
             title.className = "text-sm font-bold text-gray-500 mb-2 border-b border-gray-100 pb-1";
@@ -753,9 +750,14 @@ export default function App() {
               
               <div id="tab-elements" className="tab-content p-5" data-view={elementView}>
                   <div className="element-style-actions" data-tour="canvas-style-actions">
+                    <div className="element-design-group" role="group" aria-label="Diseño de las páginas">
                       <button onClick={() => window.openBgModal()} className="bg-anahuac-purple text-white" title="Fondo del Canvas" aria-label="Fondo del Canvas"><span className="material-symbols-outlined">wallpaper</span></button>
                       <button onClick={() => window.openGlobalFooterModal()} className="bg-anahuac-orange text-white" title="Configurar diseño de Footer por defecto" aria-label="Configurar diseño de Footer por defecto"><span className="material-symbols-outlined">design_services</span></button>
+                      <button className="element-batch-design" disabled={workspaceCount<2} onClick={()=>window.dispatchEvent(new Event('lms-open-appearance-batch'))} title={workspaceCount<2?'Agrega otra pestaña para editar varios espacios':'Aplicar fondo y footer a varias páginas'} aria-label="Aplicar fondo y footer a varias páginas"><span className="material-symbols-outlined">checklist</span></button>
+                    </div>
+                    <div className="element-view-control"><span className="element-view-label">vista</span>
                       <button className="element-view-toggle" onClick={()=>setElementView(view=>view==='list'?'grid':'list')} aria-pressed={elementView==='grid'} aria-label={elementView==='list'?'Cambiar a vista de cuadrícula':'Cambiar a vista de lista'} title={elementView==='list'?'Vista de cuadrícula':'Vista de lista'}><span className="material-symbols-outlined">{elementView==='list'?'grid_view':'view_list'}</span></button>
+                    </div>
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-4 leading-tight">Bloques interactivos anidables.</div>
                   <div className="space-y-4">

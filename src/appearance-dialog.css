@@ -1,0 +1,56 @@
+dialog.appearance-dialog{margin:auto;inset:0;width:min(960px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:0;border:1px solid #ffffffb8;border-radius:22px;overflow:visible;background:linear-gradient(135deg,#ffffff70,#f4f0ff30 55%,#ffffff15),#fcfbffba;backdrop-filter:blur(24px) saturate(150%);-webkit-backdrop-filter:blur(24px) saturate(150%);color:#202124;box-shadow:0 18px 64px #211b3a40,inset 0 1px 0 #ffffffc9;font:14px/1.5 Roboto,Arial,sans-serif}
+.appearance-dialog::backdrop{background:#211b3a42;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+.appearance-dialog form{display:flex;flex-direction:column;max-height:calc(100dvh - 36px);min-width:0}
+.appearance-dialog header{padding:22px 24px 16px}
+.appearance-heading{display:flex;align-items:center;gap:10px;color:#5d428c}
+.appearance-heading h2{font-size:21px;font-weight:600;margin:0}
+.appearance-dialog #appearance-help{font-size:13px;color:#6b7280;margin:10px 0 0;max-width:760px}
+.appearance-table-scroll{overflow:auto;min-height:110px;border-block:1px solid #e5e7eb;overscroll-behavior:contain}
+.appearance-dialog table{width:100%;min-width:720px;border-collapse:separate;border-spacing:0;text-align:left;font-size:13px}
+.appearance-dialog th{font-weight:600}
+.appearance-dialog thead th{position:sticky;top:0;z-index:1;background:#f2edf8b8;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);color:#5d428c;padding:16px 12px 12px;white-space:nowrap;vertical-align:top}
+.appearance-dialog thead th:nth-child(-n+3){vertical-align:middle}
+.appearance-dialog tbody :is(th,td){padding:12px;border-bottom:1px solid #e8eaed}
+.appearance-dialog tbody tr:last-child :is(th,td){border-bottom:0}
+.appearance-dialog tbody th{width:22%;min-width:130px;max-width:250px;overflow-wrap:anywhere}
+.appearance-dialog tbody td:nth-child(2),.appearance-dialog tbody td:nth-child(3){text-align:center}
+.appearance-dialog input[type=checkbox]{display:inline-block;width:20px;height:20px;accent-color:#5d428c;cursor:pointer;vertical-align:middle}
+.appearance-dialog button{font:inherit;cursor:pointer}
+.appearance-dialog button:disabled{cursor:default;opacity:.48}
+.appearance-dialog :is(button,input):focus-visible{outline:2px solid #5d428c;outline-offset:3px}
+.appearance-selection{display:flex;align-items:center;gap:2px;border:0;border-radius:6px;padding:4px;background:transparent;font-weight:600!important;color:inherit}
+.appearance-selection:hover,.appearance-selection[aria-expanded=true]{background:#5d428c15}
+.appearance-selection .material-symbols-outlined{font-size:20px}
+.appearance-dialog .appearance-picker{--ib-base:#5d428c;--ib-mid:#7755a6;--ib-light:#a68acb;--ib-ink:#fff;min-height:36px;padding:8px 14px;border-radius:11px;gap:7px;font-size:13px;font-weight:700}
+.appearance-dialog .appearance-picker[data-column=footer]{--ib-base:#ff5900;--ib-mid:#ee5000;--ib-light:#ff9b68}
+.appearance-picker .material-symbols-outlined{font-size:18px}
+.appearance-dialog .appearance-picker:focus-visible{outline:0}
+.appearance-dialog .appearance-picker:disabled{opacity:.55;box-shadow:none;transform:none;background-position:5% 50%}
+.appearance-next{display:block;margin-top:8px;font-size:11px;font-weight:400;color:#646464;white-space:normal;max-width:240px}
+.appearance-next[data-pending=true]{font-weight:600;color:#5d428c}
+.appearance-current{display:flex;align-items:center;gap:8px;min-width:170px;min-height:32px;color:#646464;line-height:1.45}
+.appearance-current .material-symbols-outlined{font-size:18px;color:#5d428c;flex-shrink:0}
+.appearance-current[data-selected=true]{color:#3e3154}
+.appearance-summary{font-size:12px;color:#6b7280;margin:14px 24px 0}
+.appearance-error{margin:8px 24px 0;color:#b3261e;font-size:13px}
+.appearance-dialog footer{display:flex;justify-content:flex-end;gap:10px;padding:18px 24px}
+.appearance-dialog footer button{border:0;border-radius:20px;min-height:38px;padding:8px 20px;font-weight:600}
+.appearance-cancel{background:transparent;color:#5d428c}
+.appearance-cancel:hover{background:#ede7f6}
+.appearance-apply{background:#5d428c;color:#fff}
+.appearance-apply:not(:disabled):hover{background:#4e3479}
+.appearance-selection-menu{position:absolute;z-index:10;width:240px;max-width:calc(100vw - 24px);padding:6px;border:1px solid #ffffffb8;border-radius:12px;background:#fdfcfff0;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 8px 24px #20212433;color:#202124;box-sizing:border-box}
+.appearance-selection-menu[hidden]{display:none}
+.appearance-selection-menu button{display:block;width:100%;border:0;border-radius:7px;padding:9px 11px;background:transparent;color:inherit;text-align:left;font-size:13px}
+.appearance-selection-menu button:hover,.appearance-selection-menu button:focus{background:#f2edf8;color:#5d428c}
+.dark dialog.appearance-dialog{background:linear-gradient(135deg,#ffffff13,#39324614 55%,#ffffff04),#252a35c9;color:#e8edf5;border-color:#ffffff30;box-shadow:0 18px 64px #0007,inset 0 1px 0 #ffffff21}
+.dark .appearance-heading,.dark .appearance-cancel{color:#dcc8ff}
+.dark .appearance-dialog :is(#appearance-help,.appearance-summary){color:#aeb7c7}
+.dark .appearance-dialog thead th{background:#393246bd;color:#e1d3ff}
+.dark .appearance-dialog tbody :is(th,td),.dark .appearance-table-scroll{border-color:#414959}
+.dark .appearance-current,.dark .appearance-next{color:#c0c8d7}
+.dark .appearance-current[data-selected=true],.dark .appearance-current .material-symbols-outlined,.dark .appearance-next[data-pending=true]{color:#e1d3ff}
+.dark .appearance-selection-menu{background:#30343df0;color:#e8edf5;border-color:#ffffff30}
+.dark .appearance-selection-menu button:hover,.dark .appearance-selection-menu button:focus{background:#493c60;color:#e1d3ff}
+@media(max-width:600px){.appearance-dialog header{padding:16px}.appearance-heading h2{font-size:18px}.appearance-dialog footer{padding:16px}.appearance-summary{margin-inline:16px}.appearance-dialog table{min-width:680px}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){dialog.appearance-dialog{background:#fdfcff}.dark dialog.appearance-dialog{background:#252a35}}

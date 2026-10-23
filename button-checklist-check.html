@@ -1,0 +1,58 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Checklist automático de botones</title>
+<style>body{margin:0;font:13px Arial}#controls{padding:8px;background:#eee}pre{white-space:pre-wrap;margin:8px;max-height:130px;overflow:auto}iframe{width:100%;height:calc(100vh - 42px);border:0}</style>
+<div id="controls"><button id="run">Probar checklist automático</button> <button id="proof">Mostrar checklist</button></div><pre id="result"></pre><iframe id="app" src="/"></iframe>
+<script type="module">
+const frame=document.querySelector('#app'),out=document.querySelector('#result'),wait=(ms=350)=>new Promise(r=>setTimeout(r,ms));
+const env=()=>({w:frame.contentWindow,d:frame.contentWindow.document});
+let results=[];
+const check=(name,ok)=>{results.push((ok?'PASS ':'FAIL ')+name);out.textContent=results.join('\n');if(!ok)throw Error(name);};
+const blocks=()=>Array.from(env().d.querySelectorAll('#canvas [data-type=boton_interactivo]'));
+const tab=(i=0)=>env().d.querySelectorAll('.project-tabs [role=tab]')[i];
+const description=(i=0)=>tab(i).getAttribute('aria-description');
+const taskCount=(i=0)=>(description(i).match(/Tienes pendiente poner acción en/g)||[]).length;
+const dialog=()=>env().d.querySelector('dialog.ib-dialog');
+async function action(block,value,href){block.querySelector('[data-ib-change-action]').click();await wait();dialog().querySelector(`[value="${value}"]`).click();if(href!==undefined)dialog().querySelector('input[type=text]').value=href;dialog().querySelector('button[value=ok]').click();await wait();}
+async function label(block,text){block.querySelector('[data-ib-text]').click();await wait();dialog().querySelector('input').value=text;dialog().querySelector('button[value=ok]').click();await wait();}
+async function info(i=0){const {w,d}=env();tab(i).dispatchEvent(new w.KeyboardEvent('keydown',{key:'F2',bubbles:true}));await wait();return d.querySelector('dialog.workspace-settings');}
+async function save(){const {w,d}=env();let captured;w.showSaveFilePicker=async()=>({name:'Prueba checklist.lmsproject',createWritable:async()=>({write:async text=>{captured=text;},close:async()=>{}})});d.querySelector('.project-name').dispatchEvent(new w.MouseEvent('dblclick',{bubbles:true}));await wait();const prompt=d.querySelector('dialog.project-prompt');prompt.querySelector('input').value='Prueba checklist';prompt.querySelector('button[value=ok]').click();await wait();return JSON.parse(captured);}
+async function reopen(project){const {w,d}=env();d.querySelector('.project-menu-toggle').click();Array.from(d.querySelectorAll('#project-file-menu button')).find(b=>b.textContent==='Abrir proyecto o HTML').click();const input=Array.from(d.querySelectorAll('input[type=file]')).at(-1),transfer=new w.DataTransfer();transfer.items.add(new w.File([JSON.stringify(project)],'Prueba checklist.lmsproject',{type:'application/json'}));input.files=transfer.files;input.dispatchEvent(new w.Event('change'));await wait();d.querySelector('dialog button[value=ok]').click();await wait();d.querySelector('dialog button[value=discard]').click();await wait();}
+document.querySelector('#run').onclick=async()=>{
+ results=[];out.textContent='Preparando…';
+ try{
+  const {w,d}=env();d.querySelector('.project-welcome .welcome-actions button').click();await wait();w.insertTemplate('bienvenida');await wait();w.insertTemplate('boton_interactivo');await wait();
+  dialog().querySelector('button[value=cancel]').click();await wait();check('Cancelar inserción no crea pendientes',taskCount()===0&&!blocks()[0].hasAttribute('data-button-deferred'));
+  await label(blocks()[0],'Explorar sociología');await action(blocks()[0],'none');
+  check('Elegir después agrega pendiente con el nombre actual',taskCount()===1&&description().includes('Pendiente: Tienes pendiente poner acción en "Explorar sociología".'));
+  await action(blocks()[0],'none');check('Repetir Elegir después no duplica la tarea',taskCount()===1);
+  let settings=await info();let row=settings.querySelector('.workspace-task');check('Info. pestaña muestra tarea automática y pendiente',row.dataset.automatic==='true'&&!row.querySelector('input[type=checkbox]').checked&&row.querySelector('input[type=checkbox]').disabled&&row.querySelector('input[type=text]').readOnly);
+  settings.querySelector('[data-add-task]').click();settings.querySelector('.workspace-task:last-child input[type=text]').value='Revisar bibliografía';settings.querySelector('button[value=ok]').click();await wait();
+  check('Editar el checklist conserva el vínculo y tareas manuales',taskCount()===1&&description().includes('Revisar bibliografía'));
+  blocks()[0].querySelector('[data-ib-change-action]').click();await wait();dialog().querySelector('[value=link]').click();dialog().querySelector('input[type=text]').value='javascript:alert(1)';dialog().querySelector('button[value=ok]').click();await wait();check('Enlace inválido no completa la tarea',!!dialog()&&description().includes('Pendiente: Tienes pendiente'));
+  dialog().querySelector('button[value=cancel]').click();await wait();check('Cancelar configuración mantiene pendiente',taskCount()===1&&description().includes('Pendiente: Tienes pendiente'));
+  await action(blocks()[0],'link','https://www.anahuac.mx/');check('Asignar hipervínculo palomea automáticamente',taskCount()===1&&description().includes('Completado: Tienes pendiente poner acción en "Explorar sociología".'));
+  check('No completa la tarea manual',description().includes('Pendiente: Revisar bibliografía'));
+  await label(blocks()[0],'Lectura del tema');check('Renombrar actualiza el mismo pendiente completado',taskCount()===1&&description().includes('Completado: Tienes pendiente poner acción en "Lectura del tema".'));
+  w.undo();await wait();check('Deshacer nombre actualiza el checklist',description().includes('acción en "Explorar sociología".'));w.redo();await wait();check('Rehacer nombre restaura el checklist',description().includes('acción en "Lectura del tema".'));
+  await action(blocks()[0],'none');check('Volver a Elegir después reabre la misma tarea',taskCount()===1&&description().includes('Pendiente: Tienes pendiente'));
+  blocks()[0].querySelector('[data-duplicate-element]').click();await wait();check('Duplicados con igual nombre tienen tareas independientes',taskCount()===2&&blocks()[0].querySelector('.ib-trigger').id!==blocks()[1].querySelector('.ib-trigger').id);
+  await action(blocks()[1],'encapsulate');check('Encapsular completa solo la tarea de ese botón',taskCount()===2&&(description().match(/Completado: Tienes pendiente/g)||[]).length===1&&(description().match(/Pendiente: Tienes pendiente/g)||[]).length===1);
+  blocks()[1].querySelector(':scope > .block-toolbar button[onclick*="deleteBlock"]').click();await wait(1300);check('Eliminar botón quita su tarea sin tocar otras',taskCount()===1&&description().includes('Revisar bibliografía'));w.undo();await wait();check('Deshacer eliminación restaura botón y tarea completada',blocks().length===2&&taskCount()===2&&description().includes('Completado: Tienes pendiente'));
+  const exported=new DOMParser().parseFromString(w.generateExportHTML(false),'text/html');check('No exporta seguimiento interno al alumno',!exported.querySelector('[data-button-deferred]')&&!exported.body.textContent.includes('Tienes pendiente poner acción'));
+  const project=await save();check('Guardado real incluye relación e historial de tareas',project.spaces[0].checklist.filter(item=>item.buttonId).length===2&&project.spaces[0].checklist.some(item=>item.buttonId&&item.done)&&d.querySelector('.project-save-state').textContent==='Guardado');
+  await action(blocks()[0],'link','https://example.com/');await reopen(project);check('Reabrir restaura pendiente y completado independientes',taskCount()===2&&description().includes('Pendiente: Tienes pendiente')&&description().includes('Completado: Tienes pendiente'));
+  await action(blocks()[0],'link','https://example.com/');check('Después de reabrir el vínculo sigue funcionando',taskCount()===2&&(description().match(/Completado: Tienes pendiente/g)||[]).length===2);
+  await action(blocks()[0],'none');
+  d.querySelector('.project-tab-add').click();await wait();d.querySelector('dialog input').value='Destino';d.querySelector('dialog button[value=ok]').click();await wait();tab(0).click();await wait();
+  const movedId=blocks()[0].querySelector('.ib-trigger').id;
+  const point=el=>{const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+Math.min(r.height/2,55)};};
+  const pointer=(type,p,target)=>{(target||d.elementFromPoint(p.x,p.y)||d).dispatchEvent(new w.PointerEvent(type,{bubbles:true,cancelable:true,clientX:p.x,clientY:p.y,pointerId:1,pointerType:'mouse',isPrimary:true,button:0,buttons:type==='pointerup'?0:1}));};
+  const move=async p=>{pointer('pointermove',p);await wait(100);};
+  const handle=blocks()[0].querySelector('.drag-handle');handle.scrollIntoView({block:'center'});const start=point(handle);pointer('pointerdown',start,handle);await move({x:start.x+12,y:start.y+15});await move({x:start.x+20,y:start.y+20});check('Arrastre de botón iniciado',!!w.isLmsDragging);
+  await move(point(tab(1)));await wait(600);check('Arrastre cambia a la página destino',tab(1).getAttribute('aria-selected')==='true');const drop=point(d.querySelector('#canvas'));await move(drop);pointer('pointerup',drop);await wait();
+  check('Pendiente viaja con el botón a la página destino',taskCount(0)===1&&taskCount(1)===1&&blocks()[0].querySelector('.ib-trigger').id===movedId&&description(1).includes('Pendiente: Tienes pendiente'));
+  await action(blocks()[0],'link','https://example.com/');check('Acción tras el traslado completa en la página correcta',description(1).includes('Completado: Tienes pendiente')&&taskCount(0)===1);
+  out.textContent=results.join('\n')+'\nTOTAL: '+results.length+' / FAIL: '+results.filter(x=>x.startsWith('FAIL')).length;
+ }catch(error){out.textContent+='\nERROR '+error.stack;}
+};
+document.querySelector('#proof').onclick=()=>{out.hidden=true;env().d.querySelector('#scroll-container').scrollTop=0;env().d.querySelector('.project-tab[data-active=true] [role=tab]').focus();};
+</script></html>

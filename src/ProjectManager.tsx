@@ -8,8 +8,11 @@ import { startTutorial } from './tutorial';
 import { projectDialog } from './project-dialog';
 import { pageListDialog } from './page-list-dialog';
 import { workspaceDialog } from './workspace-dialog';
+import {appearanceDialog} from './appearance-dialog';
+import {applyBackground,applyFooter,restoreBackgroundMetadata,workspaceAppearanceRoot} from './workspace-appearance';
 import { tabInk,workspaceTooltip } from './project-model';
 import {installWorkspaceDrag} from './workspace-drag';
+import {automaticButtonTaskHint,syncWorkspaceButtonChecklist} from './button-checklist';
 import type { CSSProperties } from 'react';
 
 type History = ReturnType<typeof takeWorkspaceHistory>;
@@ -91,7 +94,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     return () => window.clearTimeout(timeout);
   }, [notice.sequence, message, busy]);
   const outer = () => document.getElementById('canvas-container-outer')!;
-  function snapshot(el:HTMLElement=outer()): Pick<Workspace,'html'|'bg'|'style'> {
+  function snapshot(el:HTMLElement=outer()): Pick<Workspace,'html'|'bg'|'style'|'bgColor'|'bgMargin'> {
     const clone = el.cloneNode(true) as HTMLElement;
     clone.querySelectorAll('.sortable-ghost,.layout-intent-indicator,#empty-state').forEach(n => n.remove());
     clone.querySelectorAll('*').forEach(n => {
@@ -103,25 +106,35 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     placeholder?.removeAttribute('style');
     clone.querySelectorAll('.lms-drag-origin').forEach(el => el.remove());
     compactModularState(clone);
-    return { html: clone.innerHTML, bg: el.dataset.bg || 'blanco', style: el.style.cssText };
+    return { html: clone.innerHTML, bg: el.dataset.bg || 'blanco', style: el.style.cssText, bgColor:el.dataset.bgColor, bgMargin:el.dataset.bgMargin };
   }
   function capture() {
     const p = current.current;
     if (!p) return null;
     if(window.lmsWorkspaceDragActive)return p;
-    const next = {...p, spaces:p.spaces.map(s => s.id === p.activeId ? {...s,...snapshot()} : s)};
+    const next = {...p, spaces:p.spaces.map(s => s.id === p.activeId ? syncWorkspaceButtonChecklist({...s,...snapshot()},outer()) : s)};
     current.current = next;
+    if(next.spaces.some((space,index)=>space.checklist!==p.spaces[index].checklist)){
+      setProject(next);
+      setTabInfo(info=>info?{...info,space:next.spaces.find(s=>s.id===info.space.id)!}:null);
+    }
     return next;
   }
   function publish(p: Project) {
+    // Cross-page drag serializes both pages before publishing. Reconcile each
+    // final snapshot, never a temporary parked/ghost canvas during the drag.
+    if(!window.lmsWorkspaceDragActive)p={...p,spaces:p.spaces.map(space=>syncWorkspaceButtonChecklist(space))};
     (window as any).globalFooterConfig=p.footerConfig;
+    window.currentWorkspaceFooterConfig=p.spaces.find(s=>s.id===p.activeId)?.footerConfig;
+    window.lmsWorkspaceCount=p.spaces.length;
+    window.dispatchEvent(new Event('lms-project-spaces-changed'));
     current.current=p; setProject(p); setSaved(projectContent(p) === baseline.current);
     setTabInfo(info=>{if(!info)return null;const space=p.spaces.find(s=>s.id===info.space.id);return space?{...info,space}:null;});
   }
   function setChecklistDone(spaceId:string,index:number,done:boolean) {
     if(busy || document.querySelector('iframe[title="Diseñar ejercicio descargable"]'))return;
     const p=capture();if(!p)return;
-    const space=p.spaces.find(s=>s.id===spaceId);if(!space?.checklist?.[index])return;
+    const space=p.spaces.find(s=>s.id===spaceId);if(!space?.checklist?.[index]||space.checklist[index].buttonId)return;
     // Update metadata without switching tabs or rebuilding the active canvas.
     publish({...p,spaces:p.spaces.map(s=>s.id===spaceId?{...s,checklist:s.checklist!.map((item,i)=>i===index?{...item,done}:item)}:s)});
   }
@@ -134,7 +147,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
   function restore(s: Workspace) {
     window.currentEditableText = null;
     document.getElementById('rtf-toolbar')?.classList.add('hidden');
-    outer().innerHTML=s.html; outer().dataset.bg=s.bg; outer().style.cssText=s.style;
+    outer().innerHTML=s.html; restoreBackgroundMetadata(outer(),s); outer().style.cssText=s.style;
     outer().querySelectorAll('[data-sortable-active]').forEach(n => n.removeAttribute('data-sortable-active'));
     window.initNestedDropzones(); upgradeTitleImageElements(); window.checkEmptyState();
     loadWorkspaceHistory(histories.current.get(s.id));
@@ -332,7 +345,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
       const p=capture();if(!p)return;
       const footerConfig=(event as CustomEvent).detail;
       const spaces=p.spaces.map(space=>{
-        if(space.id===p.activeId)return space;
+        if(space.id===p.activeId)return {...space,footerConfig};
         const container=document.createElement('div');container.innerHTML=space.html;
         container.querySelectorAll<HTMLElement>('.lms-footer-wrapper').forEach(wrapper=>window.applyFooterConfigBase(wrapper));
         const html=container.innerHTML;
@@ -341,12 +354,45 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
           const stack=history?history.stack.slice(0,history.index+1):[space.html];
           stack.push(html);histories.current.set(space.id,{stack,index:stack.length-1});
         }
-        return {...space,html};
+        return {...space,html,footerConfig};
       });
       publish({...p,spaces,footerConfig});
     };
     window.addEventListener('lms-global-footer-changed',applyGlobal);
     return ()=>window.removeEventListener('lms-global-footer-changed',applyGlobal);
+  },[]);
+  useEffect(()=>{
+    let editing=false;
+    const openAppearance=async()=>{
+      if(editing||busyRef.current||window.isLmsDragging||window.lmsWorkspaceDragActive)return;
+      if(document.querySelector('iframe[title="Diseñar ejercicio descargable"]')){setMessage('Termina de editar el ejercicio primero.');return;}
+      const initial=capture();if(!initial||initial.spaces.length<2)return;
+      editing=true;setTabInfo(null);
+      try{
+        const changes=await appearanceDialog(initial.spaces,initial.footerConfig);if(!changes)return;
+        const p=capture();if(!p)return;
+        const bgIds=new Set(changes.background?.ids),footerIds=new Set(changes.footer?.ids);
+        window.saveHistoryState(true);
+        const spaces=p.spaces.map(space=>{
+          if(!bgIds.has(space.id)&&!footerIds.has(space.id))return space;
+          const active=space.id===p.activeId,root=active?outer():workspaceAppearanceRoot(space);
+          if(bgIds.has(space.id))applyBackground(root,changes.background!.value);
+          if(footerIds.has(space.id))applyFooter(root,changes.footer!.value);
+          const next={...space,...snapshot(root),...(footerIds.has(space.id)?{footerConfig:{...changes.footer!.value}}:{})};
+          if(!active&&next.html!==space.html){
+            const history=histories.current.get(space.id);
+            const stack=history?history.stack.slice(0,history.index+1):[space.html];
+            stack.push(next.html);histories.current.set(space.id,{stack,index:stack.length-1});
+          }
+          return next;
+        });
+        window.saveHistoryState(true);publish({...p,spaces});
+        setMessage('Diseño aplicado a los espacios seleccionados. Recuerda guardar el proyecto.');
+      }catch(error){setMessage((error as Error).message);}
+      finally{editing=false;}
+    };
+    window.addEventListener('lms-open-appearance-batch',openAppearance);
+    return()=>window.removeEventListener('lms-open-appearance-batch',openAppearance);
   },[]);
   useEffect(()=>installWorkspaceDrag({
     begin:()=>{
@@ -387,10 +433,11 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     if(outer())observer.observe(outer(),{subtree:true,childList:true,characterData:true,attributes:true});
     outer()?.addEventListener('input',schedule);
     window.addEventListener('lms-drag-ended',schedule);
+    window.addEventListener('lms-button-state-changed',inspect);
     schedule();
     const warn=(e:BeforeUnloadEvent)=>{const p=capture();if(p && projectContent(p)!==baseline.current){e.preventDefault();e.returnValue='';}};
     window.addEventListener('beforeunload',warn);
-    return()=>{clearTimeout(timer);observer.disconnect();outer()?.removeEventListener('input',schedule);window.removeEventListener('lms-drag-ended',schedule);window.removeEventListener('beforeunload',warn);};
+    return()=>{clearTimeout(timer);observer.disconnect();outer()?.removeEventListener('input',schedule);window.removeEventListener('lms-drag-ended',schedule);window.removeEventListener('lms-button-state-changed',inspect);window.removeEventListener('beforeunload',warn);};
   },[]);
   return <div className="project-controls">
     <div className="project-bar" data-tour="project-manager">
@@ -441,7 +488,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     }}>
       <strong><span className="project-tab-info-dot" style={{background:tabInfo.space.tabColor||'#ffffff'}}/>{tabInfo.space.name}</strong>
       {!!tabInfo.space.notes?.length&&<section><h3>Notas</h3>{tabInfo.space.notes.map((note,i)=><p key={i}>{note}</p>)}</section>}
-      {!!tabInfo.space.checklist?.length&&<section><h3>Checklist</h3>{tabInfo.space.checklist.map((item,i)=><label className="project-tab-info-task" data-done={item.done} key={i}><input type="checkbox" checked={item.done} disabled={busy} aria-label={item.text} onChange={e=>setChecklistDone(tabInfo.space.id,i,e.currentTarget.checked)}/><span>{item.text}<small>{item.done?'Completado':'Pendiente'}</small></span></label>)}</section>}
+      {!!tabInfo.space.checklist?.length&&<section><h3>Checklist</h3>{tabInfo.space.checklist.map((item,i)=><label className="project-tab-info-task" data-done={item.done} title={item.buttonId?automaticButtonTaskHint:undefined} key={i}><input type="checkbox" checked={item.done} disabled={busy||!!item.buttonId} aria-label={item.text} onChange={e=>setChecklistDone(tabInfo.space.id,i,e.currentTarget.checked)}/><span>{item.text}<small>{item.done?'Completado':'Pendiente'}{item.buttonId?' · Automático':''}</small></span></label>)}</section>}
       <section className="project-export-size" aria-label="Tamaño del código para LMS" data-level={exportSize?.count!=null&&exportSize.count>LMS_CHARACTER_LIMIT?'over':exportSize?.count!=null&&exportSize.count>=LMS_CHARACTER_LIMIT*.9?'warning':'normal'}>
         <h3>Código para LMS</h3>
         {exportSize?.id!==tabInfo.space.id?<p>Calculando caracteres…</p>:exportSize.count===null?<p>Completa y guarda los ejercicios y revisa sus recursos para calcular el HTML exportable.</p>:<>

@@ -1,0 +1,106 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Verificación de diseño por páginas</title>
+<style>body{margin:0;font:13px Arial}#controls{padding:8px;background:#eee}pre{white-space:pre-wrap;margin:8px;max-height:150px;overflow:auto}iframe{width:100%;height:calc(100vh - 42px);border:0}</style>
+<div id="controls"><button id="run">Probar diseño por páginas</button> <button id="inspect">Mostrar ventana para revisión visual</button></div><pre id="result"></pre><iframe id="app" src="/"></iframe>
+<script type="module">
+import {getDynamicFooterHTML} from '/src/templates.ts';
+import {readBackground,applyBackground,workspaceAppearanceRoot} from '/src/workspace-appearance.ts';
+import {parseProject,projectContent} from '/src/project-model.ts';
+const frame=document.querySelector('#app'),out=document.querySelector('#result');
+const wait=()=>new Promise(r=>setTimeout(r,300));
+let saved='',results=[];
+const check=(name,ok)=>{results.push((ok?'PASS ':'FAIL ')+name);out.textContent=results.join('\n');};
+function env(){const w=frame.contentWindow,d=w.document;return {w,d,root:d.querySelector('#canvas-container-outer'),tabs:()=>d.querySelectorAll('.project-tabs [role=tab]')};}
+async function setup(){
+ const {w,d}=env();
+ if(!d.querySelector('.project-tab-add')){check('Desactivado sin proyecto',d.querySelector('.element-batch-design').disabled);d.querySelector('.project-welcome .welcome-actions button').click();await wait();}
+ check('Desactivado con un espacio',d.querySelector('.element-batch-design').disabled);
+ const seed=n=>{
+   d.querySelector('#canvas').innerHTML=`<article class="lms-dropzone bg-white" style="padding:35px"><p data-fixture="${n}">Contenido propio ${n}</p>${getDynamicFooterHTML()}${getDynamicFooterHTML()}</article>`;
+   w.initNestedDropzones();
+ };
+ seed(1);await wait();
+ d.querySelector('.project-tab-add').click();await wait();
+ let dialog=d.querySelector('dialog[open]');dialog.querySelector('input').value='Unidad 2';dialog.querySelector('.page-list-mode').click();dialog.querySelector('.page-name-add:not([hidden])').click();dialog.querySelector('.page-name-add:not([hidden])').click();dialog.querySelector('button[value=ok]').click();await wait();
+ const tabs=env().tabs;seed(2);await wait();tabs()[2].click();await wait();seed(3);await wait();tabs()[3].click();await wait();
+ // Leave the fourth space blank to test its future footer default.
+ tabs()[0].click();await wait();
+ check('Activado con varios espacios',!d.querySelector('.element-batch-design').disabled);
+ check('Etiqueta vista y grupo de tres botones',d.querySelector('.element-view-label').textContent==='vista'&&d.querySelectorAll('.element-design-group>button').length===3);
+ const view=d.querySelector('.element-view-toggle'),before=d.querySelector('#tab-elements').dataset.view;view.click();await wait();check('Toggle conserva vista de lista/cuadrícula',d.querySelector('#tab-elements').dataset.view!==before);
+ w.showSaveFilePicker=async()=>({name:'Diseño de prueba.lmsproject',createWritable:async()=>({write:async value=>{saved=value;},close:async()=>{}})});
+ d.querySelector('.project-name').dispatchEvent(new w.MouseEvent('dblclick',{bubbles:true}));await wait();dialog=d.querySelector('dialog[open]');dialog.querySelector('input').value='Diseño de prueba';dialog.querySelector('button[value=ok]').click();await wait();
+ check('Proyecto inicial guardado',!!saved&&d.querySelector('.project-save-state').textContent==='Guardado');
+}
+async function save(){const {d}=env();d.querySelector('.project-menu-toggle').click();await wait();Array.from(d.querySelectorAll('.project-menu button')).find(b=>b.textContent==='Guardar').click();await wait();return JSON.parse(saved);}
+const open=async()=>{env().d.querySelector('.element-batch-design').click();await wait();return env().d.querySelector('.appearance-dialog');};
+const rows=dialog=>dialog.querySelectorAll('tbody tr');
+const mark=(dialog,column,indices)=>indices.forEach(index=>rows(dialog)[index].querySelector(`input[data-column=${column}]`).click());
+const pick=async(dialog,column,cancel=false)=>{
+ const {d}=env();dialog.querySelector(`.appearance-picker[data-column=${column}]`).click();await wait();
+ const modal=d.querySelector(column==='background'?'#bg-modal':'#footer-modal');
+ check('Galería '+column+' accesible sobre borrador',!modal.classList.contains('hidden')&&!dialog.open);
+ if(column==='background')modal.querySelector('[title="Morado Anáhuac"]').click();
+ else {modal.querySelector('#btn-footer-solido').click();modal.querySelector('.block-color-btn[data-color=morado]').click();}
+ Array.from(modal.querySelectorAll('button')).find(b=>cancel?b.textContent==='Cancelar':b.textContent.trim().startsWith('Aplicar')).click();await wait();
+ check('Regreso de galería '+column,dialog.open&&modal.classList.contains('hidden'));
+};
+document.querySelector('#run').onclick=async()=>{
+ results=[];out.textContent='Preparando…';
+ try{
+  await setup();const {w,d,root,tabs}=env(),initial=JSON.parse(saved),initialContent=projectContent(initial),activeId=initial.activeId;
+  let dialog=await open();check('Lista todas las páginas y dos selectores inicialmente desactivados',rows(dialog).length===4&&dialog.querySelectorAll('.appearance-picker:disabled').length===2);
+  check('Filas solo informativas sin botones repetidos',!dialog.querySelector('tbody button')&&dialog.querySelectorAll('.appearance-current').length===8);
+  check('Botones superiores reutilizan estilo interactivo',dialog.querySelectorAll('thead .appearance-picker.ib-trigger').length===2);
+  check('Ventana con efecto glass',w.getComputedStyle(dialog).backdropFilter.includes('blur'));
+  const currentLabels=Array.from(dialog.querySelectorAll('.appearance-current')).map(el=>el.textContent).join('|');
+  for(const [action,expected] of [['odd','1010'],['invert','0101'],['all','1111'],['none','0000'],['even','0101']]){
+   const anchor=dialog.querySelector('.appearance-selection[data-column=background]');anchor.click();
+   if(action==='odd'){const popup=dialog.querySelector('.appearance-selection-menu').getBoundingClientRect(),rect=anchor.getBoundingClientRect();check('Menú alineado y visible con glass',Math.abs(popup.left-rect.left)<2&&Math.abs(popup.top-rect.bottom-4)<2&&popup.right<=w.innerWidth&&popup.bottom<=w.innerHeight);}
+   dialog.querySelector(`.appearance-selection-menu [data-action=${action}]`).click();
+   check('Selección '+action,Array.from(dialog.querySelectorAll('input[data-column=background]')).map(i=>i.checked?'1':'0').join('')===expected);
+  }
+  check('Selección de footer independiente',!Array.from(dialog.querySelectorAll('input[data-column=footer]')).some(i=>i.checked));
+  dialog.querySelector('.appearance-selection[data-column=background]').click();dialog.querySelector('[data-action=none]').click();mark(dialog,'background',[0,2]);mark(dialog,'footer',[1,2]);
+  check('Selección activa los dos controles superiores',!dialog.querySelector('.appearance-picker[data-column=background]').disabled&&!dialog.querySelector('.appearance-picker[data-column=footer]').disabled);
+  check('Requiere elegir diseño para columnas marcadas',dialog.querySelector('.appearance-apply').disabled);
+  await pick(dialog,'background',true);check('Cancelar galería no crea borrador',dialog.querySelector('.appearance-apply').disabled);
+  await pick(dialog,'background');await pick(dialog,'footer');
+  check('Elegir no modifica canvas',root.dataset.bg==='blanco'&&root.querySelector('.lms-footer-wrapper').dataset.footerType==='lineas');
+  check('Diseños pendientes visibles en encabezados',Array.from(dialog.querySelectorAll('.appearance-next[data-pending=true]')).length===2&&dialog.querySelector('.appearance-next[data-column=background]').textContent.includes('Morado'));
+  check('Filas siguen mostrando solo sus diseños actuales',Array.from(dialog.querySelectorAll('.appearance-current')).map(el=>el.textContent).join('|')===currentLabels);
+  dialog.querySelector('.appearance-cancel').click();await wait();
+  check('Cancelar conserva estado guardado',d.querySelector('.project-save-state').textContent==='Guardado');
+  check('Cancelar conserva todo el proyecto',projectContent(await save())===initialContent);
+  dialog=await open();mark(dialog,'background',[0,2]);mark(dialog,'footer',[1,2,3]);await pick(dialog,'background');await pick(dialog,'footer');
+  dialog.querySelector('.appearance-apply').click();await wait();
+  check('Aplicar no cambia espacio activo',d.querySelector('.project-tab[data-active=true]').dataset.workspaceId===activeId);
+  check('Fondo activo aplicado',root.dataset.bg==='color_solido'&&root.dataset.bgColor==='#5d428c');
+  const applied=await save();
+  check('Fondos solo en 1 y 3',applied.spaces.map(s=>s.bg).join(',')==='color_solido,blanco,color_solido,blanco');
+  check('Footers en 2, 3 y espacio vacío 4',applied.spaces.map(s=>s.footerConfig?.type||'lineas').join(',')==='lineas,solido,solido,solido');
+  check('Footer global no modificado',applied.footerConfig===initial.footerConfig);
+  check('Contenido y dimensiones intactos',applied.spaces.every((s,i)=>s.html.includes(`Contenido propio ${i+1}`)||i===3)&&applied.spaces.every((s,i)=>workspaceAppearanceRoot(s).style.maxWidth===workspaceAppearanceRoot(initial.spaces[i]).style.maxWidth));
+  check('Metadatos de fondo sobreviven archivo',parseProject(JSON.stringify(applied)).spaces[2].bgColor==='#5d428c');
+  tabs()[2].click();await wait();check('Cambio de pestaña restaura fondo y todos sus footers',root.dataset.bgColor==='#5d428c'&&Array.from(root.querySelectorAll('.lms-footer-wrapper')).every(f=>f.dataset.footerType==='solido'));
+  w.openFooterModal(root.querySelector('.lms-footer-wrapper'));w.tempFooterType='lineas';w.applyFooterConfig();await wait();check('Edición individual posterior gana',root.querySelector('.lms-footer-wrapper').dataset.footerType==='lineas'&&root.querySelectorAll('.lms-footer-wrapper')[1].dataset.footerType==='solido');
+  tabs()[3].click();await wait();check('Espacio blanco no hereda fondo anterior',!root.dataset.bgColor);
+  w.insertTemplate('pagina_basica');await wait();check('Nuevo footer de espacio vacío respeta elección por lote',root.querySelector('.lms-footer-wrapper').dataset.footerType==='solido');
+  w.openGlobalFooterModal();w.tempFooterType='lineas';w.tempFooterLogoColor='morado';w.tempFooterLogo=2;w.applyFooterConfig();await wait();
+  const global=await save();check('Footer global posterior sobrescribe todos',global.spaces.every(s=>s.footerConfig?.type==='lineas'&&s.footerConfig.logoId===2));
+  for(let i=0;i<4;i++){tabs()[i].click();await wait();check('Footer global en página '+(i+1),Array.from(root.querySelectorAll('.lms-footer-wrapper')).every(f=>f.dataset.footerLogo==='2'));}
+  dialog=await open();mark(dialog,'footer',[1]);check('Sin selección de fondos solo footer habilitado',dialog.querySelector('.appearance-picker[data-column=background]').disabled&&!dialog.querySelector('.appearance-picker[data-column=footer]').disabled);await pick(dialog,'footer');dialog.querySelector('.appearance-apply').click();await wait();
+  const last=await save();check('Lote posterior respeta no seleccionadas',last.spaces[0].footerConfig.type==='lineas'&&last.spaces[1].footerConfig.type==='solido'&&last.spaces[2].footerConfig.type==='lineas');
+  // Background copies preserve content and independent width/height.
+  const source=workspaceAppearanceRoot(last.spaces[0]),dest=workspaceAppearanceRoot(last.spaces[1]),html=dest.querySelector('#canvas').innerHTML;
+  dest.style.maxWidth='600px';dest.style.minHeight='420px';applyBackground(dest,readBackground(source));
+  check('Copiar fondo conserva medidas y contenido de destino',dest.style.maxWidth==='600px'&&dest.style.minHeight==='420px'&&dest.querySelector('#canvas').innerHTML===html);
+  w.openBgModal();w.tempBgTheme='color_solido';w.tempBgColorHex='#ff5900';w.applyBgSettings();await wait();
+  check('Fondo individual posterior sobrescribe lote',root.dataset.bgColor==='#ff5900');
+  tabs()[2].click();await wait();check('Fondo de otra pestaña permanece independiente',root.dataset.bgColor==='#5d428c');
+  let exported='';Object.defineProperty(w.navigator,'clipboard',{configurable:true,value:{writeText:async html=>exported=html}});
+  await save();d.querySelector('.project-copy').click();await wait();check('Exporta footer y fondo de espacio activo',exported.includes('footer')&&exported.includes('#5d428c'));
+  out.textContent=results.join('\n')+'\nTOTAL: '+results.length+' / FAIL: '+results.filter(x=>x.startsWith('FAIL')).length;
+ }catch(error){out.textContent+='\nERROR '+error.stack;}
+};
+document.querySelector('#inspect').onclick=async()=>{out.hidden=true;const {d}=env();Array.from(d.querySelectorAll('button')).find(b=>b.textContent==='Elementos').click();await open();};
+</script></html>

@@ -95,7 +95,8 @@ dialog.exercise-settings.project-prompt{margin:auto;inset:0;width:min(480px,calc
 .workspace-note button{flex-shrink:0;color:#6b7280}
 .workspace-settings fieldset p{font-size:12px;color:#6b7280}
 /* Scoped Material-inspired dialog; other exercise dialogs retain their styles. */
-dialog.exercise-settings.workspace-settings{margin:auto;width:min(560px,calc(100vw - 24px));max-height:calc(100dvh - 24px);padding:24px;border-radius:24px;background:#fdfcff;box-shadow:0 12px 40px #20212433;font-family:Roboto,Arial,sans-serif;color:#202124}
+dialog.exercise-settings.workspace-settings{margin:auto;width:min(560px,calc(100vw - 24px));max-height:calc(100dvh - 24px);padding:24px;border:1px solid #ffffffb8;border-radius:24px;background:linear-gradient(135deg,#ffffff70,#f4f0ff30 55%,#ffffff15),#fcfbffba;backdrop-filter:blur(24px) saturate(150%);-webkit-backdrop-filter:blur(24px) saturate(150%);box-shadow:0 18px 64px #211b3a40,inset 0 1px 0 #ffffffc9;font-family:Roboto,Arial,sans-serif;color:#202124}
+dialog.exercise-settings.workspace-settings::backdrop{background:#211b3a42;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
 .exercise-settings.workspace-settings h2{font-size:20px;line-height:28px;font-weight:500;margin:0 0 16px;color:#5d428c}
 .exercise-settings.workspace-settings fieldset{border-color:#dadce0;border-radius:12px;padding:12px;margin:16px 0}
 .exercise-settings.workspace-settings legend{font-size:14px;font-weight:500}
@@ -111,9 +112,14 @@ dialog.exercise-settings.workspace-settings{margin:auto;width:min(560px,calc(100
 .exercise-settings.workspace-settings .exercise-dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
 .exercise-settings.workspace-settings .exercise-dialog-actions button{min-height:36px;padding:8px 20px;border-radius:20px;border:0;background:#5d428c;color:white;cursor:pointer}
 .exercise-settings.workspace-settings .exercise-dialog-actions button[value=cancel]{background:transparent;color:#5d428c}
-.dark dialog.exercise-settings.workspace-settings{background:#252a35;color:#e8edf5}
+.dark dialog.exercise-settings.workspace-settings{background:linear-gradient(135deg,#ffffff13,#39324614 55%,#ffffff04),#252a35c9;color:#e8edf5;border-color:#ffffff30;box-shadow:0 18px 64px #0007,inset 0 1px 0 #ffffff21}
+.dark .exercise-settings.workspace-settings :is(input,textarea){background:#191e2866;border-color:#69758b;color:#edf0f7}
+.dark .exercise-settings.workspace-settings fieldset{border-color:#9ba6ba55}
+.dark .exercise-settings.workspace-settings fieldset p{color:#bdc6d6}
+.dark .exercise-settings.workspace-settings .exercise-dialog-actions button[value=cancel]{color:#dcc8ff}
 .dark .exercise-settings.workspace-settings .workspace-color-menu>.workspace-colors{background:#252a35}
 .dark .exercise-settings.workspace-settings h2{color:#dcc8ff}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){dialog.exercise-settings.workspace-settings{background:#fdfcff}.dark dialog.exercise-settings.workspace-settings{background:#252a35}}
 
 .student-control-menu summary:has(.button-text-icon-label){position:relative}
 .student-control-menu summary:has(.button-text-icon-label) .material-symbols-outlined{transform:translate(-3px,-3px);font-size:17px}
@@ -124,7 +130,16 @@ dialog.exercise-settings.workspace-settings{margin:auto;width:min(560px,calc(100
 .element-style-actions{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .element-style-actions button{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;cursor:pointer;box-shadow:0 2px 5px #0002;transition:filter .15s,transform .15s}
 .element-style-actions button .material-symbols-outlined{font-size:17px}
-.element-style-actions .element-view-toggle{margin-left:auto;background:#f2edf8;color:#5d428c;border-radius:8px;box-shadow:none}
+.element-style-actions .element-design-group{display:flex;align-items:center;gap:4px;padding:3px 0 3px 3px;border:1px solid #cdd5dc;border-radius:9px}
+.element-style-actions .element-design-group button{width:30px;height:30px;border-radius:6px;box-shadow:none}
+.element-style-actions .element-design-group .element-batch-design{align-self:stretch;height:auto;min-width:30px;margin-block:-3px;border-left:1px solid #cdd5dc;border-radius:0 8px 8px 0;background:#f2edf8;color:#5d428c}
+.element-style-actions .element-batch-design:disabled{background:#f6f6f7;color:#b3b7bf;cursor:default;filter:none;transform:none}
+.element-view-control{margin-left:auto;display:flex;align-items:center;gap:7px}
+.element-view-label{color:#9aa0a6;font:400 12px/1 Roboto,Arial,sans-serif}
+.element-style-actions .element-view-toggle{background:#f2edf8;color:#5d428c;border-radius:8px;box-shadow:none}
+.dark .element-design-group{border-color:#50596b}
+.dark .element-style-actions .element-design-group .element-batch-design{border-color:#50596b;background:#393246;color:#e1d3ff}
+.dark .element-style-actions .element-batch-design:disabled{background:#2c3038;color:#687080}
 .dark .element-style-actions .element-view-toggle{background:#393246;color:#e1d3ff}
 #tab-elements{container-type:inline-size;container-name:element-catalog}
 #tab-elements[data-view=grid] .catalog-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5.6px}

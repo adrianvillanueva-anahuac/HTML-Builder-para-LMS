@@ -11,6 +11,10 @@
   border-radius:0 0 12px 12px;flex-shrink:0;
 }
 .lms-footer-wrapper:hover{outline:2px dashed #ff5900;outline-offset:-2px}
+/* Keep the footer at the page's base while authored spacing extends the page.
+   The same markers survive the editor-to-LMS class cleanup. */
+[data-footer-spacing-page]{min-height:calc(var(--lms-footer-base-min-height,60px) + var(--lms-footer-spacing-growth,0px))!important}
+:is(.lms-footer-wrapper,.lms-page-footer)[data-footer-spacing=true]::before{content:'';display:block;height:var(--lms-footer-space-top,10px);pointer-events:none}
 .lms-footer-wrapper>.footer-content,.lms-page-footer>.footer-content{border-radius:inherit;overflow:hidden}
 /* Add 35px overall, equally above and below the unchanged logo/content. */
 .lms-footer-wrapper .footer-content>div,.lms-page-footer .footer-content>div{padding-block:41.5px}

@@ -364,7 +364,7 @@ export function getBlockToolbar(type: string) {
 }
 
 export function getDynamicFooterHTML(defaultType = 'lineas') {
-    const gc = (window as any).globalFooterConfig || {};
+    const gc = (window as any).currentWorkspaceFooterConfig || (window as any).globalFooterConfig || {};
     const type = gc.type || defaultType;
     const logoColor = gc.logoColor || 'naranja';
     const blockColor = gc.blockColor || 'naranja';

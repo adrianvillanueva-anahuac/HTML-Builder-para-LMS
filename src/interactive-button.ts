@@ -2,6 +2,9 @@ import {getBlockToolbar} from './templates';
 import {normalizeTextLinkURL} from './text-link-controls';
 import {setupInteractiveButtonRuntime} from './interactive-button-runtime.js';
 import {inlineInteractiveButtonExport} from './interactive-button-export';
+import {buttonQuickIcons,iconDisplayName} from './icon-catalog';
+import {iconCatalogDialog} from './icon-catalog-dialog';
+import {materialIconSVG} from './material-icon-vectors';
 import './interactive-button.css';
 
 const swatches=[{key:'purple',name:'Morado',base:'#5d428c',mid:'#7755a6',light:'#a68acb',ink:'#ffffff'},
@@ -10,8 +13,7 @@ const swatches=[{key:'purple',name:'Morado',base:'#5d428c',mid:'#7755a6',light:'
   {key:'light',name:'Gris claro',base:'#cdd5dc',mid:'#bac6d0',light:'#f0f3f6',ink:'#374151'}];
 const actions=[{value:'encapsulate',label:'Encapsular elementos',description:'Escoge uno o más elementos y arrástralos dentro del contenido desplegable.'},
   {value:'link',label:'Hipervínculo',description:'Abrir una dirección web al presionar el botón.'},
-  {value:'none',label:'Elegir después',description:'Dejar el botón sin una acción por ahora.'}];
-const icons=[['expand_more','Desplegar'],['arrow_forward','Flecha'],['link','Enlace'],['open_in_new','Abrir'],['play_circle','Reproducir'],['download','Descargar'],['info','Información'],['menu_book','Libro'],['school','Aprendizaje'],['add','Más'],['touch_app','Clic'],['','Sin icono']];
+  {value:'none',label:'Elegir después',description:'Dejar el botón sin una acción por ahora. Se añadirá un pendiente automático al checklist de esta página.'}];
 const bindings=new WeakSet<ParentNode>();
 
 export function getInteractiveButtonHTML(){
@@ -31,6 +33,7 @@ function dialog(title:string){
 
 function update(block:HTMLElement,change:()=>void){
   window.saveHistoryState(true);change();block.dispatchEvent(new Event('input',{bubbles:true}));window.saveHistoryState(true);
+  window.dispatchEvent(new Event('lms-button-state-changed'));
 }
 
 function appearance(block:HTMLElement){
@@ -66,6 +69,8 @@ export function configureInteractiveButton(block:HTMLElement){
     const value=form.querySelector<HTMLInputElement>('input[name="action"]:checked')!.value;
     update(block,()=>{
       block.dataset.buttonAction=value;if(href)block.dataset.buttonHref=href;
+      // Track only a confirmed choice, never insertion defaults or a cancelled dialog.
+      if(value==='none')block.dataset.buttonDeferred='true';
       block.classList.remove('ib-open');
       if(!block.dataset.buttonCustomLabel)block.querySelector('.ib-label')!.textContent=({none:'Botón',link:'Abrir enlace',encapsulate:'Ver contenido'} as Record<string,string>)[value];
       if(!block.dataset.buttonCustomIcon)block.querySelector('.ib-icon')!.textContent=value==='encapsulate'?'expand_more':value==='link'?'open_in_new':'touch_app';
@@ -79,10 +84,19 @@ function editLabel(block:HTMLElement){
   const {el,buttons}=dialog('Texto e icono del botón');
   const label=document.createElement('label');label.className='ib-label-field';label.textContent='Texto del botón';
   const input=document.createElement('input');input.required=true;input.maxLength=120;input.value=block.querySelector('.ib-label')!.textContent||'';input.setAttribute('aria-label','Texto del botón');label.append(input);buttons.before(label);
+  const row=document.createElement('div');row.className='ib-label-row';label.before(row);row.append(label);
+  const catalog=document.createElement('button');catalog.type='button';catalog.className='ib-icon-catalog-trigger';catalog.dataset.ibIconCatalog='';catalog.setAttribute('aria-haspopup','dialog');row.append(catalog);
   const grid=document.createElement('div');grid.className='ib-icon-choices';grid.setAttribute('role','group');grid.setAttribute('aria-label','Icono del botón');
   let selected=block.querySelector('.ib-icon')!.textContent||'';
-  const refresh=()=>grid.querySelectorAll('button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.icon===selected)));
-  icons.forEach(([icon,name])=>{const b=document.createElement('button');b.type='button';b.dataset.icon=icon;b.title=name;b.setAttribute('aria-label',name);b.innerHTML=`<span class="material-symbols-outlined" aria-hidden="true">${icon||'block'}</span>`;b.onclick=()=>{selected=icon;refresh();};grid.append(b);});refresh();buttons.before(grid);
+  const refresh=()=>{
+    grid.querySelectorAll('button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.icon===selected)));
+    catalog.title=`Ver catálogo completo de iconos · ${iconDisplayName(selected)}`;catalog.setAttribute('aria-label',catalog.title);
+    catalog.innerHTML=materialIconSVG(selected||'block',24);
+    if(!catalog.firstChild){const fallback=document.createElement('span');fallback.className='material-symbols-outlined';fallback.setAttribute('aria-hidden','true');fallback.textContent=selected;catalog.append(fallback);}
+    catalog.dataset.icon=selected;
+  };
+  catalog.onclick=async()=>{const value=await iconCatalogDialog(selected);if(value!==null&&el.open){selected=value;refresh();}};
+  buttonQuickIcons.forEach(([icon,name])=>{const b=document.createElement('button');b.type='button';b.dataset.icon=icon;b.title=name;b.setAttribute('aria-label',name);b.innerHTML=materialIconSVG(icon||'block',23);b.onclick=()=>{selected=icon;refresh();};grid.append(b);});refresh();buttons.before(grid);
   el.querySelector('form')!.onsubmit=event=>{if((event as SubmitEvent).submitter?.getAttribute('value')==='ok'&&!input.value.trim()){event.preventDefault();input.setCustomValidity('Escribe el texto del botón.');input.reportValidity();}};input.oninput=()=>input.setCustomValidity('');
   el.addEventListener('close',()=>{
     if(el.returnValue!=='ok'||!block.isConnected)return;
@@ -117,7 +131,7 @@ export function setupInteractiveButtons(root:ParentNode=document){
 
 export function prepareInteractiveButtonExport(root:ParentNode){
   root.querySelectorAll<HTMLElement>('[data-type="boton_interactivo"]').forEach(block=>{
-    block.classList.remove('ib-editor','ib-open');block.removeAttribute('data-button-pending');
+    block.classList.remove('ib-editor','ib-open');block.removeAttribute('data-button-pending');block.removeAttribute('data-button-deferred');
     const page=block.parentElement;if(page?.matches('.lms-dropzone.bg-white,[data-ib-page]'))page.setAttribute('data-ib-page','true');
     const row=block.querySelector<HTMLElement>(':scope > .ib-shell > .ib-button-row')!;row.setAttribute('aria-hidden','false');row.removeAttribute('inert');
     const panel=block.querySelector<HTMLElement>(':scope > .ib-shell > .ib-panel')!;panel.setAttribute('aria-hidden','true');panel.setAttribute('inert','');

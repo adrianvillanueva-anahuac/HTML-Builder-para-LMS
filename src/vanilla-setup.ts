@@ -1,5 +1,6 @@
 import Sortable from 'sortablejs';
 import {toggleLmsTab} from './tabs-runtime.js';
+import {readBackground} from './workspace-appearance';
 import tabsRuntime from './tabs-runtime.js?raw';
 import {setupImageControls,prepareImageControlsExport,changeImageCropAspect,changeImageCropPosition} from './image-controls';
 import {getInteractiveButtonHTML,setupInteractiveButtons,prepareInteractiveButtonExport} from './interactive-button';
@@ -2017,12 +2018,13 @@ export function setupVanillaGlobals() {
         }
     }
 
-    window.openBgModal = function() { 
-        window.currentBgTarget = document.getElementById('canvas-container-outer') || document.getElementById('canvas'); 
+    window.openBgModal = function(target?: HTMLElement) {
+        window.currentBgTarget = target || document.getElementById('canvas-container-outer') || document.getElementById('canvas');
         if (window.currentBgTarget) {
-            window.tempBgTheme = window.currentBgTarget.dataset.bg || 'blanco';
-        window.tempBgColorHex = window.currentBgTarget.dataset.bgColor || '';
-            window.tempBgMargin = window.currentBgTarget.dataset.bgMargin || '15';
+            const background=readBackground(window.currentBgTarget);
+            window.tempBgTheme = background.bg;
+            window.tempBgColorHex = background.bgColor || '';
+            window.tempBgMargin = background.bgMargin || '15';
 
             const marginSlider = document.getElementById('bg-margin-slider') as HTMLInputElement;
             if (marginSlider) {
@@ -2084,6 +2086,7 @@ export function setupVanillaGlobals() {
         // Apply Margin
         window.currentBgTarget.dataset.bgMargin = window.tempBgMargin;
         window.currentBgTarget.style.padding = `${window.tempBgMargin}px`;
+        window.dispatchEvent(new CustomEvent('lms-background-applied',{detail:{target:window.currentBgTarget}}));
         
         document.getElementById('bg-modal')?.classList.add('hidden');
     }
@@ -2123,9 +2126,9 @@ export function setupVanillaGlobals() {
         if(!l3) { l3 = document.createElement('div'); l3.className = 'parallax-layer layer-3'; l3.dataset.speed = "0.15"; window.currentBgTarget.insertBefore(l3, l2.nextSibling); }
 
         window.currentBgTarget.setAttribute('data-bg', theme);
-        if(theme === 'color_solido' && colorHex) {
+        if((theme === 'color_solido' || theme === 'imagen') && colorHex) {
             window.currentBgTarget.setAttribute('data-bg-color', colorHex);
-        }
+        } else window.currentBgTarget.removeAttribute('data-bg-color');
 
         if (theme === 'malla_diagonal' || theme === 'trazos_grises') { 
             base.style.backgroundColor = '#FFFFFF'; 
@@ -2294,6 +2297,7 @@ export function setupVanillaGlobals() {
 
         if(!window.currentFooterWrapper) return;
         window.applyFooterConfigBase(window.currentFooterWrapper);
+        window.dispatchEvent(new CustomEvent('lms-footer-applied',{detail:{target:window.currentFooterWrapper}}));
         document.getElementById('footer-modal')?.classList.add('hidden');
     }
 

@@ -45,6 +45,14 @@ const fixture = (): Project => ({format:'lms-builder-project',version:1,name:'Pr
   {id:'two',name:'Página dos',html:'<p>Independiente</p>',bg:'imagen',style:''}
 ]});
 test('round trip preserves independent spaces, exercise data and Unicode',()=>assert.deepEqual(parseProject(JSON.stringify(fixture())),fixture()));
+test('page appearance survives save/reopen without changing older projects',()=>{
+  const p=fixture();p.spaces[0].bgColor='#5d428c';p.spaces[0].bgMargin='25';
+  p.spaces[0].footerConfig={type:'solido',logoId:6,logoColor:'naranja',blockColor:'morado'};
+  assert.deepEqual(parseProject(JSON.stringify(p)),p);
+  assert.notEqual(projectContent(p),projectContent(fixture()));
+  for(const invalid of [{bgColor:2},{bgMargin:15},{footerConfig:{...p.spaces[0].footerConfig,logoId:8}}])
+    assert.throws(()=>parseProject(JSON.stringify({...p,spaces:[{...p.spaces[0],...invalid}]})));
+});
 test('navigation does not dirty saved content',()=>assert.equal(projectContent(fixture()),projectContent({...fixture(),activeId:'two'})));
 test('renaming, reorder and inactive changes dirty the project',()=>{
   const p=fixture();assert.notEqual(projectContent(p),projectContent({...p,name:'Otro'}));

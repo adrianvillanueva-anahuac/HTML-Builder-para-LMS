@@ -1,0 +1,67 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Verificación de ventanas e iconos del botón</title>
+<style>body{margin:0;font:13px Arial}#controls{padding:8px;background:#eee}pre{white-space:pre-wrap;margin:8px;max-height:150px;overflow:auto}iframe{width:100%;height:calc(100vh - 42px);border:0}</style>
+<div id="controls"><button id="run">Probar ventanas e iconos</button> <button id="action">Mostrar Acción del botón</button> <button id="label">Mostrar Texto e icono</button></div><pre id="result"></pre><iframe id="app" src="/"></iframe>
+<script type="module">
+import {iconCatalog} from '/src/icon-catalog.ts';
+const frame=document.querySelector('#app'),out=document.querySelector('#result'),wait=(ms=220)=>new Promise(r=>setTimeout(r,ms));
+const env=()=>({w:frame.contentWindow,d:frame.contentWindow.document});
+let results=[];
+const check=(name,ok)=>{results.push((ok?'PASS ':'FAIL ')+name);out.textContent=results.join('\n');};
+const textDialog=()=>env().d.querySelector('dialog.ib-dialog:not(.ib-icon-catalog-dialog)');
+const block=()=>env().d.querySelector('#canvas [data-type=boton_interactivo]');
+async function setup(){
+ const {w,d}=env();if(d.querySelector('.project-welcome')){d.querySelector('.project-welcome .welcome-actions button').click();await wait();w.insertTemplate('bienvenida');await wait();}
+ if(!block()){w.insertTemplate('boton_interactivo');await wait();}
+}
+async function openText(){block().querySelector('[data-ib-text]').click();await wait();return textDialog();}
+async function catalog(parent){parent.querySelector('[data-ib-icon-catalog]').click();await wait();return env().d.querySelector('.ib-icon-catalog-dialog');}
+async function selectFull(parent,name){const picker=await catalog(parent);picker.querySelector(`[data-icon="${name}"]`).click();await wait();}
+document.querySelector('#run').onclick=async()=>{
+ results=[];out.textContent='Preparando…';
+ try{
+  await setup();const {w,d}=env();let parent=textDialog();
+  check('Acción del botón con glass',parent.getAttribute('aria-label')==='Acción del botón'&&w.getComputedStyle(parent).backdropFilter.includes('blur(24px)'));
+  check('Conserva las tres acciones',parent.querySelectorAll('input[name=action]').length===3);
+  parent.querySelector('input[value=link]').click();parent.querySelector('[aria-label="Hipervínculo del botón"]').value='https://www.anahuac.mx/';parent.querySelector('button[value=cancel]').click();await wait();
+  check('Cancelar acción conserva estado',block().dataset.buttonAction==='none'&&!block().dataset.buttonHref);
+  parent=await openText();check('Texto e icono con glass',w.getComputedStyle(parent).backdropFilter.includes('blur(24px)'));
+  const input=parent.querySelector('input'),trigger=parent.querySelector('[data-ib-icon-catalog]'),inputRect=input.getBoundingClientRect(),triggerRect=trigger.getBoundingClientRect();
+  check('Selector al lado derecho y alineado al campo',triggerRect.left>=inputRect.right&&Math.abs(triggerRect.bottom-inputRect.bottom)<2);
+  check('Selector muestra icono activo',trigger.dataset.icon==='touch_app'&&!!trigger.querySelector('svg'));
+  check('Conserva iconos rápidos',parent.querySelectorAll('.ib-icon-choices button').length===12);
+  input.value='Texto temporal';let picker=await catalog(parent);
+  check('Catálogo completo sobre diálogo padre sin cerrarlo',parent.open&&picker.open&&picker.matches(':modal'));
+  check('Catálogo con glass',w.getComputedStyle(picker).backdropFilter.includes('blur(24px)'));
+  const names=new Set(Array.from(picker.querySelectorAll('[data-icon]')).map(button=>button.dataset.icon));
+  check('Mismas ocho categorías y todos los iconos existentes',Object.values(iconCatalog).flat().every(name=>names.has(name))&&picker.querySelectorAll('.ib-icon-category').length===9);
+  check('Catálogo principal original sigue completo',d.querySelector('#icon-grid [title=science]')&&d.querySelector('#icon-grid [title=rocket_launch]'));
+  const oldTarget=d.createElement('span');oldTarget.textContent='No cambiar';w.currentIconTarget=oldTarget;
+  const search=picker.querySelector('input');search.value='science';search.dispatchEvent(new w.Event('input',{bubbles:true}));
+  check('Búsqueda filtra resultados',Array.from(picker.querySelectorAll('.ib-catalog-icon:not([hidden])')).every(button=>button.dataset.icon==='science'));
+  picker.querySelector('[data-icon=science]').click();await wait();
+  check('Actualiza vista previa sin perder texto',trigger.dataset.icon==='science'&&!!trigger.querySelector('svg')&&input.value==='Texto temporal');
+  check('Elegir es borrador y no modifica iconos ajenos',block().querySelector('.ib-icon').textContent==='touch_app'&&w.currentIconTarget===oldTarget&&oldTarget.textContent==='No cambiar');
+  parent.querySelector('button[value=cancel]').click();await wait();
+  check('Cancelar descarta texto e icono',block().querySelector('.ib-label').textContent==='Botón'&&block().querySelector('.ib-icon').textContent==='touch_app');
+  parent=await openText();parent.querySelector('.ib-icon-choices [data-icon=download]').click();check('Accesos rápidos actualizan vista previa',parent.querySelector('[data-ib-icon-catalog]').dataset.icon==='download');
+  await selectFull(parent,'rocket_launch');parent.querySelector('input').value='Explorar el tema';parent.querySelector('button[value=ok]').click();await wait();
+  check('Aceptar guarda icono del catálogo completo y texto',block().querySelector('.ib-icon').textContent==='rocket_launch'&&block().querySelector('.ib-label').textContent==='Explorar el tema'&&block().dataset.buttonCustomIcon==='true');
+  parent=await openText();check('Reabrir conserva el icono activo',parent.querySelector('[data-ib-icon-catalog]').dataset.icon==='rocket_launch');
+  picker=await catalog(parent);check('Catálogo indica la selección actual',picker.querySelector('[data-icon=rocket_launch]').getAttribute('aria-pressed')==='true');
+  picker.querySelector('input').value='zzzxxy';picker.querySelector('input').dispatchEvent(new w.Event('input',{bubbles:true}));check('Búsqueda vacía indica sin resultados',!picker.querySelector('.ib-icon-catalog-empty').hidden);
+  picker.querySelector('button[value=cancel]').click();await wait();check('Cancelar catálogo mantiene el borrador del padre',parent.open&&parent.querySelector('[data-ib-icon-catalog]').dataset.icon==='rocket_launch');
+  await selectFull(parent,'');parent.querySelector('button[value=ok]').click();await wait();check('Sin icono se puede guardar',block().querySelector('.ib-icon').hidden&&block().querySelector('.ib-icon').textContent==='');
+  parent=await openText();check('Sin icono tiene estado claro en el selector',parent.querySelector('[data-ib-icon-catalog]').dataset.icon===''&&parent.querySelector('[data-ib-icon-catalog]').title.includes('Sin icono'));
+  await selectFull(parent,'rocket_launch');d.documentElement.classList.add('dark');check('Glass y selector legibles en oscuro',w.getComputedStyle(parent).backdropFilter.includes('blur(24px)')&&w.getComputedStyle(parent.querySelector('[data-ib-icon-catalog]')).color==='rgb(225, 211, 255)');
+  picker=await catalog(parent);check('Catálogo oscuro conserva glass',w.getComputedStyle(picker).backdropFilter.includes('blur(24px)'));picker.querySelector('button[value=cancel]').click();await wait();d.documentElement.classList.remove('dark');parent.querySelector('button[value=ok]').click();await wait();
+  const html=w.generateExportHTML(false),doc=new DOMParser().parseFromString(html,'text/html'),published=doc.querySelector('[data-type=boton_interactivo] .ib-icon');
+  check('Icono completo exportado como SVG sin fuente externa',published.dataset.ibIcon==='rocket_launch'&&!!published.querySelector('svg path')&&!published.classList.contains('material-symbols-outlined'));
+  check('Exportar no transforma el icono editable original',block().querySelector('.ib-icon').textContent==='rocket_launch'&&!block().querySelector('.ib-icon svg'));
+  block().querySelector('[data-duplicate-element]').click();await wait();const copies=d.querySelectorAll('#canvas [data-type=boton_interactivo]');
+  check('Duplicar conserva texto e icono nuevos',copies.length===2&&copies[1].querySelector('.ib-icon').textContent==='rocket_launch'&&copies[1].querySelector('.ib-label').textContent==='Explorar el tema');
+  out.textContent=results.join('\n')+'\nTOTAL: '+results.length+' / FAIL: '+results.filter(x=>x.startsWith('FAIL')).length;
+ }catch(error){out.textContent+='\nERROR '+error.stack;}
+};
+document.querySelector('#action').onclick=async()=>{await setup();out.hidden=true;if(!textDialog())block().querySelector('[data-ib-change-action]').click();};
+document.querySelector('#label').onclick=async()=>{await setup();out.hidden=true;if(textDialog()){textDialog().querySelector('button[value=cancel]').click();await wait();}await openText();};
+</script></html>

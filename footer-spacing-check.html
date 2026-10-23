@@ -1,0 +1,76 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Verificación de separación del footer</title>
+<style>body{margin:0;font:13px Arial}#controls{padding:8px;background:#eee}pre{white-space:pre-wrap;margin:8px;max-height:150px;overflow:auto}iframe{width:100%;height:calc(100vh - 42px);border:0}#published{height:600px;border:1px solid #ddd}</style>
+<div id="controls"><button id="run">Probar separación del footer</button> <button id="inspect">Mostrar controles del footer</button></div><pre id="result"></pre><iframe id="app" src="/"></iframe><iframe id="published" title="Exportación de prueba"></iframe>
+<script type="module">
+import appStyles from '/src/index.css?inline';
+const frame=document.querySelector('#app'),published=document.querySelector('#published'),out=document.querySelector('#result'),wait=(ms=180)=>new Promise(r=>setTimeout(r,ms));
+const env=()=>({w:frame.contentWindow,d:frame.contentWindow.document});
+let results=[];
+const check=(name,ok)=>{results.push((ok?'PASS ':'FAIL ')+name);out.textContent=results.join('\n');};
+const near=(a,b)=>Math.abs(a-b)<1;
+const page=(id='short')=>env().d.querySelector('#footer-test-'+id);
+const footer=surface=>surface.querySelector(':scope>.lms-footer-wrapper');
+const last=surface=>Array.from(surface.children).filter(el=>el.matches('.lms-element')).at(-1);
+const metrics=surface=>({height:surface.getBoundingClientRect().height,top:surface.getBoundingClientRect().top,bottom:surface.getBoundingClientRect().bottom,footerTop:footer(surface).querySelector('.footer-content').getBoundingClientRect().top,footerBottom:footer(surface).getBoundingClientRect().bottom,lastBottom:last(surface).getBoundingClientRect().bottom,gap:footer(surface).querySelector('.footer-content').getBoundingClientRect().top-last(surface).getBoundingClientRect().bottom});
+async function setup(){
+ const {w,d}=env();if(d.querySelector('.project-welcome')){d.querySelector('.project-welcome .welcome-actions button').click();await wait();}
+ if(!page()){
+  for(const id of ['short','long']){
+   w.insertTemplate('pagina_basica');await wait();
+   const surface=d.querySelector('#canvas').lastElementChild.querySelector('.lms-dropzone.bg-white');surface.id='footer-test-'+id;
+   const f=footer(surface);Array.from(surface.children).filter(el=>el!==f).forEach(el=>el.remove());
+   const text=d.createElement('section');text.className='lms-element is-rendered';text.dataset.type='parrafo_basico';text.style.font='14px/21px Arial,sans-serif';text.innerHTML=id==='short'?'<h2 style="color:#ff5900;font:700 30px/36px Arial,sans-serif;margin:0 0 18px">Separación del footer</h2><p>Este último elemento conserva su posición al separar el footer.</p>':'<h2 style="color:#5d428c">Página con contenido largo</h2>'+Array.from({length:15},(_,i)=>`<p style="padding:12px 0">Contenido de la página ${i+1}</p>`).join('');surface.insertBefore(text,f);
+   surface.style.minHeight=id==='short'?'500px':'60px';surface.style.removeProperty('--lms-footer-base-min-height');surface.style.removeProperty('--lms-footer-spacing-growth');surface.removeAttribute('data-footer-spacing-page');
+   w.initNestedDropzones();await wait();
+  }
+ }
+}
+async function hover(surface){
+ const {w,d}=env(),a=last(surface).getBoundingClientRect(),b=footer(surface).querySelector('.footer-content').getBoundingClientRect(),scroll=d.querySelector('#scroll-container');
+ scroll.scrollTop+=(a.bottom+b.top)/2-w.innerHeight/2;await wait();
+ const r=last(surface).getBoundingClientRect(),f=footer(surface).querySelector('.footer-content').getBoundingClientRect();
+ surface.dispatchEvent(new w.PointerEvent('pointermove',{bubbles:true,clientX:r.left+40,clientY:(r.bottom+f.top)/2}));await wait(20);
+ return d.querySelector('#element-spacing-handles');
+}
+const adjust=(overlay,kind,key,count)=>{const {w}=env();for(let i=0;i<count;i++)overlay.querySelector(`[data-spacing-handle=${kind}]`).dispatchEvent(new w.KeyboardEvent('keydown',{bubbles:true,key}));};
+document.querySelector('#run').onclick=async()=>{
+ results=[];out.textContent='Preparando…';
+ try{
+  await setup();const {w,d}=env();let p=page(),f=footer(p),a=last(p);const initial=metrics(p),following=page('long').getBoundingClientRect().top;
+  check('Default de 10 px por lado antes del footer',a.dataset.spaceBottom==='10'&&f.dataset.spaceTop==='10');
+  check('Footer es la base de la página corta',near(initial.footerBottom,initial.bottom)&&near(initial.height,500));
+  let overlay=await hover(p);check('Rollover muestra los tres controles para footer',!overlay.hidden&&overlay.dataset.spacingTarget==='footer'&&overlay.querySelectorAll('button').length===3);
+  const pr=p.getBoundingClientRect(),x=parseFloat(overlay.style.left);check('Controles fuera del margen de la página',x>=pr.right||x+52<=pr.left);
+  const base=metrics(p),nextTop=page('long').getBoundingClientRect().top;
+  adjust(overlay,'lower','ArrowDown',8);await wait();let m=metrics(p);
+  check('Control footer aumenta solo su lado',a.dataset.spaceBottom==='10'&&f.dataset.spaceTop==='18');
+  check('Página corta crece exactamente con la separación',near(m.height-base.height,8)&&near(m.gap-base.gap,8));
+  check('Contenido no se mueve y footer sigue al borde inferior',near(m.lastBottom,base.lastBottom)&&near(m.footerBottom,m.bottom));
+  check('La página siguiente baja la misma distancia',near(page('long').getBoundingClientRect().top-nextTop,8));
+  adjust(overlay,'upper','ArrowUp',6);adjust(overlay,'center','ArrowDown',3);await wait();m=metrics(p);
+  check('Central ajusta ambos lados simultáneamente',a.dataset.spaceBottom==='19'&&f.dataset.spaceTop==='21');
+  check('La página crece por la suma de los dos lados',near(m.height-base.height,20)&&near(m.gap-base.gap,20)&&near(m.footerBottom,m.bottom));
+  check('No cambia el margen inferior del footer',!f.style.marginBottom&&parseFloat(w.getComputedStyle(f).marginBottom)<0);
+  adjust(overlay,'lower','ArrowDown',60);check('Máximo footer de 30 px',f.dataset.spaceTop==='30');adjust(overlay,'lower','ArrowUp',60);adjust(overlay,'center','ArrowUp',60);await wait();
+  check('Mínimo cero en ambos lados y contracción de página',a.dataset.spaceBottom==='0'&&f.dataset.spaceTop==='0'&&near(metrics(p).height,base.height-20));
+  adjust(overlay,'center','ArrowDown',10);await wait();check('Regresa al tamaño original con 10 + 10',near(metrics(p).height,base.height)&&near(metrics(p).gap,base.gap));
+  w.undo();await wait();p=page();check('Deshacer conserva geometría y separación',last(p).dataset.spaceBottom==='9'&&footer(p).dataset.spaceTop==='9'&&near(metrics(p).height,base.height-2));w.redo();await wait();p=page();
+  check('Rehacer restaura separación y altura',last(p).dataset.spaceBottom==='10'&&footer(p).dataset.spaceTop==='10'&&near(metrics(p).height,base.height));
+  overlay=await hover(p);adjust(overlay,'center','ArrowDown',5);await wait();
+  const style=p.style.cssText,footerStyle=footer(p).style.cssText;w.initNestedDropzones();await wait();check('Normalizar no acumula altura ni separación',p.style.cssText===style&&footer(p).style.cssText===footerStyle);
+  const expected=metrics(p),source=w.generateExportHTML(false),doc=new DOMParser().parseFromString(source,'text/html');doc.querySelectorAll('script[src],link').forEach(node=>node.remove());const css=doc.createElement('style');css.textContent=appStyles;doc.head.append(css);
+  const loaded=new Promise(resolve=>published.onload=resolve);published.srcdoc='<!doctype html>'+doc.documentElement.outerHTML;await loaded;await published.contentDocument.fonts.ready;await wait();
+  const ep=published.contentDocument.querySelector('#footer-test-short'),ef=ep.querySelector('.lms-page-footer'),er=ep.getBoundingClientRect(),fr=ef.getBoundingClientRect(),content=ef.querySelector('.footer-content').getBoundingClientRect(),el=Array.from(ep.children).find(node=>node.dataset.type==='parrafo_basico').getBoundingClientRect();
+  check('Exportación conserva los valores elegidos',ef.dataset.spaceTop==='15'&&ep.style.getPropertyValue('--lms-footer-spacing-growth')==='10px');
+  check('Exportación mantiene altura y separación idénticas',near(er.height,expected.height)&&near(content.top-el.bottom,expected.gap));
+  check('Footer exportado también queda en la base',near(fr.bottom,er.bottom));check('No exporta los controles de separación',!published.contentDocument.querySelector('#element-spacing-handles'));
+  const long=page('long'),longOverlay=await hover(long),longBase=metrics(long);adjust(longOverlay,'lower','ArrowDown',7);await wait();const longNext=metrics(long);
+  check('Página larga crece de manera natural sin recortar',near(longNext.height-longBase.height,7)&&near(longNext.gap-longBase.gap,7)&&near(longNext.footerBottom,longNext.bottom));
+  w.openGlobalFooterModal();w.tempFooterType='solido';w.tempFooterBlockColor='morado';w.applyFooterConfig();await wait();
+  check('Cambiar diseño de footer conserva la separación',footer(page()).dataset.spaceTop==='15'&&footer(long).dataset.spaceTop==='17'&&near(metrics(page()).footerBottom,metrics(page()).bottom));
+  const saved=d.querySelector('#canvas').innerHTML;d.querySelector('#canvas').innerHTML=saved;w.initNestedDropzones();await wait();check('Reabrir HTML editable conserva separación y altura',footer(page()).dataset.spaceTop==='15'&&near(metrics(page()).height,expected.height));
+  out.textContent=results.join('\n')+'\nTOTAL: '+results.length+' / FAIL: '+results.filter(x=>x.startsWith('FAIL')).length;
+ }catch(error){out.textContent+='\nERROR '+error.stack;}
+};
+document.querySelector('#inspect').onclick=async()=>{await setup();out.hidden=true;published.hidden=true;await hover(page());};
+</script></html>

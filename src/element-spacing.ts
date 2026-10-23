@@ -1,20 +1,51 @@
 const limit=(n:number)=>Math.max(0,Math.min(30,Number.isFinite(n)?n:10));
 const value=(el:HTMLElement,side:'top'|'bottom')=>limit(Number(el.dataset[side==='top'?'spaceTop':'spaceBottom']??10));
+const isFooter=(el:HTMLElement)=>el.matches('.lms-footer-wrapper,.lms-page-footer');
+export const footerSpacingGrowth=(elementBottom:number,footerTop:number)=>limit(elementBottom)+limit(footerTop)-20;
+function updateFooterPage(footer:HTMLElement){
+  const page=footer.parentElement;if(!page)return;
+  const baseKey='--lms-footer-base-min-height',growthKey='--lms-footer-spacing-growth';
+  if(!page.style.getPropertyValue(baseKey)){
+    // Capture the original floor, not a fixed height. mt-auto must not absorb
+    // the user's added gap, even when a short page has spare vertical space.
+    const base=page.style.minHeight||(page.isConnected?getComputedStyle(page).minHeight:'60px');
+    page.style.setProperty(baseKey,base&&base!=='auto'?base:'0px');
+  }
+  if(!page.hasAttribute('data-footer-spacing-page'))page.setAttribute('data-footer-spacing-page','true');
+  let upper=footer.previousElementSibling as HTMLElement|null;
+  while(upper&&!upper.matches('.lms-element'))upper=upper.previousElementSibling as HTMLElement|null;
+  const growth=footerSpacingGrowth(upper?value(upper,'bottom'):10,value(footer,'top'))+'px';
+  if(page.style.getPropertyValue(growthKey)!==growth)page.style.setProperty(growthKey,growth);
+}
+function setFooterSpacing(footer:HTMLElement,top:number){
+  const text=String(limit(top));
+  if(footer.dataset.spaceTop!==text)footer.dataset.spaceTop=text;
+  if(footer.dataset.footerSpacing!=='true')footer.dataset.footerSpacing='true';
+  if(footer.style.getPropertyValue('--lms-footer-space-top')!==text+'px')footer.style.setProperty('--lms-footer-space-top',text+'px');
+  updateFooterPage(footer);
+}
+const boundary=(el:HTMLElement)=>isFooter(el)?(el.querySelector<HTMLElement>(':scope > .footer-content')||el).getBoundingClientRect():el.getBoundingClientRect();
 export function setElementSpacing(el:HTMLElement,top:number,bottom:number){
+  // The footer keeps its negative bottom gutter and automatic bottom anchor.
+  if(isFooter(el)){setFooterSpacing(el,top);return;}
   for(const [side,n] of [['top',limit(top)],['bottom',limit(bottom)]] as const){
     const key=side==='top'?'spaceTop':'spaceBottom',text=String(n);
     if(el.dataset[key]!==text)el.dataset[key]=text;
     if(el.style.getPropertyValue('margin-'+side)!==text+'px'||el.style.getPropertyPriority('margin-'+side)!=='important')el.style.setProperty('margin-'+side,text+'px','important');
   }
+  const footer=el.nextElementSibling as HTMLElement|null;
+  if(footer&&isFooter(footer)&&footer.dataset.footerSpacing==='true')updateFooterPage(footer);
 }
 export function normalizeElementSpacing(root:ParentNode){
   root.querySelectorAll<HTMLElement>('.lms-dropzone').forEach(zone=>{
     const blocks=Array.from(zone.children).filter((el):el is HTMLElement=>el instanceof HTMLElement&&el.classList.contains('lms-element'));
-    if(!blocks.length)return;
+    const footers=Array.from(zone.children).filter((el):el is HTMLElement=>el instanceof HTMLElement&&isFooter(el));
+    if(!blocks.length&&!footers.length)return;
     if(zone.style.display!=='none'&&!zone.classList.contains('hidden')&&zone.style.display!=='flex')zone.style.display='flex';
     if(zone.style.flexDirection!=='column')zone.style.flexDirection='column';
     if(zone.style.rowGap!=='0px')zone.style.rowGap='0px';
     blocks.forEach(block=>setElementSpacing(block,value(block,'top'),value(block,'bottom')));
+    footers.forEach(footer=>setFooterSpacing(footer,value(footer,'top')));
   });
 }
 let installed=false;
@@ -31,7 +62,12 @@ export function setupSpacingHandles(){
   });document.body.append(overlay);
   const draw=()=>{
     if(!pair||!pair.upper.isConnected||!pair.lower.isConnected){overlay.hidden=true;return;}
-    const a=pair.upper.getBoundingClientRect(),b=pair.lower.getBoundingClientRect(),up=value(pair.upper,'bottom'),down=value(pair.lower,'top');
+    const a=boundary(pair.upper),b=boundary(pair.lower),up=value(pair.upper,'bottom'),down=value(pair.lower,'top');
+    const footer=isFooter(pair.lower);overlay.dataset.spacingTarget=footer?'footer':'elements';
+    buttons[0].title=footer?'Separación del elemento (0–30 px)':'Separación superior (0–30 px)';
+    buttons[1].title=footer?'Ajustar separación de elemento y footer (0–30 px por lado)':'Ajustar ambas separaciones (0–30 px por lado)';
+    buttons[2].title=footer?'Separación del footer (0–30 px)':'Separación inferior (0–30 px)';
+    buttons.forEach(button=>button.setAttribute('aria-label',button.title));
     const canvas=pair.upper.closest('#canvas');
     let ancestor=pair.upper.parentElement,page:Element|null=canvas;
     while(ancestor&&ancestor!==canvas){
@@ -56,16 +92,16 @@ export function setupSpacingHandles(){
     if(drag){adjust(drag.kind,drag.up,drag.down,Math.round(event.clientY-drag.y));return;}
     if(window.isLmsDragging||(event.target as Element).closest?.('#element-spacing-handles'))return;
     if(pair&&!overlay.hidden){
-      const a=pair.upper.getBoundingClientRect(),b=pair.lower.getBoundingClientRect();
+      const a=boundary(pair.upper),b=boundary(pair.lower);
       const x=parseFloat(overlay.style.left),y=parseFloat(overlay.style.top);
       if(event.clientY>=Math.min(a.bottom-8,y-34)&&event.clientY<=Math.max(b.top+8,y+34)&&
         event.clientX>=Math.min(a.right,x)-8&&event.clientX<=Math.max(a.right,x+52)+8)return;
     }
     const target=document.elementFromPoint(event.clientX,event.clientY),zone=target?.closest<HTMLElement>('#canvas .lms-dropzone,#canvas');
     if(!zone){overlay.hidden=true;return;}
-    const blocks=Array.from(zone.children).filter((el):el is HTMLElement=>el instanceof HTMLElement&&el.matches('.lms-element')&&el.getBoundingClientRect().height>0);
+    const blocks=Array.from(zone.children).filter((el):el is HTMLElement=>el instanceof HTMLElement&&el.matches('.lms-element,.lms-footer-wrapper')&&el.getBoundingClientRect().height>0);
     for(let i=0;i<blocks.length-1;i++){
-      const a=blocks[i].getBoundingClientRect(),b=blocks[i+1].getBoundingClientRect();
+      const a=boundary(blocks[i]),b=boundary(blocks[i+1]);
       if(event.clientY>=a.bottom-8&&event.clientY<=b.top+8&&event.clientX>=a.left&&event.clientX<=a.right){pair={upper:blocks[i],lower:blocks[i+1]};draw();return;}
     }overlay.hidden=true;
   });

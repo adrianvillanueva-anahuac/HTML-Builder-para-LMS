@@ -1,4 +1,5 @@
-import {tabPalette,type Workspace} from './project-model';
+import {tabPalette,type Workspace,type ChecklistItem} from './project-model';
+import {automaticButtonTaskHint} from './button-checklist';
 
 export function workspaceDialog(space:Workspace):Promise<Pick<Workspace,'name'|'tabColor'|'notes'|'checklist'>|null> {
   return new Promise(resolve=>{
@@ -50,20 +51,27 @@ export function workspaceDialog(space:Workspace):Promise<Pick<Workspace,'name'|'
     const checklist=document.createElement('fieldset');checklist.innerHTML='<legend>Checklist</legend><div class="workspace-checklist"></div><button type="button" class="workspace-add" data-add-task title="Agregar tarea" aria-label="Agregar tarea"><span class="material-symbols-outlined" aria-hidden="true">add</span></button>';
     form.querySelector('.exercise-dialog-actions')!.before(checklist);
     const tasks=checklist.querySelector('.workspace-checklist')!;
-    const addTask=(text:string,done=false,focus=false)=>{
+    const taskLinks=new WeakMap<Element,string>();
+    const addTask=(text:string,done=false,focus=false,buttonId?:string)=>{
       const row=document.createElement('div');row.className='workspace-task';
       const check=document.createElement('input');check.type='checkbox';check.checked=done;check.setAttribute('aria-label','Marcar tarea como completada');
       const field=document.createElement('input');field.type='text';field.value=text;field.placeholder='Describe la tarea';field.setAttribute('aria-label','Texto de la tarea');
       const update=()=>{row.dataset.done=String(check.checked);field.title=check.checked?'Completado':'Pendiente';};check.onchange=update;update();
       const remove=document.createElement('button');remove.type='button';remove.setAttribute('aria-label','Eliminar tarea');remove.title='Eliminar tarea';remove.innerHTML='<span class="material-symbols-outlined" aria-hidden="true">delete</span>';remove.onclick=()=>{row.remove();checklist.querySelector<HTMLButtonElement>('[data-add-task]')!.focus();};
-      row.append(check,field,remove);tasks.append(row);if(focus)field.focus();
+      row.append(check,field);
+      if(buttonId){
+        taskLinks.set(row,buttonId);row.dataset.automatic='true';row.title=automaticButtonTaskHint;
+        check.disabled=true;field.readOnly=true;field.title=text+'\n'+automaticButtonTaskHint;
+        const automatic=document.createElement('span');automatic.className='material-symbols-outlined';automatic.textContent='sync';automatic.setAttribute('aria-label','Tarea automática');automatic.title=automaticButtonTaskHint;row.append(automatic);
+      }else row.append(remove);
+      tasks.append(row);if(focus)field.focus();
     };
-    (space.checklist||[]).forEach(item=>addTask(item.text,item.done));
+    (space.checklist||[]).forEach(item=>addTask(item.text,item.done,false,item.buttonId));
     checklist.querySelector<HTMLButtonElement>('[data-add-task]')!.onclick=()=>addTask('',false,true);
     form.addEventListener('submit',event=>{if((event as SubmitEvent).submitter?.getAttribute('value')==='ok'&&!input.value.trim()){event.preventDefault();input.setCustomValidity('Escribe un nombre');input.reportValidity();}});
     input.oninput=()=>input.setCustomValidity('');
     const previous=document.activeElement as HTMLElement|null;
-    dialog.addEventListener('close',()=>{const result=dialog.returnValue==='ok'?{name:input.value.trim(),tabColor:color,notes:Array.from(notes.querySelectorAll('textarea')).map(n=>n.value.trim()).filter(Boolean),checklist:Array.from(tasks.children).map(row=>({text:row.querySelector<HTMLInputElement>('input[type=text]')!.value.trim(),done:row.querySelector<HTMLInputElement>('input[type=checkbox]')!.checked})).filter(item=>item.text)}:null;dialog.remove();previous?.focus();resolve(result);},{once:true});
+    dialog.addEventListener('close',()=>{const result=dialog.returnValue==='ok'?{name:input.value.trim(),tabColor:color,notes:Array.from(notes.querySelectorAll('textarea')).map(n=>n.value.trim()).filter(Boolean),checklist:Array.from(tasks.children).map((row):ChecklistItem=>({text:row.querySelector<HTMLInputElement>('input[type=text]')!.value.trim(),done:row.querySelector<HTMLInputElement>('input[type=checkbox]')!.checked,...(taskLinks.has(row)?{buttonId:taskLinks.get(row)}:{})})).filter(item=>item.text)}:null;dialog.remove();previous?.focus();resolve(result);},{once:true});
     dialog.append(form);document.body.append(dialog);dialog.showModal();input.focus();input.select();
   });
 }
