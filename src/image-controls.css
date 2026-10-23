@@ -1,0 +1,36 @@
+#image-controls-popover{position:fixed;z-index:2500;width:264px;max-width:calc(100vw - 24px);max-height:calc(100dvh - 32px);overflow:auto;box-sizing:border-box;padding:14px;border:1px solid #cdd5dc;border-radius:12px;background:#fff;color:#374151;box-shadow:0 8px 30px #0003;font:12px/1.4 Roboto,Arial,sans-serif}
+#image-controls-popover[hidden],#image-crop-editor[hidden]{display:none}
+:is([data-type=imagen_suelta],[data-type=profesor_img])>.block-toolbar{width:max-content;max-width:calc(100vw - 32px)}
+:is([data-type=imagen_suelta],[data-type=profesor_img])>.block-toolbar>div{flex-wrap:wrap;justify-content:center}
+#image-controls-popover h3{margin:0 0 12px;font-size:14px;font-weight:700;color:#5d428c}
+#image-controls-popover label{display:block;margin:11px 0}
+#image-controls-popover label>span{display:flex;justify-content:space-between;gap:8px;margin-bottom:4px}
+#image-controls-popover input[type=range]{width:100%;accent-color:#5d428c;cursor:ew-resize}
+#image-controls-popover output{color:#5d428c;font-variant-numeric:tabular-nums}
+#image-controls-popover button{border:1px solid #cdd5dc;background:transparent;color:inherit;border-radius:6px;padding:6px 10px;cursor:pointer;font:inherit}
+#image-controls-popover button:hover{background:#f2edf8}
+#image-controls-popover .image-menu-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#image-controls-popover small{display:block;color:#646464}
+#image-controls-popover button:focus-visible,#image-crop-editor button:focus-visible{outline:2px solid #5d428c;outline-offset:2px}
+.dark #image-controls-popover{background:#292f3b;color:#e4e9f2;border-color:#50596b}
+.dark #image-controls-popover :is(h3,output){color:#d7bfff}
+.dark #image-controls-popover small{color:#bdc1c6}
+.dark #image-controls-popover button:hover{background:#414052}
+[data-type=imagen_suelta] .image-overlay-text,[data-type=profesor_img] .image-overlay-text{cursor:move;outline:1px dashed transparent;user-select:none}
+[data-type=imagen_suelta] .image-overlay-text:hover,[data-type=profesor_img] .image-overlay-text:hover{outline-color:#ff5900}
+.image-overlay-text[contenteditable=true]{cursor:text!important;user-select:text!important;overflow:auto!important;outline:2px solid #ff5900!important}
+#image-crop-editor{position:fixed;z-index:2600;padding:12px;border:1px solid #cdd5dc;border-radius:12px;background:#fff;color:#374151;box-shadow:0 8px 40px #0004;font:12px/1.4 Roboto,Arial,sans-serif;box-sizing:content-box;touch-action:none}
+#image-crop-editor .image-crop-stage{position:relative;isolation:isolate;background:#e5e7eb;user-select:none}
+#image-crop-editor .image-crop-preview{display:block;width:100%;height:100%;object-fit:fill;pointer-events:none;user-select:none}
+#image-crop-editor .image-crop-shading{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+#image-crop-editor .image-crop-shade{position:absolute;box-shadow:0 0 0 2000px #0008;pointer-events:none}
+#image-crop-editor .image-crop-box{position:absolute;box-sizing:border-box;border:2px solid #fff;outline:1px solid #5d428c;cursor:move;touch-action:none}
+#image-crop-editor .image-crop-box::before{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,transparent 32.9%,#fff7 33%,#fff7 33.4%,transparent 33.5%,transparent 66.2%,#fff7 66.3%,#fff7 66.7%,transparent 66.8%),linear-gradient(transparent 32.9%,#fff7 33%,#fff7 33.4%,transparent 33.5%,transparent 66.2%,#fff7 66.3%,#fff7 66.7%,transparent 66.8%)}
+#image-crop-editor .image-crop-handle{position:absolute;width:14px;height:14px;padding:0;background:#fff;border:2px solid #5d428c;border-radius:3px;transform:translate(-50%,-50%);touch-action:none}
+#image-crop-editor .image-crop-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding-top:12px}
+#image-crop-editor .image-crop-actions span{margin-right:auto;color:#646464}
+#image-crop-editor .image-crop-actions button{border:0;border-radius:18px;padding:7px 14px;color:#5d428c;background:transparent;cursor:pointer;font:500 12px Roboto,Arial,sans-serif}
+#image-crop-editor .image-crop-actions button[data-crop-apply]{background:#5d428c;color:#fff}
+.dark #image-crop-editor{background:#292f3b;color:#e4e9f2;border-color:#50596b}
+.dark #image-crop-editor .image-crop-actions span{color:#bdc1c6}
+.dark #image-crop-editor .image-crop-actions button:not([data-crop-apply]){color:#d7bfff}

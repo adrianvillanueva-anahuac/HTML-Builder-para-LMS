@@ -1,4 +1,5 @@
 import Sortable from 'sortablejs';
+import {setupImageControls,prepareImageControlsExport,changeImageCropAspect,changeImageCropPosition} from './image-controls';
 import {getInteractiveButtonHTML,setupInteractiveButtons,prepareInteractiveButtonExport} from './interactive-button';
 import interactiveButtonRuntime from './interactive-button-runtime.js?raw';
 import interactiveButtonStyles from './interactive-button.css?raw';
@@ -436,6 +437,7 @@ export function setupVanillaGlobals() {
 
     const canvasObserver = new MutationObserver(() => {
         ensureDuplicateButtons();
+        setupImageControls();
         normalizeCanvaEmbeds(document.getElementById('canvas')!);
         setupMediaEmbeds(document.getElementById('canvas') || document, true);
         // Skip observer triggers during history navigation or sorting etc. if we can,
@@ -1318,6 +1320,7 @@ export function setupVanillaGlobals() {
             placeholder.classList.add('hidden'); 
             placeholder.style.display = 'none';
         }
+        setupImageControls();
     };
 
     interface SavedImage {
@@ -1551,6 +1554,8 @@ export function setupVanillaGlobals() {
     }
 
     window.changeImageAspect = function(btn: HTMLElement, aspect: string) {
+        const block=btn.closest<HTMLElement>('.lms-element');
+        if(block&&changeImageCropAspect(block,aspect))return;
         const wrapper = btn.closest('.lms-element')?.querySelector<HTMLElement>('.image-wrapper');
         if (wrapper) {
             wrapper.style.aspectRatio = aspect;
@@ -1561,6 +1566,8 @@ export function setupVanillaGlobals() {
     }
 
     window.updateImagePosition = function(slider: HTMLInputElement, axis: 'x' | 'y') {
+        const block=slider.closest<HTMLElement>('.lms-element');
+        if(block&&changeImageCropPosition(block,axis,Number(slider.value)))return;
         const img = slider.closest('.lms-element')?.querySelector<HTMLImageElement>('.uploaded-image');
         if (img) {
             const currentPos = img.style.objectPosition || '50% 50%';
@@ -3539,6 +3546,7 @@ export function setupVanillaGlobals() {
         }
         const clone = outerEl.cloneNode(true) as HTMLElement;
         normalizeElementSpacing(clone);
+        prepareImageControlsExport(clone,outerEl);
         prepareInteractiveButtonExport(clone);
         normalizeCanvaEmbeds(clone);
         setupMediaEmbeds(clone);
@@ -4509,6 +4517,7 @@ export function setupVanillaGlobals() {
 
     window.initNestedDropzones = function() {
         initModularTables();
+        setupImageControls();
         setupInteractiveButtons();
         setupBoxControls();
         ensureDuplicateButtons();

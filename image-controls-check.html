@@ -1,0 +1,45 @@
+<!doctype html><meta charset="utf-8"><title>Verificación de controles de imagen</title><button id="run">Probar controles de imagen</button><button id="preview">Ver ejemplo</button><pre id="result"></pre><iframe id="app" src="/" style="width:100%;height:780px;border:0"></iframe><iframe id="published" style="width:100%;height:600px;border:0" title="Imagen exportada"></iframe>
+<script type="module">
+import {getImagenSueltaHTML} from '/src/templates.ts';
+import appStyles from '/src/index.css?inline';
+const app=document.querySelector('#app'),published=document.querySelector('#published'),out=document.querySelector('#result');
+document.querySelector('#preview').onclick=()=>{out.hidden=true;published.hidden=true;};
+document.querySelector('#run').onclick=async()=>{
+ const results=[],check=(name,pass)=>{results.push((pass?'PASS ':'FAIL ')+name);out.textContent=results.join('\n');};
+ try{
+ const w=app.contentWindow,d=w.document,wait=(ms=160)=>new Promise(r=>setTimeout(r,ms));
+ if(!d.querySelector('.project-tab-add'))d.querySelector('.project-welcome button').click();
+ await wait();w.insertTemplate('pagina_basica');await wait();
+ const page=d.querySelector('#canvas .lms-dropzone.bg-white');page.insertAdjacentHTML('beforeend',getImagenSueltaHTML());w.initNestedDropzones();
+ const block=d.querySelector('#canvas [data-type=imagen_suelta]');page.insertBefore(block,page.querySelector('.lms-footer-wrapper'));
+ const input=block.querySelector('.image-placeholder input[type=text]');input.value=location.origin+'/imagenes/titulos/Fondo_naranja_escolar.png';w.handleImageUrl(input);await new Promise(resolve=>{const img=block.querySelector('img');if(img.complete&&img.naturalWidth)resolve();else img.onload=resolve;});await wait();
+ const frame=block.querySelector('.image-wrapper'),img=block.querySelector('.uploaded-image'),source=img.src;
+ const menu=(kind)=>{const button=block.querySelector('[data-image-tool='+kind+']');button.dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true}));return d.querySelector('#image-controls-popover');};
+ const set=(kind,key,value)=>{const pop=menu(kind),field=pop.querySelector('[data-image-setting='+key+']');field.value=value;field.dispatchEvent(new w.Event('input',{bubbles:true}));};
+ check('Herramientas y recorte libre disponibles',block.querySelectorAll('[data-image-tool]').length===2&&!!block.querySelector('[data-image-free-crop]'));
+ menu('adjustments');check('Todos los ajustes usan sliders',d.querySelectorAll('#image-controls-popover input[type=range]').length===6);
+ set('adjustments','hue',36);set('adjustments','contrast',140);set('adjustments','brightness',115);set('adjustments','saturation',80);set('adjustments','tint',35);
+ check('Ajustes de imagen sin modificar el original',img.style.filter.includes('36deg')&&img.style.filter.includes('140%')&&frame.querySelector('.image-color-tint').style.opacity==='0.35'&&img.src===source);
+ block.querySelector('[data-image-free-crop]').click();await wait();
+ let crop=d.querySelector('#image-crop-editor');check('Ocho tiradores con acciones aplicar y cancelar',crop.querySelectorAll('button[data-crop-handle]').length===8&&!!crop.querySelector('[data-crop-cancel]'));
+ const handle=crop.querySelector('[data-crop-handle=se]');handle.dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowLeft',shiftKey:true,bubbles:true}));handle.dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowUp',shiftKey:true,bubbles:true}));handle.dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowUp',shiftKey:true,bubbles:true}));crop.querySelector('[data-crop-apply]').click();await wait();
+ const rect=JSON.parse(block.dataset.imageCrop);
+ check('Recorte libre aplicado con fuente original conservada',rect.width!==rect.height&&img.src===source&&img.style.position==='absolute'&&Math.abs(parseFloat(frame.style.aspectRatio)-img.naturalWidth/img.naturalHeight*rect.width/rect.height)<.001);
+ const before=block.dataset.imageCrop;block.querySelector('[data-image-free-crop]').click();crop=d.querySelector('#image-crop-editor');crop.querySelector('[data-crop-handle=e]').dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}));crop.querySelector('[data-crop-cancel]').click();check('Cancelar no altera el recorte',block.dataset.imageCrop===before);
+ const original=block.querySelector('[onclick*="changeImageAspect"][onclick*="auto"]');original.click();check('Original recupera la imagen completa',JSON.parse(block.dataset.imageCrop).width===1&&JSON.parse(block.dataset.imageCrop).height===1);
+ menu('text');d.querySelector('[data-image-text-edit]').click();await wait();let text=frame.querySelector('.image-overlay-text');check('Texto con doble clic y herramientas de texto',!!text&&text.contentEditable==='true'&&!d.querySelector('#rtf-toolbar').classList.contains('hidden'));
+ text.textContent='Imagen con texto editable';text.contentEditable='false';
+ set('text','margin',10);set('text','x',100);set('text','y',100);set('text','width',70);set('text','size',32);await wait();
+ const r=frame.getBoundingClientRect(),t=text.getBoundingClientRect();check('Texto permanece dentro de los márgenes',t.left>=r.left+r.width*.1-1&&t.right<=r.right-r.width*.1+1&&t.bottom<=r.bottom-r.height*.1+1);
+ const saved=block.outerHTML;block.outerHTML=saved;w.initNestedDropzones();await wait();const restored=d.querySelector('#canvas [data-type=imagen_suelta]');
+ check('Restaurar conserva texto y ajustes',restored.querySelector('.image-overlay-text').textContent==='Imagen con texto editable'&&JSON.parse(restored.dataset.imageAdjustments).contrast===140);
+ restored.querySelector('[data-duplicate-element]').click();await wait();const copy=d.querySelectorAll('#canvas [data-type=imagen_suelta]')[1];check('Duplicar conserva todos los ajustes',copy.dataset.imageAdjustments===restored.dataset.imageAdjustments&&copy.dataset.imageTextLayout===restored.dataset.imageTextLayout&&copy.querySelector('.image-overlay-text').textContent===restored.querySelector('.image-overlay-text').textContent);
+ const html=w.generateExportHTML(false),doc=new DOMParser().parseFromString(html,'text/html');
+ check('Exportación sin controles de edición',!doc.querySelector('.block-toolbar,#image-controls-popover,#image-crop-editor')&&!!doc.querySelector('.image-overlay-text'));
+ const exported=doc.querySelector('[data-type=imagen_suelta]');check('Exportación conserva filtros y proporción',exported.querySelector('.uploaded-image').style.filter.includes('140%')&&Math.abs(parseFloat(exported.querySelector('.image-wrapper').style.aspectRatio)-parseFloat(restored.querySelector('.image-wrapper').style.aspectRatio))<.001);
+ doc.querySelectorAll('script,style,link').forEach(n=>n.remove());const css=doc.createElement('style');css.textContent=appStyles;doc.head.append(css);published.srcdoc='<!doctype html>'+doc.documentElement.outerHTML;await new Promise(resolve=>published.onload=resolve);await wait();
+ let pd=published.contentDocument,pf=pd.querySelector('.image-wrapper'),pt=pf.querySelector('.image-overlay-text');check('Texto y tinte funcionan sin CSS ni scripts propios',pt.getBoundingClientRect().width>0&&pf.querySelector('.image-color-tint').style.opacity==='0.35');
+ published.style.width='420px';await wait();const pr=pf.getBoundingClientRect(),tr=pt.getBoundingClientRect();check('Imagen y texto responsivos sin desbordamiento',tr.left>=pr.left&&tr.right<=pr.right+1&&tr.bottom<=pr.bottom+1&&pd.documentElement.scrollWidth<=published.clientWidth+1);
+ }catch(error){results.push('FAIL '+error.message);out.textContent=results.join('\n');}
+};
+</script>
