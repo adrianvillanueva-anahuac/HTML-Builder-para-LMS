@@ -1,0 +1,65 @@
+<!doctype html><meta charset="utf-8"><title>Transición de altura de pestañas</title>
+<button id="run">Probar transición de pestañas</button><button id="preview">Ver ejemplo</button><pre id="result"></pre>
+<iframe id="app" src="/" style="width:100%;height:800px;border:0"></iframe><iframe id="published" title="Pestañas exportadas" style="width:100%;height:700px;border:0"></iframe>
+<script type="module">
+import {getTabsHTML,getGrid2x2HTML,getParrafoBasicoHTML} from '/src/templates.ts';
+import appStyles from '/src/index.css?inline';
+const app=document.querySelector('#app'),published=document.querySelector('#published'),out=document.querySelector('#result');
+document.querySelector('#preview').onclick=()=>{
+ out.hidden=true;published.hidden=true;
+ const w=app.contentWindow,d=w.document,block=d.querySelector('#canvas [data-type=pestanas]');if(!block)return;
+ const buttons=block.querySelector('.tab-buttons-container').children,panes=block.querySelector('.tabs-panes-wrapper').children;
+ buttons[0].querySelector('.editable-text').textContent='Resumen';buttons[1].querySelector('.editable-text').textContent='Contenido ampliado';
+ panes[1].innerHTML=getGrid2x2HTML();w.initNestedDropzones();buttons[0].click();block.scrollIntoView({block:'center'});
+};
+document.querySelector('#run').onclick=async()=>{
+ const results=[],check=(name,pass)=>{results.push((pass?'PASS ':'FAIL ')+name);out.textContent=results.join('\n');};
+ try{
+  const w=app.contentWindow,d=w.document,wait=(ms=100)=>new Promise(resolve=>setTimeout(resolve,ms));
+  if(!d.querySelector('.project-tab-add'))d.querySelector('.project-welcome button').click();await wait();w.insertTemplate('pagina_basica');await wait();
+  const page=d.querySelector('#canvas .lms-dropzone.bg-white');page.insertAdjacentHTML('beforeend',getTabsHTML());
+  const block=page.querySelector('[data-type=pestanas]');page.insertBefore(block,page.querySelector('.lms-footer-wrapper'));
+  const list=block.querySelector('.tab-buttons-container'),buttons=Array.from(list.children),wrapper=block.querySelector('.tabs-panes-wrapper'),panes=Array.from(wrapper.children);
+  panes[0].innerHTML=getParrafoBasicoHTML();panes[0].querySelector('p').textContent='Esta pestaña tiene poco contenido.';
+  panes[1].innerHTML=getGrid2x2HTML()+getParrafoBasicoHTML()+getGrid2x2HTML();
+  const below=d.createElement('div');below.id='tabs-below';below.textContent='Este contenido se desplaza suavemente con la altura de las pestañas.';below.style.cssText='padding:18px;border:2px solid #5d428c;border-radius:10px;color:#5d428c;font:700 15px Roboto,Arial,sans-serif';block.after(below);w.initNestedDropzones();await wait();
+  const h=()=>wrapper.getBoundingClientRect().height,y=()=>below.getBoundingClientRect().top;
+  const start=h(),startY=y();buttons[1].click();const immediate=h();await wait(100);const middle=h(),middleY=y();await wait(450);const tall=h(),tallY=y();
+  check('Expandir comienza desde la altura anterior',Math.abs(immediate-start)<2);
+  check('Expansión con alturas intermedias, sin salto',middle>start+10&&middle<tall-2);
+  check('Contenido inferior acompaña la expansión',middleY>startY+10&&middleY<tallY-2&&Math.abs((middleY-startY)-(middle-start))<2);
+  check('Altura final se adapta al contenido',tall>start+120&&wrapper.getAnimations().length===0&&!wrapper.style.height);
+  buttons[0].click();const contractStart=h();await wait(100);const contracting=h();await wait(450);
+  check('Contracción gradual hacia la pestaña corta',Math.abs(contractStart-tall)<2&&contracting>start+2&&contracting<tall-10&&Math.abs(h()-start)<2);
+  check('El contenido inferior vuelve a su sitio',Math.abs(y()-startY)<2);
+  buttons[1].click();await wait(100);const interrupted=h();buttons[0].click();
+  check('Cambio rápido retoma la altura visible',Math.abs(h()-interrupted)<2);await wait(60);buttons[1].click();await wait(520);
+  check('Cambios rápidos dejan solo la última pestaña visible',panes[1].style.display==='flex'&&panes[0].style.display==='none'&&Math.abs(h()-tall)<2&&wrapper.getAnimations().length===0);
+  const resting=block.outerHTML;buttons[1].click();check('Clic en la pestaña activa no reinicia la animación',wrapper.getAnimations().length===0&&block.outerHTML===resting);
+  w.toggleLmsTab(buttons[0],'no-existe');check('Destino inválido no oculta el contenido',panes[1].style.display==='flex'&&panes[0].style.display==='none');
+  const label=buttons[0].querySelector('.editable-text');label.contentEditable='true';buttons[0].click();check('Editar el nombre no cambia de pestaña',panes[1].style.display==='flex');label.contentEditable='false';
+  panes[1].insertAdjacentHTML('beforeend',getTabsHTML());w.initNestedDropzones();await wait();
+  const nested=panes[1].querySelector('[data-type=pestanas]'),nestedButtons=nested.querySelectorAll('.tab-buttons-container>button'),nestedPanes=nested.querySelectorAll('.lms-tab-pane');nestedPanes[1].innerHTML=getGrid2x2HTML();w.initNestedDropzones();nestedButtons[1].click();await wait(520);
+  check('Pestañas anidadas cambian sin afectar la selección exterior',panes[1].style.display==='flex'&&nestedPanes[1].style.display==='flex'&&nestedPanes[0].style.display==='none');
+  block.querySelector('[onclick*="toggleTabsOrientation"]').click();buttons[0].click();await wait(520);const verticalShort=h();buttons[1].click();await wait(100);const verticalMid=h();await wait(450);
+  check('Orientación vertical también anima su altura',block.dataset.orientation==='vertical'&&verticalMid>verticalShort+5&&verticalMid<h()-2);
+  buttons[0].click();await wait(520);const ownMatch=w.matchMedia;w.matchMedia=query=>query.includes('prefers-reduced-motion')?{matches:true}:ownMatch.call(w,query);buttons[1].click();
+  check('Movimiento reducido cambia sin animación',wrapper.getAnimations().length===0&&panes[1].style.display==='flex');w.matchMedia=ownMatch;
+  buttons[0].click();w.dispatchEvent(new w.Event('resize'));check('Redimensionar libera inmediatamente la altura automática',wrapper.getAnimations().length===0&&!wrapper.style.height&&w.getComputedStyle(wrapper).overflow==='visible');
+  const ownAnimate=wrapper.animate;wrapper.animate=undefined;buttons[1].click();check('Respaldo sin API de animación mantiene las pestañas operativas',panes[1].style.display==='flex');wrapper.animate=ownAnimate;
+  buttons[0].click();await wait(520);buttons[1].click();await wait(80);
+  const html=w.generateExportHTML(false),doc=new DOMParser().parseFromString(html,'text/html');
+  check('Exportar durante el movimiento no guarda alturas ni recortes temporales',Array.from(doc.querySelectorAll('.tabs-panes-wrapper')).every(node=>!node.style.height&&!node.style.overflow));
+  check('Guardar o duplicar durante el movimiento no guarda la animación',!wrapper.outerHTML.includes('height:')&&!wrapper.outerHTML.includes('overflow:'));
+  doc.querySelectorAll('script[src],link').forEach(node=>node.remove());const css=doc.createElement('style');css.textContent=appStyles;doc.head.append(css);published.srcdoc='<!doctype html>'+doc.documentElement.outerHTML;await new Promise(resolve=>published.onload=resolve);await wait();
+  const pd=published.contentDocument,pw=published.contentWindow,pb=pd.querySelector('[data-type=pestanas]'),pButtons=pb.querySelectorAll('.tab-buttons-container>button'),pWrapper=pb.querySelector('.tabs-panes-wrapper');
+  pButtons[0].click();await wait(520);const pShort=pWrapper.getBoundingClientRect().height;pButtons[1].click();await wait(100);const pMiddle=pWrapper.getBoundingClientRect().height;await wait(450);
+  check('HTML exportado conserva la expansión suave',pMiddle>pShort+5&&pMiddle<pWrapper.getBoundingClientRect().height-2);
+  const pTall=pWrapper.getBoundingClientRect().height;pButtons[0].click();await wait(100);const pContract=pWrapper.getBoundingClientRect().height;await wait(450);
+  check('HTML exportado conserva la contracción suave',pContract<pTall-5&&pContract>pShort+2&&Math.abs(pWrapper.getBoundingClientRect().height-pShort)<2);
+  check('Los menús no quedan recortados al terminar',w.getComputedStyle(wrapper).overflow==='visible'&&pw.getComputedStyle(pWrapper).overflow==='visible');
+  published.style.width='420px';await wait();pButtons[1].click();await wait(520);check('Exportación móvil sin desbordamiento ni altura fija',pd.documentElement.scrollWidth<=published.clientWidth+1&&!pWrapper.style.height);
+  buttons[0].click();await wait(520);block.querySelector('[onclick*="toggleTabsOrientation"]').click();buttons[1].click();await wait(520);block.scrollIntoView({block:'center'});
+ }catch(error){results.push('FAIL '+error.message);out.textContent=results.join('\n');}
+};
+</script>

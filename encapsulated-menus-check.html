@@ -1,0 +1,61 @@
+<!doctype html><meta charset="utf-8"><title>Menús de elementos encapsulados</title>
+<button id="run">Probar menús encapsulados</button><button id="preview">Ver ejemplo</button><pre id="result"></pre>
+<iframe id="app" src="/" style="width:100%;height:800px;border:0"></iframe>
+<script type="module">
+import {getImagenSueltaHTML,getParrafoBasicoHTML} from '/src/templates.ts';
+import {getInteractiveButtonHTML} from '/src/interactive-button.ts';
+const app=document.querySelector('#app'),out=document.querySelector('#result');
+document.querySelector('#preview').onclick=()=>{out.hidden=true;};
+document.querySelector('#run').onclick=async()=>{
+ const results=[],check=(name,pass)=>{results.push((pass?'PASS ':'FAIL ')+name);out.textContent=results.join('\n');};
+ try{
+  const w=app.contentWindow,d=w.document,wait=(ms=100)=>new Promise(resolve=>setTimeout(resolve,ms));
+  if(!d.querySelector('.project-tab-add'))d.querySelector('.project-welcome button').click();
+  await wait();w.insertTemplate('pagina_basica');await wait();
+  const page=d.querySelector('#canvas .lms-dropzone.bg-white');
+  const create=()=>{const host=d.createElement('div');host.innerHTML=getInteractiveButtonHTML();const block=host.firstElementChild;block.removeAttribute('data-button-pending');block.dataset.buttonAction='encapsulate';block.querySelector('.ib-label').textContent='Ver recursos';return block;};
+  const outer=create(),nested=create();page.insertBefore(outer,page.querySelector('.lms-footer-wrapper'));
+  const content=outer.querySelector('.ib-content');content.innerHTML=getImagenSueltaHTML();content.append(nested);
+  nested.querySelector('.ib-content').innerHTML=getImagenSueltaHTML()+getParrafoBasicoHTML();
+  const below=d.createElement('p');below.textContent='Contenido que sigue después del recurso';outer.after(below);w.initNestedDropzones();
+  for(const image of outer.querySelectorAll('[data-type=imagen_suelta]')){
+   const input=image.querySelector('.image-placeholder input[type=text]');input.value=location.origin+'/imagenes/titulos/Fondo_naranja_escolar.png';w.handleImageUrl(input);
+   await new Promise(resolve=>{const img=image.querySelector('img');if(img.complete&&img.naturalWidth)resolve();else img.addEventListener('load',resolve,{once:true});});
+  }
+  const inner=outer.querySelector(':scope>.ib-shell>.ib-panel>.ib-panel-inner'),trigger=outer.querySelector('[data-ib-trigger]');
+  const closedY=below.getBoundingClientRect().top;trigger.click();await wait(50);
+  check('Al expandir conserva el recorte de la animación',w.getComputedStyle(inner).overflow==='hidden');
+  await wait(600);
+  check('Al abrir libera el recorte solo en el editor',w.getComputedStyle(inner).overflow==='visible'&&w.getComputedStyle(inner).transform==='none'&&outer.classList.contains('ib-editor'));
+  check('Expandir sigue desplazando el contenido inferior',below.getBoundingClientRect().top>closedY+80);
+  const image=content.querySelector('[data-type=imagen_suelta]');image.scrollIntoView({block:'center'});image.click();await wait();
+  const hit=element=>{const r=element.getBoundingClientRect(),at=d.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return !!at&&(at===element||element.contains(at));};
+  const toolbar=image.querySelector(':scope>.block-toolbar'),buttons=Array.from(toolbar.querySelectorAll('button')).filter(button=>button.getBoundingClientRect().width>0&&!button.closest('.absolute.bottom-full'));
+  check('Menú principal accesible por fuera del contenedor',buttons.length>5&&buttons.every(hit));
+  const probe=(label,selector)=>{
+   const button=image.querySelector(selector),menu=button.nextElementSibling,saved=menu.getAttribute('style');
+   Object.assign(menu.style,{visibility:'visible',opacity:'1',pointerEvents:'auto',transition:'none'});
+   const options=Array.from(menu.querySelectorAll('button,input')).filter(node=>node.getBoundingClientRect().width>0);
+   check(label,options.length>0&&options.every(hit));
+   if(saved==null)menu.removeAttribute('style');else menu.setAttribute('style',saved);
+  };
+  probe('Opciones de recorte completas y accionables','[title="Recorte y Proporción"]');
+  probe('Opciones de esquinas completas y accionables','[title="Bordes Redondeados"]');
+  probe('Opciones de sombras completas y accionables','[title="Sombras (Drop Shadow)"]');
+  nested.querySelector('[data-ib-trigger]').click();await wait(600);
+  const nestedInner=nested.querySelector(':scope>.ib-shell>.ib-panel>.ib-panel-inner');
+  check('Contenedores encapsulados dentro de otro también liberan los menús',[inner,nestedInner].every(node=>w.getComputedStyle(node).overflow==='visible'));
+  const nestedImage=nested.querySelector('[data-type=imagen_suelta]');nestedImage.scrollIntoView({block:'center'});nestedImage.click();await wait();
+  check('Menú principal en doble encapsulado accesible',Array.from(nestedImage.querySelector(':scope>.block-toolbar').querySelectorAll(':scope>div>button')).every(hit));
+  // Clipping must be restored before the closing animation, not after it.
+  outer.querySelector('[data-ib-collapse]').click();await wait(50);
+  check('Al contraer restaura el recorte inmediatamente',w.getComputedStyle(inner).overflow==='hidden');
+  await wait(550);check('Cerrado no deja contenido visible ni interactivo',outer.querySelector('.ib-panel').getBoundingClientRect().height<1&&outer.querySelector('.ib-panel').hasAttribute('inert'));
+  trigger.click();await wait(600);check('Reabrir vuelve a liberar el recorte',w.getComputedStyle(inner).overflow==='visible');
+  const html=w.generateExportHTML(false),doc=new DOMParser().parseFromString(html,'text/html');
+  check('Exportación sin estado de edición',!doc.querySelector('.ib-editor,.block-toolbar'));
+  check('Alumno conserva su recorte y animación originales',Array.from(doc.querySelectorAll('.ib-panel-inner')).every(node=>node.style.overflow==='hidden'));
+  image.scrollIntoView({block:'center'});image.click();await wait();
+ }catch(error){results.push('FAIL '+error.message);out.textContent=results.join('\n');}
+};
+</script>

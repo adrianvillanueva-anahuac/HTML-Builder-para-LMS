@@ -1,4 +1,6 @@
 import Sortable from 'sortablejs';
+import {toggleLmsTab} from './tabs-runtime.js';
+import tabsRuntime from './tabs-runtime.js?raw';
 import {setupImageControls,prepareImageControlsExport,changeImageCropAspect,changeImageCropPosition} from './image-controls';
 import {getInteractiveButtonHTML,setupInteractiveButtons,prepareInteractiveButtonExport} from './interactive-button';
 import interactiveButtonRuntime from './interactive-button-runtime.js?raw';
@@ -1765,45 +1767,7 @@ export function setupVanillaGlobals() {
         } 
     }
 
-    window.toggleLmsTab = function(btn: HTMLElement, targetId: string) { 
-        if (btn.querySelector('.editable-text')?.getAttribute('contenteditable') === 'true') return; 
-        const container = btn.closest('.lms-element'); 
-        if(!container) return;
-        
-        const isVertical = container.getAttribute('data-orientation') === 'vertical';
-        const tabList = container.querySelector('.tab-buttons-container');
-        const buttons = tabList ? Array.from(tabList.children).filter((c: any) => c.tagName === 'BUTTON') : []; 
-        
-        buttons.forEach((b: any) => { 
-            if (isVertical) {
-                b.className = "px-4 py-2 border-r-2 border-transparent text-gray-500 font-bold font-serif text-base hover:text-anahuac-orange transition-colors focus:outline-none flex-shrink-0 text-left";
-            } else {
-                b.className = "px-3 py-1.5 border-b-2 border-transparent text-gray-500 font-bold font-serif text-base hover:text-anahuac-orange transition-colors focus:outline-none flex-shrink-0"; 
-            }
-        }); 
-        
-        if (isVertical) {
-            btn.className = "px-4 py-2 border-r-2 border-anahuac-orange text-anahuac-orange font-bold font-serif text-base transition-colors focus:outline-none flex-shrink-0 text-left";
-        } else {
-            btn.className = "px-3 py-1.5 border-b-2 border-anahuac-orange text-anahuac-orange font-bold font-serif text-base transition-colors focus:outline-none flex-shrink-0"; 
-        }
-
-        const wrapper = container.querySelector('.tabs-panes-wrapper');
-        if(!wrapper) return;
-        
-        const panes = Array.from(wrapper.children).filter((c: any) => c.classList.contains('lms-tab-pane')); 
-        panes.forEach((p: any) => { 
-            p.classList.remove('flex', 'block'); 
-            p.classList.add('hidden'); 
-            p.style.display = 'none';
-        }); 
-        const target = Array.from(wrapper.children).find((c: any) => c.id === targetId) as HTMLElement; 
-        if(target) { 
-            target.classList.remove('hidden'); 
-            target.classList.add('flex'); 
-            target.style.display = 'flex';
-        } 
-    }
+    window.toggleLmsTab = toggleLmsTab;
 
     window.editCalculadora = function(btn: HTMLElement) {
         const container = btn.closest('.lms-element');
@@ -3805,32 +3769,7 @@ export function setupVanillaGlobals() {
                 });
             }
         }
-        function toggleLmsTab(btn, targetId) { 
-            const container = btn.closest('[data-type="pestanas"]') || btn.closest('.lms-element'); 
-            if(!container) return;
-            const isVertical = container.getAttribute('data-orientation') === 'vertical';
-            const tabList = container.querySelector('.tab-buttons-container');
-            const buttons = tabList ? Array.from(tabList.children).filter(c => c.tagName === 'BUTTON') : []; 
-            buttons.forEach(b => { 
-                if (isVertical) {
-                    b.className = "px-6 py-3 border-r-2 border-transparent text-gray-500 font-bold font-serif text-base hover:text-anahuac-orange transition-colors focus:outline-none flex-shrink-0 text-left";
-                } else {
-                    b.className = "px-4 py-2 border-b-2 border-transparent text-gray-500 font-bold font-serif text-base hover:text-anahuac-orange transition-colors focus:outline-none flex-shrink-0"; 
-                }
-            }); 
-            if (isVertical) {
-                btn.className = "px-6 py-3 border-r-2 border-anahuac-orange text-anahuac-orange font-bold font-serif text-base transition-colors focus:outline-none flex-shrink-0 text-left";
-            } else {
-                btn.className = "px-4 py-2 border-b-2 border-anahuac-orange text-anahuac-orange font-bold font-serif text-base transition-colors focus:outline-none flex-shrink-0"; 
-            }
-            const wrapper = container.querySelector('.tabs-panes-wrapper');
-            if(wrapper) {
-                const panes = Array.from(wrapper.children).filter(c => c.classList.contains('lms-tab-pane')); 
-                panes.forEach(p => { p.classList.remove('flex', 'block'); p.classList.add('hidden'); p.style.display = 'none'; }); 
-                const target = Array.from(wrapper.children).find(c => c.id === targetId); 
-                if(target) { target.classList.remove('hidden'); target.classList.add('flex'); target.style.display = 'flex'; } 
-            }
-        } 
+        ${tabsRuntime.replace('export function','function')}
         document.querySelectorAll('.parallax-container').forEach(container => { container.addEventListener('mousemove', (e) => { const rect = container.getBoundingClientRect(); const x = e.clientX - rect.left; const y = e.clientY - rect.top; container.querySelectorAll('.parallax-layer').forEach(layer => { const speed = parseFloat(layer.dataset.speed || 0); if(speed > 0) { layer.style.transform = \`translate(\${(x - rect.width / 2) * -speed}px, \${(y - rect.height / 2) * -speed}px)\`; } }); }); container.addEventListener('mouseleave', () => { container.querySelectorAll('.parallax-layer').forEach(layer => { layer.style.transform = \`translate(0px, 0px)\`; }); }); });
         
         document.querySelectorAll('.flipcard-item').forEach(card => {

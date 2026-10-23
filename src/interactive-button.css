@@ -12,6 +12,11 @@
 .ib-open>.ib-shell>.ib-panel{grid-template-rows:1fr;visibility:visible;width:calc(100% + var(--ib-bleed-left,0px) + var(--ib-bleed-right,0px));margin-block:18px;margin-left:calc(-1 * var(--ib-bleed-left,0px))}
 .ib-panel-inner{min-height:0;overflow:hidden;border-radius:16px;background:var(--ib-tint);opacity:0;transform:translateY(-8px);transition:opacity .35s ease,transform .5s cubic-bezier(.22,1,.36,1)}
 .ib-open>.ib-shell>.ib-panel>.ib-panel-inner{opacity:1;transform:translateY(0)}
+/* Keep the expansion clipped while it animates, then let every nested toolbar
+   and inline rollover escape the panel. This is editor-only, including nested
+   disclosures; closing restores the original clipping immediately. */
+.ib-editor.ib-open>.ib-shell>.ib-panel>.ib-panel-inner{overflow:visible;transform:none;animation:ib-editor-unclip .5s steps(1,end)}
+@keyframes ib-editor-unclip{from{overflow:hidden}to{overflow:visible}}
 .ib-body{padding:32px 0;min-width:0;padding-left:var(--ib-content-left,20px);padding-right:var(--ib-content-right,20px)}
 .ib-collapse-row{position:absolute;left:50%;z-index:25;display:flex;justify-content:center;padding:0;opacity:0;pointer-events:none;transition:opacity .2s ease}
 .ib-collapse-row[data-ib-close-position=top]{top:0;transform:translate(-50%,-50%)}
@@ -49,4 +54,5 @@
 .dark .ib-tool-panel{background:#292f3b;color:#e4e9f2;border-color:#475268}
 .dark .ib-action-options small{color:#bdc1c6}
 @media(prefers-reduced-motion:reduce){.ib-trigger,.ib-collapse,.ib-button-row,.ib-panel,.ib-panel-inner,.ib-collapse-row{transition-duration:.01ms!important;transition-delay:0s!important}}
+@media(prefers-reduced-motion:reduce){.ib-editor.ib-open>.ib-shell>.ib-panel>.ib-panel-inner{animation-duration:.01ms}}
 @media(max-width:540px){.ib-trigger{padding:12px 18px;font-size:15px}}
