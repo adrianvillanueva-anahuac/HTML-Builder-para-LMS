@@ -1,0 +1,29 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>HTML bloqueado para evidencia</title>
+<style>body{margin:0;font:13px Arial}#controls{padding:8px;background:#eee}pre{white-space:pre-wrap;max-height:100px;overflow:auto;margin:6px}iframe{width:100%;height:calc(100vh - 36px);border:0}iframe[hidden]{display:none}</style>
+<div id="controls"><button id="run">Verificar HTML de evidencia</button> <button id="proof">Mostrar documento final</button></div><pre id="result"></pre><iframe id="source"></iframe><iframe id="evidence" hidden></iframe>
+<script type="module">
+import {buildStudentDocument} from '/src/exercise-export.ts';
+const source=document.querySelector('#source'),evidence=document.querySelector('#evidence'),out=document.querySelector('#result'),wait=(ms=100)=>new Promise(r=>setTimeout(r,ms));let results=[],files=[];
+const notice='Este documento esta BLOQUEADO, se usará para evidencia para tu profesor';
+const check=(name,ok)=>{results.push((ok?'PASS ':'FAIL ')+name);out.textContent=results.join('\n');if(!ok)throw Error(name);};
+async function load(frame,html){const before=frame.contentDocument;frame.srcdoc=html;for(let i=0;i<80;i++){await wait();const d=frame.contentDocument;if(d!==before&&['Ejercicio abierto','Ejercicio finalizado'].includes(d?.querySelector('.exercise-status')?.textContent))return;}throw Error('El documento no inició correctamente');}
+document.querySelector('#run').onclick=async()=>{results=[];files=[];try{
+const html=await buildStudentDocument(`<!doctype html><html><head><style>.anahuac-builder-export{position:relative;max-width:850px;margin:auto;padding:64px 48px;background:white;border-radius:16px}h2{font:700 32px Georgia;color:#ff5900;margin-bottom:32px}.student-label{display:block;margin:20px 0 8px}.student-answer,.student-name{width:100%;padding:12px;border:1px solid #cdd5dc;border-radius:8px}.student-answer{min-height:130px}.exercise-instructions{margin:28px 0;color:#5d428c;font-weight:600}.finish-button-row{margin-top:24px}.exercise-finish{background:#5d428c;color:white;padding:12px 24px;border-radius:12px}</style></head><body><main class="anahuac-builder-export"><h2>Actividad de aprendizaje</h2><label class="student-label">Respuesta del alumno</label><textarea class="student-answer">Respuesta de prueba para revisión docente.</textarea><section class="exercise-block" data-type="enviar_ejercicio" data-exercise-id="ACT01" data-review-watermark="true" data-review-watermark-text="Para revisión"><p class="exercise-instructions">Al terminar, descarga el HTML final de tu ejercicio y adjúntalo al correo dirigido a tu profesor.</p><label>Nombre y apellidos<input class="student-name" value="Ana Pérez"></label><div class="finish-button-row"><div class="finish-button-wrap"><button class="exercise-finish"><span class="exercise-button-text">Finalizar y descargar HTML</span></button></div></div></section></main></body></html>`);
+await load(source,html);const w=source.contentWindow,d=w.document;
+w.showSaveFilePicker=async()=>({createWritable:async()=>({write:async text=>files.push(new Blob([text])),close:async()=>{}})});w.URL.createObjectURL=blob=>{files.push(blob);return 'blob:evidence-test';};w.URL.revokeObjectURL=()=>{};d.addEventListener('click',event=>{if(event.target.closest('a[download]'))event.preventDefault();},true);
+check('Ejercicio abierto conserva el botón y las indicaciones',!!d.querySelector('.exercise-finish')&&d.querySelector('.exercise-instructions').textContent.startsWith('Al terminar'));
+d.querySelector('#student-save').click();await wait();let doc=new DOMParser().parseFromString(await files.at(-1).text(),'text/html');check('Progreso conserva botón e instrucciones originales',!!doc.querySelector('.exercise-finish')&&doc.querySelector('.exercise-instructions').textContent.startsWith('Al terminar'));
+d.querySelector('.exercise-finish').click();Array.from(d.querySelectorAll('.student-dialog button')).find(b=>b.textContent==='Finalizar').click();await wait();const finalHTML=await files.at(-1).text();doc=new DOMParser().parseFromString(finalHTML,'text/html');
+check('HTML final elimina el botón y su contenedor',!doc.querySelector('.exercise-finish,.finish-button-row'));
+check('HTML final muestra la leyenda exacta de bloqueo',doc.querySelector('.exercise-instructions').textContent===notice);
+check('Las respuestas quedan conservadas y bloqueadas',doc.querySelector('.student-answer').textContent==='Respuesta de prueba para revisión docente.'&&doc.querySelector('.student-answer').disabled&&doc.querySelector('.student-name').disabled);
+check('No modifica las instrucciones del documento original',d.querySelector('.exercise-instructions').textContent.startsWith('Al terminar')&&!!d.querySelector('.exercise-finish'));
+source.hidden=true;evidence.hidden=false;await load(evidence,finalHTML);const finalDoc=evidence.contentDocument;
+check('El HTML final reabre sin botón ni errores del runtime',!finalDoc.querySelector('.exercise-finish')&&finalDoc.querySelector('.exercise-status').textContent==='Ejercicio finalizado');
+check('La leyenda se mantiene al reabrir',finalDoc.querySelector('.exercise-instructions').textContent===notice);
+check('El profesor no tiene controles para guardar o finalizar',finalDoc.querySelector('#student-save').hidden&&finalDoc.querySelector('.student-answer').readOnly&&!finalDoc.querySelector('.exercise-finish'));
+check('La marca de revisión sigue visible',finalDoc.querySelector('.exercise-review-watermark').textContent==='Para revisión');
+out.textContent=results.join('\n')+'\nTOTAL: '+results.length+' / FAIL: '+results.filter(x=>x.startsWith('FAIL')).length;
+}catch(error){out.textContent+='\nERROR '+error.stack;}};
+document.querySelector('#proof').onclick=()=>{out.hidden=true;source.hidden=true;evidence.hidden=false;};
+</script></html>

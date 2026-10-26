@@ -77,6 +77,14 @@
     clone.querySelectorAll('.exercise-watermark').forEach(el=>el.remove());
     clone.querySelectorAll('.exercise-review-watermark').forEach(el=>el.remove());
     if(state.finalized){
+      // The submitted copy is evidence for the teacher, not a delivery UI.
+      // Keep these changes on the clone so progress/original controls survive.
+      clone.querySelectorAll('.exercise-finish').forEach(button=>{
+        (button.closest('.finish-button-row')||button).remove();
+      });
+      clone.querySelectorAll('.exercise-instructions').forEach(instructions=>{
+        instructions.textContent='Este documento esta BLOQUEADO, se usará para evidencia para tu profesor';
+      });
       const mark=document.createElement('div');mark.className='exercise-watermark';mark.textContent=filename();
       mark.style.cssText='position:fixed;top:10px;left:12px;max-width:45%;font:11px Roboto,sans-serif;color:#646464;opacity:.7;overflow-wrap:anywhere;pointer-events:none;z-index:10000';
       clone.querySelector('body').prepend(mark);

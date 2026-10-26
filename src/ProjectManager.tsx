@@ -10,7 +10,8 @@ import { pageListDialog } from './page-list-dialog';
 import { workspaceDialog } from './workspace-dialog';
 import {appearanceDialog} from './appearance-dialog';
 import {applyBackground,applyFooter,restoreBackgroundMetadata,workspaceAppearanceRoot} from './workspace-appearance';
-import { tabInk,workspaceTooltip } from './project-model';
+import { tabInk,workspaceTooltip,workspaceChecklistState } from './project-model';
+import './workspace-checklist.css';
 import {installWorkspaceDrag} from './workspace-drag';
 import {automaticTaskHint,ensureMediaChecklistIds,isAutomaticTask,syncWorkspaceAutomaticChecklist} from './media-checklist';
 import type { CSSProperties } from 'react';
@@ -504,7 +505,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
         onDragStart={e=>{setTabInfo(null);e.dataTransfer.setData('application/x-lms-space',s.id);e.dataTransfer.effectAllowed='move';}}
         onDragOver={e=>{if(e.dataTransfer.types.includes('application/x-lms-space')){e.preventDefault();e.dataTransfer.dropEffect='move';}}}
         onDrop={e=>{e.preventDefault();reorder(e.dataTransfer.getData('application/x-lms-space'),s.id);}}>
-        <button role="tab" aria-selected={s.id===project.activeId} disabled={busy} aria-description={workspaceTooltip(s)} aria-describedby={tabInfo?.space.id===s.id?'project-tab-info':undefined} onMouseEnter={e=>showTabInfo(s,e.currentTarget)} onMouseLeave={hideTabInfo} onFocus={e=>showTabInfo(s,e.currentTarget)} onBlur={hideTabInfo} onClick={()=>{setTabInfo(null);if(s.id!==project.activeId)change(s.id);}} onDoubleClick={()=>{setTabInfo(null);void edit('rename',s.id);}} onKeyDown={e=>{if(e.key==='F2'){setTabInfo(null);void edit('rename',s.id);}if(e.altKey&&(e.key==='ArrowLeft'||e.key==='ArrowRight')){e.preventDefault();const i=project.spaces.findIndex(x=>x.id===s.id),next=project.spaces[i+(e.key==='ArrowLeft'?-1:1)];if(next)reorder(s.id,next.id);}}}>{s.name}</button>
+        <button role="tab" aria-selected={s.id===project.activeId} disabled={busy} aria-description={workspaceTooltip(s)} aria-describedby={tabInfo?.space.id===s.id?'project-tab-info':undefined} onMouseEnter={e=>showTabInfo(s,e.currentTarget)} onMouseLeave={hideTabInfo} onFocus={e=>showTabInfo(s,e.currentTarget)} onBlur={hideTabInfo} onClick={()=>{setTabInfo(null);if(s.id!==project.activeId)change(s.id);}} onDoubleClick={()=>{setTabInfo(null);void edit('rename',s.id);}} onKeyDown={e=>{if(e.key==='F2'){setTabInfo(null);void edit('rename',s.id);}if(e.altKey&&(e.key==='ArrowLeft'||e.key==='ArrowRight')){e.preventDefault();const i=project.spaces.findIndex(x=>x.id===s.id),next=project.spaces[i+(e.key==='ArrowLeft'?-1:1)];if(next)reorder(s.id,next.id);}}}>{workspaceChecklistState(s)&&<span className="project-tab-checklist-dot" data-state={workspaceChecklistState(s)} aria-hidden="true" title={workspaceChecklistState(s)==='complete'?'Checklist completo':'Checklist con pendientes'}/>}<span>{s.name}</span></button>
         <button className="project-tab-delete" disabled={busy} title={'Eliminar '+s.name} aria-label={'Eliminar '+s.name} onClick={()=>edit('delete',s.id)}><span className="material-symbols-outlined">close</span></button>
       </div>)}</div>
       {project && <button className="project-tab-add" disabled={busy} title="Agregar página" aria-label="Agregar página" onClick={()=>edit('add')}><span className="material-symbols-outlined">add</span></button>}

@@ -1,5 +1,6 @@
 import {tabPalette,type Workspace,type ChecklistItem} from './project-model';
 import {automaticTaskHint,isAutomaticTask} from './media-checklist';
+import './workspace-checklist.css';
 
 export function workspaceDialog(space:Workspace):Promise<Pick<Workspace,'name'|'tabColor'|'notes'|'checklist'>|null> {
   return new Promise(resolve=>{
@@ -13,8 +14,8 @@ export function workspaceDialog(space:Workspace):Promise<Pick<Workspace,'name'|'
     const palette=form.querySelector('.workspace-colors')!;
     const colorMenu=document.createElement('div');colorMenu.className='workspace-color-picker';
     const colorTrigger=document.createElement('button');colorTrigger.type='button';colorTrigger.className='workspace-color-trigger';colorTrigger.title='Color de la pestaña';colorTrigger.setAttribute('aria-label','Color de la pestaña');colorTrigger.setAttribute('aria-expanded','false');colorTrigger.innerHTML='<span class="material-symbols-outlined" aria-hidden="true">palette</span>';
-    const nameLabel=input.closest('label')!;
-    const nameRow=document.createElement('div');nameRow.className='workspace-name-row';nameLabel.before(nameRow);nameRow.append(nameLabel,colorMenu);
+    const heading=form.querySelector('h2')!;
+    const header=document.createElement('div');header.className='workspace-settings-header';heading.before(header);header.append(heading,colorMenu);
     colorMenu.append(colorTrigger,palette);form.querySelector('.workspace-color-field')!.remove();
     palette.id='workspace-color-options';palette.setAttribute('role','group');palette.setAttribute('aria-label','Elegir color');colorTrigger.setAttribute('aria-controls',palette.id);
     const toggle=(open:boolean)=>{(palette as HTMLElement).hidden=!open;colorTrigger.setAttribute('aria-expanded',String(open));};toggle(false);

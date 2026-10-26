@@ -4,13 +4,13 @@ import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 
 // Minimal DOM fixture to exercise the actual embedded student runtime offline.
-function fixture({required=true,name='Ana Pérez',finalized=false,rich=false,reviewWatermark=false,reviewWatermarkText='Para revisión'}={}) {
+function fixture({required=true,name='Ana Pérez',finalized=false,rich=false,reviewWatermark=false,reviewWatermarkText='Para revisión',withFinish=true}={}) {
   const downloads:string[]=[],clones:any[]=[],dialogs:any[]=[];
   class Element {
     children:any[]=[];dataset:any={};style:any={};attributes:any={};textContent='';value='';className='';
-    hidden=false;disabled=false;readOnly=false;contentEditable='false';parentElement=null;scrollHeight=80;
+    hidden=false;disabled=false;readOnly=false;contentEditable='false';parentElement=null;scrollHeight=80;removed=false;
     onclick:any;download='';innerHTML='';
-    addEventListener(){} remove(){} focus(){} showModal(){} close(){}
+    addEventListener(){} remove(){this.removed=true;} focus(){} showModal(){} close(){}
     append(...nodes:any[]){this.children.push(...nodes);} prepend(node:any){this.children.unshift(node);}
     setAttribute(key:string,value:string){this.attributes[key]=value;}
     querySelector(selector:string):any{return this.children.find(n=>n.tag===selector)||new Element();}
@@ -21,19 +21,22 @@ function fixture({required=true,name='Ana Pérez',finalized=false,rich=false,rev
   const studentName=new Element();studentName.value=name;
   const state=new Element();state.textContent=JSON.stringify({version:1,finalized});
   const save=new Element(),finish=new Element(),status=new Element(),body=new Element();
+  const instructions=new Element();instructions.textContent='Indicaciones originales de entrega.';
   const submission={dataset:{exerciseId:'ACT01',requireName:String(required),reviewWatermark:String(reviewWatermark),reviewWatermarkText}};
   (finish as any).closest=()=>submission;
   const label=new Element();label.textContent='Finalizar y descargar HTML';finish.querySelector=()=>label;
   const document:any={body,title:'Ejercicio',addEventListener(){},
     createElement(tag:string){const node:any=new Element();node.tag=tag;if(tag==='dialog')dialogs.push(node);return node;},
     getElementById(id:string){return id==='exercise-student-state'?state:save;},
-    querySelector(selector:string){return ({'.student-name':studentName,'.exercise-finish':finish,'.exercise-status':status} as any)[selector]||null;},
+    querySelector(selector:string){return ({'.student-name':studentName,'.exercise-finish':withFinish?finish:null,'.exercise-status':status} as any)[selector]||null;},
     querySelectorAll(selector:string){return selector==='.student-answer'?[answer]:selector==='.student-rich-answer'&&rich?[richAnswer]:[];},
     documentElement:{cloneNode(){
       const copyAnswer=new Element(),copyName=new Element(),copyRich=new Element(),copyState=new Element(),copyBody=new Element();
-      const clone:any={answer:copyAnswer,name:copyName,rich:copyRich,state:copyState,body:copyBody,
+      const copyFinish=new Element(),copyRow=new Element(),copyInstructions=new Element();copyInstructions.textContent=instructions.textContent;
+      (copyFinish as any).closest=()=>copyRow;
+      const clone:any={answer:copyAnswer,name:copyName,rich:copyRich,state:copyState,body:copyBody,finishRow:copyRow,instructions:copyInstructions,
         querySelector(selector:string){return ({'.student-name':copyName,'#exercise-student-state':copyState,body:copyBody} as any)[selector];},
-        querySelectorAll(selector:string){return selector==='.student-answer'?[copyAnswer]:selector==='input,textarea,select'?[copyAnswer,copyName]:selector==='[contenteditable]'?[copyRich]:[];},
+        querySelectorAll(selector:string){return selector==='.exercise-finish'&&withFinish&&!copyRow.removed?[copyFinish]:selector==='.exercise-instructions'?[copyInstructions]:selector==='.student-answer'?[copyAnswer]:selector==='input,textarea,select'?[copyAnswer,copyName]:selector==='[contenteditable]'?[copyRich]:[];},
         get outerHTML(){return JSON.stringify({answer:copyAnswer.textContent,name:copyName.attributes,state:copyState.textContent});}
       };clones.push(clone);return clone;
     }}
@@ -42,7 +45,7 @@ function fixture({required=true,name='Ana Pérez',finalized=false,rich=false,rev
     document,window:{addEventListener(){}},console,Blob,URL:{createObjectURL:()=> 'blob:test',revokeObjectURL(){}},setTimeout(){},
   });
   const finalize=()=>{finish.onclick();const confirmation=dialogs.at(-1);confirmation.children.find((n:any)=>n.tag==='footer').children.find((n:any)=>n.textContent==='Finalizar').onclick();};
-  return {downloads,clones,dialogs,answer,richAnswer,studentName,save,finish,finalize};
+  return {downloads,clones,dialogs,answer,richAnswer,studentName,save,finish,instructions,finalize};
 }
 
 test('progress saves answers with progreso_ID and remains editable',async()=>{
@@ -51,6 +54,7 @@ test('progress saves answers with progreso_ID and remains editable',async()=>{
   assert.equal(JSON.parse(f.clones[0].state.textContent).finalized,false);
   assert.equal(f.clones[0].answer.textContent,'Respuesta conservada');
   assert.equal(f.answer.readOnly,false);assert.equal(f.richAnswer.contentEditable,'true');
+  assert.equal(f.clones[0].finishRow.removed,false);assert.equal(f.clones[0].instructions.textContent,'Indicaciones originales de entrega.');
 });
 test('required name must include name and surname before finalization',()=>{
   for(const name of ['', 'Ana','123 456']){const f=fixture({name});assert.equal(f.finish.disabled,true);f.finish.onclick();assert.equal(f.dialogs.length,0);}
@@ -62,6 +66,9 @@ test('final copy has ID_name, watermark, locked fields and no progress saving',a
   assert.equal(clone.body.children[0].textContent,'ACT01_Ana Pérez.html');
   assert.equal(clone.answer.attributes.disabled,'');assert.equal(clone.name.attributes.readonly,'');
   assert.equal(clone.rich.attributes.contenteditable,'false');
+  assert.equal(clone.finishRow.removed,true);assert.equal(clone.querySelectorAll('.exercise-finish').length,0);
+  assert.equal(clone.instructions.textContent,'Este documento esta BLOQUEADO, se usará para evidencia para tu profesor');
+  assert.equal(f.instructions.textContent,'Indicaciones originales de entrega.');assert.equal(f.finish.removed,false);
   assert.equal(f.answer.readOnly,true);assert.equal(f.richAnswer.contentEditable,'false');
   assert.equal(f.save.hidden,true);await f.save.onclick();assert.equal(f.downloads.length,1);
 });
@@ -72,6 +79,13 @@ test('optional name allows finalizing without personal data',()=>{
 test('reopened final remains locked and cannot save progress',async()=>{
   const f=fixture({finalized:true,rich:true});assert.equal(f.answer.readOnly,true);
   assert.equal(f.richAnswer.contentEditable,'false');assert.equal(f.save.disabled,true);
+  await f.save.onclick();assert.equal(f.downloads.length,0);
+});
+
+test('submitted HTML without a finish button reopens locked without runtime errors',async()=>{
+  const f=fixture({finalized:true,withFinish:false,rich:true});
+  assert.equal(f.answer.readOnly,true);assert.equal(f.richAnswer.contentEditable,'false');
+  assert.equal(f.save.hidden,true);assert.equal(f.save.disabled,true);
   await f.save.onclick();assert.equal(f.downloads.length,0);
 });
 

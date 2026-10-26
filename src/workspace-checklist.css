@@ -1,0 +1,13 @@
+.exercise-settings.workspace-settings .workspace-settings-header{display:flex;align-items:center;justify-content:space-between;gap:12px;position:relative;margin-bottom:20px}
+.exercise-settings.workspace-settings .workspace-settings-header h2{margin:0;min-width:0}
+.exercise-settings.workspace-settings .workspace-settings-header .workspace-color-picker{position:static;flex-shrink:0}
+.exercise-settings.workspace-settings .workspace-settings-header .workspace-color-picker>.workspace-colors{top:calc(100% + 6px);right:0;max-width:100%}
+.project-tab-checklist-dot{display:inline-block;width:8px;height:8px;margin-right:7px;vertical-align:middle;border-radius:50%;border:1px solid #0003;box-shadow:0 0 0 1px #ffffffb3;background:#fbbc04}
+.project-tab-checklist-dot[data-state=complete]{background:#188038}
+/* Native disabled checkboxes turn gray. Completed automatic and manual tasks
+   share this checkmark while keeping their native checked/disabled semantics. */
+.exercise-settings.workspace-settings .workspace-task[data-done=true] input[type=checkbox],.project-tab-info-task[data-done=true] input[type=checkbox]{appearance:none;opacity:1;border:1px solid #188038;border-radius:3px;background:#188038 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m5 12 4 4L19 6' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/90% no-repeat}
+.workspace-task[data-automatic=true] input[type=checkbox],.project-tab-info-task input[type=checkbox]:disabled{cursor:default}
+.project-tab-info-task[data-done=true] small{color:#188038}
+.dark .project-tab-info-task[data-done=true] small{color:#81c995}
+@media (forced-colors:active){.exercise-settings.workspace-settings .workspace-task[data-done=true] input[type=checkbox],.project-tab-info-task[data-done=true] input[type=checkbox]{appearance:auto;background:none}.project-tab-checklist-dot{forced-color-adjust:none}}

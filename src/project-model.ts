@@ -3,8 +3,13 @@ export interface Workspace { id: string; name: string; html: string; bg: string;
 export function workspacePendingTasks(space:Workspace|undefined):string[] {
   return (space?.checklist||[]).filter(item=>!item.done&&item.text.trim()).map(item=>item.text.trim());
 }
+export function workspaceChecklistState(space:Pick<Workspace,'checklist'>|undefined):'pending'|'complete'|null {
+  const tasks=space?.checklist?.filter(item=>item.text.trim());
+  return tasks?.length?tasks.some(item=>!item.done)?'pending':'complete':null;
+}
 export function workspaceTooltip(space:Workspace) {
-  return [...(space.notes||[]).map(note=>'• '+note),...(space.checklist||[]).map(item=>`${item.done?'☑ Completado':'☐ Pendiente'}: ${item.text}`),'Doble clic para editar nombre, color, notas y checklist; arrastra para reordenar'].join('\n');
+  const state=workspaceChecklistState(space);
+  return [...(state?[state==='complete'?'Checklist completo':'Checklist con pendientes']:[]),...(space.notes||[]).map(note=>'• '+note),...(space.checklist||[]).map(item=>`${item.done?'☑ Completado':'☐ Pendiente'}: ${item.text}`),'Doble clic para editar nombre, color, notas y checklist; arrastra para reordenar'].join('\n');
 }
 export const tabPalette = [['Naranja','#ff5900'],['Morado','#5d428c'],['Gris oscuro','#646464'],['Gris claro','#cdd5dc']].map(([name,color])=>({name,colors:[color,...[.2,.35,.5,.65,.8].map(amount=>'#'+[1,3,5].map(i=>Math.round(parseInt(color.slice(i,i+2),16)*(1-amount)+255*amount).toString(16).padStart(2,'0')).join(''))]}));
 export function tabInk(color:string) {

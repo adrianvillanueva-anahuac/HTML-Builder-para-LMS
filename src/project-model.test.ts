@@ -1,6 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {tabPalette,tabInk,workspaceTooltip,workspacePendingTasks} from './project-model';
+import {tabPalette,tabInk,workspaceTooltip,workspacePendingTasks,workspaceChecklistState} from './project-model';
+
+test('tab checklist marker is absent for no tasks and pending until all manual and automatic tasks are done',()=>{
+  assert.equal(workspaceChecklistState(undefined),null);assert.equal(workspaceChecklistState({}),null);assert.equal(workspaceChecklistState({checklist:[]}),null);
+  assert.equal(workspaceChecklistState({checklist:[{text:'  ',done:false}]}),null);
+  const checklist=[{text:'Revisar',done:true},{text:'YouTube',done:false,mediaId:'media-1'},{text:'Acción',done:true,buttonId:'button-1'}];
+  assert.equal(workspaceChecklistState({checklist}),'pending');checklist[1].done=true;
+  assert.equal(workspaceChecklistState({checklist}),'complete');checklist[0].done=false;
+  assert.equal(workspaceChecklistState({checklist}),'pending');
+});
+
+test('checklist state is announced in the tab description without changing saved content',()=>{
+  const space={...fixture().spaces[0],checklist:[{text:'Recurso',done:false,mediaId:'media-1'}]};
+  const original=JSON.stringify(space);assert.ok(workspaceTooltip(space).includes('Checklist con pendientes'));assert.equal(JSON.stringify(space),original);
+  space.checklist[0].done=true;assert.ok(workspaceTooltip(space).includes('Checklist completo'));
+});
 
 test('copy warning includes only unfinished manual and automatic tasks of its workspace',()=>{
   const p=fixture();p.spaces[0].checklist=[
