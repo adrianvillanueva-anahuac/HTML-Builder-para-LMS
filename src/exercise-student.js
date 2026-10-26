@@ -75,10 +75,26 @@
     clone.querySelectorAll('.student-dialog').forEach(el=>el.remove());
     clone.querySelectorAll('.student-rich-tools').forEach(el=>el.remove());
     clone.querySelectorAll('.exercise-watermark').forEach(el=>el.remove());
+    clone.querySelectorAll('.exercise-review-watermark').forEach(el=>el.remove());
     if(state.finalized){
       const mark=document.createElement('div');mark.className='exercise-watermark';mark.textContent=filename();
       mark.style.cssText='position:fixed;top:10px;left:12px;max-width:45%;font:11px Roboto,sans-serif;color:#646464;opacity:.7;overflow-wrap:anywhere;pointer-events:none;z-index:10000';
       clone.querySelector('body').prepend(mark);
+      if(submission?.dataset.reviewWatermark==='true'){
+        const review=document.createElement('div');review.className='exercise-review-watermark';
+        review.textContent=(submission.dataset.reviewWatermarkText||'').replace(/\s+/g,' ').trim().slice(0,120)||'Para revisión';
+        review.style.cssText='position:absolute;top:12px;right:16px;max-width:45%;font:600 14px/1.35 Roboto,sans-serif;color:#5d428c;opacity:.6;text-align:right;overflow-wrap:anywhere;pointer-events:none;z-index:1000';
+        // Some legacy documents start underneath the fixed save/status bar.
+        // Use document coordinates so finalizing after scrolling does not move
+        // the watermark down the page, and keep it clear of that bar.
+        const livePage=document.querySelector('.anahuac-builder-export');
+        const pageTop=(livePage?.getBoundingClientRect().top||0)+(window.scrollY||0);
+        const barHeight=document.querySelector('.exercise-savebar')?.getBoundingClientRect().height||0;
+        review.style.top=Math.max(12,barHeight+12-pageTop)+'px';
+        const page=clone.querySelector('.anahuac-builder-export')||clone.querySelector('body');
+        if(!page.style.position||page.style.position==='static')page.style.position='relative';
+        page.prepend(review);
+      }
       clone.querySelectorAll('input,textarea,select').forEach(field=>{field.setAttribute('readonly','');field.setAttribute('disabled','');});
       clone.querySelectorAll('[contenteditable]').forEach(field=>field.setAttribute('contenteditable','false'));
     }

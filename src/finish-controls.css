@@ -16,3 +16,4 @@
 .finish-settings .finish-name-option input{width:20px;height:20px;flex:none;accent-color:#5d428c}
 .finish-settings p{font-size:12px;color:#646464}
 .finish-settings .finish-error{color:#b3261e}
+.finish-settings .finish-watermark-text[hidden]{display:none}

@@ -1,0 +1,5 @@
+.exercise-settings.project-prompt .project-prompt-description{margin:0 0 14px;color:#5f6368;overflow-wrap:anywhere}
+.exercise-settings.project-prompt .project-prompt-pending{list-style:disc;max-height:min(38dvh,320px);overflow:auto;overscroll-behavior:contain;margin:0;padding:14px 18px 14px 34px;border:1px solid #e4d9cb;border-radius:12px;background:#fff8f2;color:#374151;overflow-wrap:anywhere}
+.project-prompt-pending li+li{margin-top:8px}
+.dark .exercise-settings.project-prompt .project-prompt-description{color:#c7cbd2}
+.dark .exercise-settings.project-prompt .project-prompt-pending{background:#342f39;color:#edf0f7;border-color:#675571}

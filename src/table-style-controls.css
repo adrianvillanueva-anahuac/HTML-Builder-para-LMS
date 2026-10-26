@@ -1,0 +1,15 @@
+.table-appearance-tool:hover,.table-appearance-tool:focus-visible{color:#5d428c;background:#f3eef9}
+#table-style-popover{position:fixed;z-index:100050;width:276px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:auto;box-sizing:border-box;padding:12px;background:rgba(255,255,255,.96);backdrop-filter:blur(14px);border:1px solid #cdd5dc;border-radius:12px;box-shadow:0 12px 32px #37415130;color:#374151;font:12px Roboto,Arial,sans-serif}
+#table-style-popover[hidden]{display:none}
+#table-style-popover h3{margin:0 0 9px;font-size:12px;font-weight:700;color:#5d428c}
+.table-style-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.table-style-grid button{padding:7px;border:1px solid #cdd5dc;border-radius:8px;background:#fff;color:#374151;font:600 10px Roboto,Arial,sans-serif;text-align:left;cursor:pointer;transition:background .15s,border-color .15s,box-shadow .15s}
+.table-style-grid button:hover,.table-style-grid button:focus-visible{border-color:#ff5900;background:#fff8f3;outline:2px solid #ff590030;outline-offset:1px}
+.table-style-grid button[aria-pressed=true]{border-color:#5d428c;box-shadow:inset 0 0 0 1px #5d428c;background:#f3eef9}
+.table-style-grid svg{display:block;width:100%;height:46px;margin-bottom:5px}
+#table-style-popover label{display:flex;justify-content:space-between;font-weight:700;color:#5d428c;margin-bottom:14px}
+#table-style-popover input{width:100%;accent-color:#5d428c;cursor:pointer}
+#table-style-popover small{display:block;color:#646464;font-size:10px;margin-top:8px}
+.dark #table-style-popover{background:rgba(30,33,43,.97);border-color:#646464;color:#fff}
+.dark #table-style-popover h3,.dark #table-style-popover label{color:#e2d5f7}
+.dark #table-style-popover small{color:#cdd5dc}

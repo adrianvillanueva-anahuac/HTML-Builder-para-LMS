@@ -72,23 +72,14 @@ export function mountModularRuntime(block) {
       // intermediate positions back into the next layout and cause jitter.
       const r=primaryBounds,width=primaryBar.offsetWidth;
       const hit=secondaryBars.find(s=>r.left<s.right+8&&r.left+width>s.left-8&&r.top<s.bottom+8&&r.bottom>s.top-8);
-      let dx=0,dy=0;
+      let dy=0;
       if(hit){
-        const preferLeft=(hit.left+hit.right)/2>=r.left+width/2;
-        const choices=preferLeft?[hit.left-width-8,hit.right+8]:[hit.right+8,hit.left-width-8];
-        const area=block.closest('#scroll-container')?.getBoundingClientRect();
-        const minX=Math.max(8,area?.left??8),maxX=Math.min(window.innerWidth-8,area?.right??window.innerWidth-8);
-        const free=choices.find(x=>x>=minX&&x+width<=maxX);
-        if(free!==undefined)dx=free-r.left;
-        else{
-          // On narrow screens keep both readable in two staggered levels.
-          dx=Math.max(minX,Math.min(r.left+(preferLeft?-48:48),maxX-width))-r.left;
-          const above=hit.top-8-primaryBar.offsetHeight;
-          dy=(above>=Math.max(8,area?.top??8)?above:hit.bottom+8)-r.top;
-        }
+        // Keep the table toolbar on its original horizontal axis. The cell
+        // controls stay anchored to their rectangle; lift only the main bar.
+        dy=hit.top-8-primaryBar.offsetHeight-r.top;
       }
       primaryBar.style.removeProperty('translate');
-      primary.style.translate=`${dx}px ${dy}px`;
+      primary.style.translate=`0px ${dy}px`;
     }
     block.querySelectorAll('.mod-row-tools').forEach(tool=>{
       const row=tool.closest('.mod-cell').getBoundingClientRect();

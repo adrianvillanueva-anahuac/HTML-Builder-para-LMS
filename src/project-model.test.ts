@@ -1,6 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {tabPalette,tabInk,workspaceTooltip} from './project-model';
+import {tabPalette,tabInk,workspaceTooltip,workspacePendingTasks} from './project-model';
+
+test('copy warning includes only unfinished manual and automatic tasks of its workspace',()=>{
+  const p=fixture();p.spaces[0].checklist=[
+    {text:' Revisar referencias ',done:false},
+    {text:'Contenido revisado',done:true},
+    {text:'Acción del botón',done:false,buttonId:'button-1'},
+    {text:'Recurso de Genially',done:false,mediaId:'media-1'},
+    {text:'   ',done:false},
+    {text:'Revisar referencias',done:false}
+  ];
+  const before=JSON.stringify(p);
+  assert.deepEqual(workspacePendingTasks(p.spaces[0]),['Revisar referencias','Acción del botón','Recurso de Genially','Revisar referencias']);
+  assert.deepEqual(workspacePendingTasks(p.spaces[1]),[]);
+  assert.deepEqual(workspacePendingTasks(undefined),[]);
+  assert.equal(JSON.stringify(p),before);
+});
+
+test('copy warning keeps authored markup as plain text, not interpreted HTML',()=>{
+  const space=fixture().spaces[0];space.checklist=[{text:'Revisar <img src=x onerror=alert(1)> & "citas"',done:false}];
+  assert.deepEqual(workspacePendingTasks(space),['Revisar <img src=x onerror=alert(1)> & "citas"']);
+  space.checklist[0].done=true;assert.deepEqual(workspacePendingTasks(space),[]);
+});
 
 test('checklist preserves completion and exposes states alongside notes',()=>{
   const p=fixture();p.spaces[0].notes=['Revisar'];p.spaces[0].checklist=[{text:'Diseño',done:true},{text:'Publicar',done:false}];

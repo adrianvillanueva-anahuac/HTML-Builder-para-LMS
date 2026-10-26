@@ -1,4 +1,5 @@
 import Sortable from 'sortablejs';
+import {applyTableAppearance,setupTableStyleControls,prepareTableStylesExport} from './table-style-controls';
 import {toggleLmsTab} from './tabs-runtime.js';
 import {readBackground} from './workspace-appearance';
 import tabsRuntime from './tabs-runtime.js?raw';
@@ -2790,11 +2791,7 @@ export function setupVanillaGlobals() {
         if(!table) return;
         wrapper.dataset.tableBorderColor = color;
         
-        table.style.borderColor = color;
-        const ths = table.querySelectorAll('th');
-        const tds = table.querySelectorAll('td');
-        ths.forEach(th => th.style.borderColor = color);
-        tds.forEach(td => td.style.borderColor = color);
+        applyTableAppearance(wrapper);
     };
 
     window.changeTableBorderWidth = function(btn: HTMLElement, width: string) {
@@ -2803,11 +2800,7 @@ export function setupVanillaGlobals() {
         if(!table) return;
         wrapper.dataset.tableBorderWidth = width;
         
-        table.style.borderWidth = width;
-        const ths = table.querySelectorAll('th');
-        const tds = table.querySelectorAll('td');
-        ths.forEach(th => th.style.borderWidth = width);
-        tds.forEach(td => td.style.borderWidth = width);
+        applyTableAppearance(wrapper);
     };
 
     window.changeGridBorderColor = function(btn: HTMLElement, color: string) {
@@ -2839,46 +2832,8 @@ export function setupVanillaGlobals() {
         const wrapper = btn.closest('.lms-element') as HTMLElement;
         const table = wrapper.querySelector('table');
         if(!table) return;
-        table.className = 'w-full border-collapse border border-gray-300 text-sm font-sans transition-colors theme-' + style;
         wrapper.dataset.tableStyle = style;
-        
-        const ths = table.querySelectorAll('th');
-        const tds = table.querySelectorAll('td');
-
-        if(style === 'standard') {
-            ths.forEach(th => th.className = 'border border-gray-300 p-3 bg-gray-100 text-left font-bold text-gray-800 relative group/th');
-            tds.forEach(td => td.className = 'border border-gray-300 p-3 text-gray-700 relative group/td');
-        } else if(style === 'striped') {
-            ths.forEach(th => th.className = 'border-b-2 border-gray-300 p-3 bg-white text-left font-bold text-gray-800 relative group/th');
-            table.querySelectorAll('tbody tr').forEach((tr, i) => {
-                const cells = tr.querySelectorAll('td');
-                if(i % 2 === 0) {
-                    cells.forEach(td => td.className = 'border-b border-gray-200 p-3 bg-gray-50 text-gray-700 relative group/td');
-                } else {
-                    cells.forEach(td => td.className = 'border-b border-gray-200 p-3 bg-white text-gray-700 relative group/td');
-                }
-            });
-        } else if(style === 'borderless') {
-            ths.forEach(th => th.className = 'p-3 bg-white border-b-2 border-gray-800 text-left font-bold text-gray-800 relative group/th');
-            tds.forEach(td => td.className = 'p-3 border-b border-gray-200 text-gray-700 relative group/td');
-        } else if(style === 'anahuac') {
-            ths.forEach(th => th.className = 'border border-anahuac-orange p-3 bg-anahuac-orange text-white text-left font-bold relative group/th');
-            tds.forEach(td => td.className = 'border border-gray-300 p-3 text-gray-700 relative group/td');
-        }
-        
-        if (wrapper.dataset.tableBorderColor) {
-            const color = wrapper.dataset.tableBorderColor;
-            table.style.borderColor = color;
-            ths.forEach(th => (th as HTMLElement).style.borderColor = color);
-            tds.forEach(td => (td as HTMLElement).style.borderColor = color);
-        }
-
-        if (wrapper.dataset.tableBorderWidth) {
-            const width = wrapper.dataset.tableBorderWidth;
-            table.style.borderWidth = width;
-            ths.forEach(th => (th as HTMLElement).style.borderWidth = width);
-            tds.forEach(td => (td as HTMLElement).style.borderWidth = width);
-        }
+        applyTableAppearance(wrapper);
         
         window.setupTableHoverControls(table);
     };
@@ -3188,7 +3143,10 @@ export function setupVanillaGlobals() {
         const tr = btn.closest('tr');
         if(!tr) return;
         if (tr.parentNode && tr.parentNode.children.length > 1) {
+            const wrapper = tr.closest('.lms-element') as HTMLElement;
             tr.remove();
+            applyTableAppearance(wrapper);
+            window.setupTableHoverControls(wrapper.querySelector('table'));
         } else {
             alert('No puedes eliminar la única fila.');
         }
@@ -3264,6 +3222,8 @@ export function setupVanillaGlobals() {
                 });
             });
             table.style.tableLayout = 'fixed';
+            applyTableAppearance(table.closest('.lms-element') as HTMLElement);
+            window.setupTableHoverControls(table);
         } else {
             alert('No puedes eliminar la única columna.');
         }
@@ -3515,6 +3475,7 @@ export function setupVanillaGlobals() {
         const clone = outerEl.cloneNode(true) as HTMLElement;
         normalizeElementSpacing(clone);
         prepareImageControlsExport(clone,outerEl);
+        prepareTableStylesExport(clone);
         prepareInteractiveButtonExport(clone);
         normalizeCanvaEmbeds(clone);
         setupMediaEmbeds(clone);
@@ -4463,6 +4424,7 @@ export function setupVanillaGlobals() {
         setupImageControls();
         setupInteractiveButtons();
         setupBoxControls();
+        setupTableStyleControls();
         ensureDuplicateButtons();
         normalizeCanvaEmbeds(document.getElementById('canvas')!);
         setupMediaEmbeds(document.getElementById('canvas') || document, true);

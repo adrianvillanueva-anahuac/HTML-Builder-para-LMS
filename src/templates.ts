@@ -1,3 +1,4 @@
+import {tableStyleButtonsHTML} from './table-style-controls';
 // URL absoluta de los recursos que deben seguir funcionando en el HTML exportado.
 const GITHUB_REQ_IMAGES_URL = "https://raw.githubusercontent.com/adrianvillanueva-anahuac/HTML-Builder-para-LMS/main/public/imagenes/requerimientos";
 const DEFAULT_TITLE_IMAGE_URL = `${import.meta.env.BASE_URL}imagenes/titulos/Fondo_naranja_escolar.png`;
@@ -243,10 +244,7 @@ export function getBlockToolbar(type: string) {
         `;
     } else if (type === 'tabla_dinamica') {
         extraButtons = `
-            <button type="button" class="text-gray-400 hover:text-anahuac-purple p-1 rounded hover:bg-purple-50 transition-colors flex items-center justify-center" onclick="window.changeTableStyle(this, 'standard')" title="Estilo Estándar"><span class="material-symbols-outlined text-[18px]">table_rows</span></button>
-            <button type="button" class="text-gray-400 hover:text-anahuac-purple p-1 rounded hover:bg-purple-50 transition-colors flex items-center justify-center" onclick="window.changeTableStyle(this, 'striped')" title="Filas Alternas"><span class="material-symbols-outlined text-[18px]">view_list</span></button>
-            <button type="button" class="text-gray-400 hover:text-anahuac-purple p-1 rounded hover:bg-purple-50 transition-colors flex items-center justify-center" onclick="window.changeTableStyle(this, 'borderless')" title="Sin Bordes"><span class="material-symbols-outlined text-[18px]">border_clear</span></button>
-            <button type="button" class="text-gray-400 hover:text-anahuac-purple p-1 rounded hover:bg-purple-50 transition-colors flex items-center justify-center" onclick="window.changeTableStyle(this, 'anahuac')" title="Estilo Anáhuac"><span class="material-symbols-outlined text-[18px]">palette</span></button>
+            ${tableStyleButtonsHTML()}
             <div class="w-px h-4 bg-gray-200 mx-1"></div>
             <button type="button" class="text-gray-400 hover:text-green-600 p-1 rounded hover:bg-green-50 transition-colors flex items-center justify-center" onclick="window.pasteTableData(this)" title="Pegar desde Excel/Sheets"><span class="material-symbols-outlined text-[18px]">content_paste_go</span></button>
             <div class="w-px h-4 bg-gray-200 mx-1"></div>
@@ -581,7 +579,7 @@ export function getImagenSueltaHTML() {
 }
 
 export function getCalculadoraHTML() {
-    return `<div class="relative mb-6 lms-element is-rendered w-full group/calc" data-type="calculadora_html">
+    return `<div class="relative mb-6 lms-element is-rendered w-full group/calc" data-type="calculadora_html" id="media-${crypto.randomUUID()}">
         ${getBlockToolbar('calculadora_html')}
         <div class="calc-placeholder w-full bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-colors hover:bg-gray-100" onpaste="window.handleCalculadoraPaste(event, this)">
             <span class="material-symbols-outlined text-5xl mb-3 text-gray-400">functions</span>
@@ -617,7 +615,7 @@ export function getEmbedHTML(platform: string) {
     if (platform === 'embed_sketchfab') { icon = 'view_in_ar'; pName = 'Sketchfab'; }
     if (platform === 'embed_gamma') { icon = 'view_carousel'; pName = 'Gamma'; }
 
-    return `<div class="relative mb-6 lms-element is-rendered w-full" data-type="${platform}">${getBlockToolbar(platform)}<div class="w-full bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center embed-placeholder transition-colors hover:bg-gray-100"><span class="material-symbols-outlined text-5xl mb-3 text-gray-400">${icon}</span><h3 class="text-lg font-bold text-gray-700 mb-2 font-serif">Insertar contenido de ${pName}</h3><p class="text-sm text-gray-500 mb-4">Pega la URL directa o el código iframe de incrustación.</p><input type="text" placeholder="Ej. https://www.youtube.com/watch?v=..." class="w-full max-w-lg p-3 border border-gray-300 rounded mb-4 text-sm embed-input focus:outline-none focus:ring-2 focus:ring-anahuac-orange" onkeydown="if(event.key === 'Enter') processEmbed(this, '${platform}')"><br><button type="button" onclick="processEmbed(this, '${platform}')" class="bg-anahuac-orange text-white px-6 py-2 rounded font-bold shadow hover:bg-orange-600 transition-colors">Incrustar</button></div><div class="embed-result hidden w-full rounded-lg overflow-hidden shadow-lg bg-black relative pt-6 group/iframe">
+    return `<div class="relative mb-6 lms-element is-rendered w-full" data-type="${platform}" id="media-${crypto.randomUUID()}">${getBlockToolbar(platform)}<div class="w-full bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center embed-placeholder transition-colors hover:bg-gray-100"><span class="material-symbols-outlined text-5xl mb-3 text-gray-400">${icon}</span><h3 class="text-lg font-bold text-gray-700 mb-2 font-serif">Insertar contenido de ${pName}</h3><p class="text-sm text-gray-500 mb-4">Pega la URL directa o el código iframe de incrustación.</p><input type="text" placeholder="Ej. https://www.youtube.com/watch?v=..." class="w-full max-w-lg p-3 border border-gray-300 rounded mb-4 text-sm embed-input focus:outline-none focus:ring-2 focus:ring-anahuac-orange" onkeydown="if(event.key === 'Enter') processEmbed(this, '${platform}')"><br><button type="button" onclick="processEmbed(this, '${platform}')" class="bg-anahuac-orange text-white px-6 py-2 rounded font-bold shadow hover:bg-orange-600 transition-colors">Incrustar</button></div><div class="embed-result hidden w-full rounded-lg overflow-hidden shadow-lg bg-black relative pt-6 group/iframe">
             <div class="absolute top-0 left-0 right-0 h-6 bg-gray-800 border-b border-gray-700 drag-handle cursor-grab flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity z-50" title="Arrastrar para mover">
                 <span class="material-symbols-outlined text-gray-400 text-[18px] pointer-events-none">drag_indicator</span>
             </div>

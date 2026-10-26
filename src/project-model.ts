@@ -1,5 +1,8 @@
-export interface ChecklistItem {text:string;done:boolean;buttonId?:string}
+export interface ChecklistItem {text:string;done:boolean;buttonId?:string;mediaId?:string}
 export interface Workspace { id: string; name: string; html: string; bg: string; style: string; bgColor?:string; bgMargin?:string; footerConfig?:FooterConfig; tabColor?:string; notes?:string[]; checklist?:ChecklistItem[] }
+export function workspacePendingTasks(space:Workspace|undefined):string[] {
+  return (space?.checklist||[]).filter(item=>!item.done&&item.text.trim()).map(item=>item.text.trim());
+}
 export function workspaceTooltip(space:Workspace) {
   return [...(space.notes||[]).map(note=>'• '+note),...(space.checklist||[]).map(item=>`${item.done?'☑ Completado':'☐ Pendiente'}: ${item.text}`),'Doble clic para editar nombre, color, notas y checklist; arrastra para reordenar'].join('\n');
 }
@@ -16,12 +19,13 @@ export function emptyWorkspace(): Workspace {
 }
 export interface FooterConfig {type:string;logoColor:string;blockColor:string;logoId:number}
 const validFooter=(f:FooterConfig)=>f&&['lineas','solido'].includes(f.type)&&typeof f.logoColor==='string'&&typeof f.blockColor==='string'&&Number.isInteger(f.logoId)&&f.logoId>=1&&f.logoId<=6;
-export interface Project { format: 'lms-builder-project'; version: 1; name: string; activeId: string; spaces: Workspace[]; footerConfig?:FooterConfig }
+export interface Project { format: 'lms-builder-project'; version: 1; name: string; activeId: string; spaces: Workspace[]; footerConfig?:FooterConfig; autoChecklist?:boolean }
 export function parseProject(text: string): Project {
   const p = JSON.parse(text);
   if (p?.format !== 'lms-builder-project' || p.version !== 1 || typeof p.name !== 'string' || !Array.isArray(p.spaces) || !p.spaces.length)
     throw new Error('El archivo no es un proyecto compatible del Builder.');
   const ids = new Set<string>();
+  if(p.autoChecklist!==undefined&&typeof p.autoChecklist!=='boolean')throw new Error('Configuración de pendientes automáticos inválida.');
   if(p.footerConfig!==undefined&&!validFooter(p.footerConfig))throw new Error('Configuración global de footer inválida.');
   for (const s of p.spaces) {
     if (!s || ['id','name','html','bg','style'].some(k => typeof s[k] !== 'string') || !s.id || !s.name.trim() || ids.has(s.id))
@@ -31,10 +35,10 @@ export function parseProject(text: string): Project {
     if(['bgColor','bgMargin'].some(k=>s[k]!==undefined&&typeof s[k]!=='string'))throw new Error('Configuración de fondo de página inválida.');
     if(s.tabColor!==undefined&&(typeof s.tabColor!=='string'||!/^#[0-9a-f]{6}$/i.test(s.tabColor)))throw new Error('Color de pestaña inválido.');
     if(s.notes!==undefined&&(!Array.isArray(s.notes)||s.notes.some((note:unknown)=>typeof note!=='string')))throw new Error('Notas de pestaña inválidas.');
-    if(s.checklist!==undefined&&(!Array.isArray(s.checklist)||s.checklist.some((item:any)=>!item||typeof item.text!=='string'||typeof item.done!=='boolean'||(item.buttonId!==undefined&&(typeof item.buttonId!=='string'||!item.buttonId.trim())))))throw new Error('Checklist de pestaña inválida.');
+    if(s.checklist!==undefined&&(!Array.isArray(s.checklist)||s.checklist.some((item:any)=>!item||typeof item.text!=='string'||typeof item.done!=='boolean'||['buttonId','mediaId'].some(key=>item[key]!==undefined&&(typeof item[key]!=='string'||!item[key].trim()))||(item.buttonId!==undefined&&item.mediaId!==undefined))))throw new Error('Checklist de pestaña inválida.');
   }
   if (!ids.has(p.activeId)) throw new Error('El espacio activo del proyecto no existe.');
   return p;
 }
 // Navigating between spaces does not alter authored content.
-export const projectContent = (p: Project) => JSON.stringify({format:p.format,version:p.version,name:p.name,spaces:p.spaces,footerConfig:p.footerConfig});
+export const projectContent = (p: Project) => JSON.stringify({format:p.format,version:p.version,name:p.name,spaces:p.spaces,footerConfig:p.footerConfig,autoChecklist:p.autoChecklist});

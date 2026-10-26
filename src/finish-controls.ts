@@ -63,6 +63,21 @@ export function configureFinish(block:HTMLElement,validate:(email:string,url:str
   input('requireName').checked=block.dataset.requireName!=='false';
   input('exerciseId').value=block.dataset.exerciseId||'ejercicio';
   input('email').value=block.dataset.teacherEmail||'';input('brightspace').value=block.dataset.brightspaceUrl||'';
+  const watermarkOption=document.createElement('label');watermarkOption.className='finish-name-option';
+  const watermarkCheck=document.createElement('input');watermarkCheck.type='checkbox';watermarkCheck.name='reviewWatermark';
+  watermarkCheck.checked=block.dataset.reviewWatermark==='true';
+  watermarkOption.append(watermarkCheck,document.createTextNode('Agregar marca de agua al HTML que envía alumno.'));
+  const watermarkLabel=document.createElement('label');watermarkLabel.hidden=!watermarkCheck.checked;
+  watermarkLabel.className='finish-watermark-text';watermarkLabel.textContent='Texto de la marca de agua';
+  const watermarkText=document.createElement('input');watermarkText.name='reviewWatermarkText';watermarkText.maxLength=120;
+  watermarkText.value=block.dataset.reviewWatermarkText||'Para revisión';watermarkText.disabled=!watermarkCheck.checked;
+  watermarkLabel.append(watermarkText);
+  const watermarkHelp=document.createElement('p');watermarkHelp.textContent='Se mostrará arriba a la derecha del documento bloqueado para entrega. No aparece al guardar progreso.';
+  watermarkHelp.hidden=!watermarkCheck.checked;
+  input('email').closest('label')!.before(watermarkOption,watermarkLabel,watermarkHelp);
+  watermarkCheck.addEventListener('change',()=>{
+    watermarkLabel.hidden=watermarkHelp.hidden=!watermarkCheck.checked;watermarkText.disabled=!watermarkCheck.checked;
+  });
   const deliveryFields=['email','brightspace'] as const;
   const deliveryChecks=deliveryFields.map((name,index)=>{
     const field=input(name),label=field.closest('label')!;
@@ -95,6 +110,8 @@ export function configureFinish(block:HTMLElement,validate:(email:string,url:str
       block.dataset.exerciseId=input('exerciseId').value.trim();block.dataset.requireName=String(input('requireName').checked);
       block.dataset.teacherEmail=input('email').disabled?'':input('email').value.trim();
       block.dataset.brightspaceUrl=input('brightspace').disabled?'':input('brightspace').value.trim();
+      block.dataset.reviewWatermark=String(watermarkCheck.checked);
+      block.dataset.reviewWatermarkText=watermarkText.value.replace(/\s+/g,' ').trim()||'Para revisión';
       normalizeFinish(block);window.saveHistoryState(true);
     }
     dialog.remove();

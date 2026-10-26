@@ -1,0 +1,59 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Estilos y redondeado de tablas</title>
+<style>body{margin:0;font:13px Arial}#controls{padding:8px;background:#eee}pre{white-space:pre-wrap;margin:8px;max-height:110px;overflow:auto}iframe{width:100%;height:calc(100vh - 36px);border:0}</style>
+<div id="controls"><button id="run">Verificar estilos de tabla</button> <button id="proof">Mostrar estilos</button> <button id="radius">Mostrar redondeado</button> <button id="narrow">Vista estrecha</button> <button id="alignment">Mostrar alineación</button></div><pre id="result"></pre><iframe id="app" src="/"></iframe>
+<script type="module">
+import {getTablaDinamicaHTML} from '/src/templates.ts';
+const frame=document.querySelector('#app'),out=document.querySelector('#result'),wait=(ms=120)=>new Promise(r=>setTimeout(r,ms));
+const env=()=>({w:frame.contentWindow,d:frame.contentWindow.document});let results=[];
+const check=(name,ok)=>{results.push((ok?'PASS ':'FAIL ')+name);out.textContent=results.join('\n');if(!ok)throw Error(name);};
+const block=()=>env().d.querySelector('#canvas [data-type=tabla_dinamica]');
+const menu=()=>env().d.querySelector('#table-style-popover');
+const open=kind=>{const {w}=env();block().querySelector(`[data-table-tool=${kind}]`).dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true}));};
+const choose=id=>{open('styles');menu().querySelector(`[data-table-style-choice="${id}"]`).click();};
+function radius(value){const {w}=env();open('radius');const slider=menu().querySelector('input');slider.dispatchEvent(new w.PointerEvent('pointerdown',{bubbles:true}));slider.value=value;slider.dispatchEvent(new w.Event('input',{bubbles:true}));slider.dispatchEvent(new w.Event('change',{bubbles:true}));}
+async function setup(){const {w,d}=env();if(d.querySelector('.project-welcome')){d.querySelector('.project-welcome .welcome-actions button').click();await wait();}if(block())return;w.insertTemplate('bienvenida');await wait();const holder=d.createElement('template');holder.innerHTML=getTablaDinamicaHTML();const page=d.querySelector('#canvas .lms-dropzone.bg-white');page.insertBefore(holder.content.firstElementChild,page.querySelector(':scope > .lms-footer-wrapper'));w.initNestedDropzones();w.checkEmptyState();await wait();w.saveHistoryState(true);}
+document.querySelector('#run').onclick=async()=>{results=[];try{
+ await setup();const {w,d}=env();let b=block(),table=b.querySelector('table');
+ check('Un botón reúne estilos y otro controla el radio',b.querySelectorAll('[data-table-tool]').length===2&&!b.querySelector('[onclick*="changeTableStyle"]'));
+ const aligned=()=>{const box=block().getBoundingClientRect(),t=block().querySelector('table').getBoundingClientRect();return Math.abs(box.left-t.left)<1&&Math.abs(box.right-t.right)<1;};
+ check('Bordes visibles alineados al contenido de la página',aligned());
+ const gutter=table.parentElement.getBoundingClientRect(),visual=table.getBoundingClientRect();check('Área sensible se extiende 16 px por fuera a cada lado',Math.abs(visual.left-gutter.left-16)<1&&Math.abs(gutter.right-visual.right-16)<1);
+ open('styles');check('Siete estilos con pequeños previos SVG',menu().querySelectorAll('[data-table-style-choice]').length===7&&menu().querySelectorAll('svg').length===7);
+ check('Rollover no cambia el estilo de la tabla',!b.dataset.tableRadius&&b.dataset.tableStyle==='standard');
+ const styles=['standard','striped','borderless','anahuac','purple','soft','first-column'];
+ for(const id of styles){choose(id);check('Aplicar estilo '+id,b.dataset.tableStyle===id&&table.classList.contains('theme-'+id)&&menu().querySelector(`[data-table-style-choice="${id}"]`).getAttribute('aria-pressed')==='true');}
+ choose('purple');radius(24);check('Slider aplica radio real de 24 px',b.dataset.tableRadius==='24'&&table.style.borderRadius==='24px'&&table.rows[0].cells[0].style.borderTopLeftRadius==='24px');
+ check('No recorta controles de celdas',table.style.overflow!=='hidden'&&table.rows[0].cells[0].style.overflow!=='hidden');
+ choose('anahuac');check('Cambiar estilo conserva el redondeado',table.style.borderRadius==='24px');
+ w.changeTableBorderColor(b.querySelector('.block-toolbar button'),'#5d428c');w.changeTableBorderWidth(b.querySelector('.block-toolbar button'),'2px');
+ choose('purple');check('Color y grosor personalizados sobreviven al cambio',table.style.borderColor==='rgb(93, 66, 140)'&&table.style.borderTopWidth==='2px'&&table.rows[1].cells[0].style.borderRightWidth==='2px');
+ table.rows[1].cells[0].querySelector('.editable-text').innerHTML='<strong>Texto conservado</strong>';table.rows[1].cells[0].style.textAlign='right';table.rows[1].cells[0].style.width='50%';choose('soft');
+ check('Conserva contenido, formato, alineación y ancho',table.rows[1].cells[0].querySelector('strong')?.textContent==='Texto conservado'&&table.rows[1].cells[0].style.textAlign==='right'&&table.rows[1].cells[0].style.width==='50%');
+ w.addTableRow(table.rows[2].cells[0].querySelector('[title="Añadir fila abajo"]'),'bottom');check('Agregar fila actualiza las esquinas inferiores',table.rows.length===4&&table.rows[3].cells[0].style.borderBottomLeftRadius==='24px'&&table.rows[2].cells[0].style.borderBottomLeftRadius==='0px');
+ w.addTableCol(table.rows[0].cells[1].querySelector('[title="Añadir columna"]'),'right');check('Agregar columna mantiene estilo y radio',table.rows[0].cells.length===3&&table.rows[0].cells[2].style.borderTopRightRadius==='24px');
+ w.removeTableCol(table.rows[0].cells[2].querySelector('[title="Eliminar columna"]'));w.removeTableRow(table.rows[3].cells[0].querySelector('[title="Eliminar fila"]'));
+ check('Eliminar fila/columna recalcula las esquinas',table.rows.length===3&&table.rows[0].cells.length===2&&table.rows[2].cells[1].style.borderBottomRightRadius==='24px');
+ choose('purple');w.saveHistoryState(true);radius(32);await wait();w.undo();await wait();b=block();table=b.querySelector('table');check('Deshacer revierte un ajuste del slider',b.dataset.tableRadius==='24');w.redo();await wait();b=block();table=b.querySelector('table');check('Rehacer recupera el radio',b.dataset.tableRadius==='32');
+ const saved=b.outerHTML;b.outerHTML=saved;w.initNestedDropzones();b=block();table=b.querySelector('table');check('Restaurar el HTML conserva estilo y radio',b.dataset.tableStyle==='purple'&&table.style.borderRadius==='32px');
+ let mutations=0;const observer=new w.MutationObserver(records=>mutations+=records.length);observer.observe(table.parentElement,{attributes:true,subtree:true});
+ // Reapply appearance without touching cell hover-control markup.
+ const mod=await import('/src/table-style-controls.ts');mod.applyTableAppearance(b);mod.applyTableAppearance(b);await wait();observer.disconnect();check('Reaplicar apariencia es idempotente',mutations===0);
+ for(const id of styles){choose(id);const exported=new DOMParser().parseFromString(w.generateExportHTML(false),'text/html');const t=exported.querySelector('[data-type=tabla_dinamica] table');check('Exportación autosuficiente '+id,!!t&&t.style.borderRadius==='32px'&&t.style.borderCollapse==='separate'&&t.rows[0].cells[0].style.backgroundColor!==''&&!exported.querySelector('.block-toolbar,.table-cell-controls,#table-style-popover'));}
+ choose('purple');const legacy=b.querySelector('[data-table-tool=styles]');legacy.outerHTML=styles.slice(0,4).map(id=>`<button onclick="window.changeTableStyle(this,'${id}')">${id}</button>`).join('');b.querySelector('[data-table-tool=radius]').remove();table.parentElement.removeAttribute('style');w.initNestedDropzones();check('Actualiza menús y alineación de tablas guardadas anteriormente',b.querySelectorAll('[data-table-tool]').length===2&&!b.querySelector('[onclick*="changeTableStyle"]')&&aligned());
+ w.processPastedTableData('Nombre\tValor\nUno\t1\nDos\t2',b);await wait();check('Pegado de datos mantiene estilo y radio',block().querySelector('table').style.borderRadius==='32px'&&block().dataset.tableStyle==='purple');
+ open('styles');const r=menu().getBoundingClientRect();check('Menú queda dentro de la ventana',r.left>=0&&r.top>=0&&r.right<=w.innerWidth&&r.bottom<=w.innerHeight);
+ menu().querySelector('button').focus();menu().querySelector('button').dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));check('Escape cierra el menú',menu().hidden);
+ check('Eliminar permanece al extremo derecho',block().querySelector('.block-toolbar > div').lastElementChild?.textContent.includes('delete'));
+ b=block();b.querySelector('[title="Duplicar elemento"]').click();await wait();const copies=d.querySelectorAll('#canvas [data-type=tabla_dinamica]');check('Duplicar conserva estilo, radio y los controles nuevos',copies.length===2&&copies[1].dataset.tableStyle==='purple'&&copies[1].querySelector('table').style.borderRadius==='32px'&&copies[1].querySelectorAll('[data-table-tool]').length===2);copies[1].remove();
+ w.insertTemplate('boton_interactivo');await wait();d.querySelector('dialog.ib-dialog input[value=encapsulate]').click();d.querySelector('dialog.ib-dialog button[value=ok]').click();await wait();const content=d.querySelector('.ib-content');content.append(block());w.initNestedDropzones();open('styles');
+ const bounds=menu().getBoundingClientRect(),hit=d.elementFromPoint(bounds.left+30,bounds.top+60);check('Menú en contenido encapsulado no se recorta y se puede accionar',menu().parentElement===d.body&&menu().contains(hit));choose('anahuac');check('Estilos funcionan también dentro del botón expandido',block().dataset.tableStyle==='anahuac');
+ check('Tabla encapsulada conserva la alineación a su contenido',aligned());
+ frame.style.width='760px';await wait();check('Alineación responsiva en una ventana más estrecha',aligned());frame.style.width='100%';await wait();
+ const html=w.generateExportHTML(false),exported=new DOMParser().parseFromString(html,'text/html'),surface=exported.querySelector('[data-type=tabla_dinamica] .table-container');check('HTML exportado conserva la extensión del área sensible',surface.style.getPropertyPriority('width')==='important'&&surface.style.width==='calc(100% + 32px)'&&surface.style.marginLeft==='-16px'&&surface.style.paddingLeft==='16px');
+ out.textContent=results.join('\n')+'\nTOTAL: '+results.length+' / FAIL: '+results.filter(x=>x.startsWith('FAIL')).length;
+}catch(error){out.textContent+='\nERROR '+error.stack;}};
+async function proof(kind){await setup();const {w,d}=env();out.hidden=true;choose('purple');radius(24);const scroll=d.querySelector('#scroll-container');scroll.scrollTop+=block().getBoundingClientRect().top-440;block().querySelector('table').click();open(kind);}
+document.querySelector('#proof').onclick=()=>proof('styles');document.querySelector('#radius').onclick=()=>proof('radius');
+document.querySelector('#narrow').onclick=async()=>{frame.style.width='760px';await proof('styles');};
+document.querySelector('#alignment').onclick=async()=>{await setup();const {w,d}=env();frame.style.width='100%';out.hidden=true;const page=d.querySelector('#canvas .lms-dropzone.bg-white'),grid=page.querySelector('[data-type="grid_2x2"]')||page.querySelector(':scope > .lms-element:last-of-type');grid.before(block());w.initNestedDropzones();choose('anahuac');radius(16);d.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));const scroll=d.querySelector('#scroll-container');scroll.scrollTop+=block().getBoundingClientRect().top-240;block().querySelector('table').click();};
+</script></html>

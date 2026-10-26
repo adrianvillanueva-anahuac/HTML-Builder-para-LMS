@@ -1,0 +1,33 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Menú modular: elevación vertical</title>
+<style>body{margin:0;font:13px Arial}#controls{padding:8px;background:#eee}pre{white-space:pre-wrap;margin:8px;max-height:110px;overflow:auto}iframe{width:100%;height:740px;border:0}</style>
+<div id="controls"><button id="run">Verificar elevación del menú</button> <button id="proof">Mostrar menús</button></div><pre id="result"></pre><iframe id="app" src="/"></iframe>
+<script type="module">
+import {createModular,activateAllCells} from '/src/modular-model.ts';
+const frame=document.querySelector('#app'),out=document.querySelector('#result'),wait=(ms=280)=>new Promise(r=>setTimeout(r,ms));
+const env=()=>({w:frame.contentWindow,d:frame.contentWindow.document});
+let results=[];
+const check=(name,ok)=>{results.push((ok?'PASS ':'FAIL ')+name);out.textContent=results.join('\n');if(!ok)throw Error(name);};
+async function setup(){const {w,d}=env();if(d.querySelector('.project-welcome')){d.querySelector('.project-welcome .welcome-actions button').click();await wait();const model=createModular(2,2);activateAllCells(model);model.margin=3;const canvas=d.querySelector('#canvas');canvas.innerHTML='<div class="relative w-full lms-element is-rendered"><div class="lms-dropzone bg-white" style="padding:56px;min-height:700px"><h2 style="font:bold 30px Georgia;color:#ff5900;text-align:center;margin:20px 0 110px">Tabla modular</h2><section class="lms-element is-rendered modular-table" data-type="tabla_modular"></section></div></div>';canvas.querySelector('section').dataset.modular=JSON.stringify(model);w.initNestedDropzones();w.checkEmptyState();await wait();}return d.querySelector('.modular-table');}
+function clear(table){const {w,d}=env();d.activeElement?.blur();delete table.dataset.pinnedCell;table.querySelectorAll('.mod-cell-selected,.mod-cell-hover-active').forEach(el=>el.classList.remove('mod-cell-selected','mod-cell-hover-active'));table.querySelectorAll('details[open]').forEach(el=>{el.open=false;delete el.dataset.menuPinned;});table.dispatchEvent(new w.Event('input',{bubbles:true}));}
+async function select(table,key){const {w}=env();clear(table);await wait();const cell=table.querySelector(`[data-cell="${key}"]`);cell.classList.add('mod-cell-selected');table.dataset.pinnedCell=key;cell.dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true}));await wait();return cell.querySelector('.mod-cell-tools');}
+document.querySelector('#run').onclick=async()=>{results=[];try{
+ const table=await setup(),{w,d}=env(),bar=table.querySelector(':scope > .block-toolbar'),main=bar.querySelector('.mod-tools');
+ for(const width of [1320,970]){
+  frame.style.width=width+'px';clear(table);await wait();const base=main.getBoundingClientRect(),page=table.getBoundingClientRect();
+  check(width+' px: animación vertical y preferencia de movimiento reducido',w.getComputedStyle(bar).transitionProperty.includes('translate')||w.matchMedia('(prefers-reduced-motion:reduce)').matches);
+  for(const key of ['0:0','0:1']){
+   const tools=await select(table,key),r=main.getBoundingClientRect(),secondary=tools.getBoundingClientRect();
+   check(width+' px '+key+': conserva exactamente el eje horizontal',Math.abs(r.left-base.left)<1&&parseFloat(bar.style.translate)===0);
+   check(width+' px '+key+': sube y deja al menos 8 px al menú del rectángulo',r.top<base.top&&r.bottom<=secondary.top-7);
+   check(width+' px '+key+': no desplaza la tabla ni sus rectángulos',Math.abs(table.getBoundingClientRect().top-page.top)<1);
+   const top=r.top;tools.dispatchEvent(new w.Event('input',{bubbles:true}));await wait();check(width+' px '+key+': posición estable al recalcular',Math.abs(main.getBoundingClientRect().top-top)<1);
+   const detail=tools.querySelector('details');detail.open=true;await wait();check(width+' px '+key+': rollover del rectángulo sigue accesible',w.getComputedStyle(detail.querySelector('div')).display!=='none');detail.open=false;
+  }
+  await select(table,'1:1');check(width+' px: filas inferiores no mueven el menú general',bar.style.translate.split(' ').every(value=>parseFloat(value)===0));
+  clear(table);await wait();check(width+' px: al salir regresa a su posición original',Math.abs(main.getBoundingClientRect().left-base.left)<1&&Math.abs(main.getBoundingClientRect().top-base.top)<1);
+ }
+ frame.style.width='100%';await wait();await select(table,'0:1');const published=new DOMParser().parseFromString(w.generateExportHTML(false),'text/html');check('HTML del alumno no contiene barras del editor',!published.querySelector('.mod-editor,.block-toolbar,.mod-cell-tools'));
+ out.textContent=results.join('\n')+'\nTOTAL: '+results.length+' / FAIL: '+results.filter(x=>x.startsWith('FAIL')).length;
+}catch(error){out.textContent+='\nERROR '+error.stack;}};
+document.querySelector('#proof').onclick=async()=>{const table=await setup();out.hidden=true;frame.style.width='100%';await select(table,'0:1');table.querySelector(':scope > .block-toolbar').style.opacity='1';};
+</script></html>

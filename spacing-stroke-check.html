@@ -34,7 +34,7 @@ table.scrollIntoView({block:'center'});
 const selected=table.querySelector('.mod-cell');selected.classList.add('mod-cell-selected');
 selected.dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true}));await wait(250);
 const main=table.querySelector(':scope > .block-toolbar > .mod-tools'),secondary=selected.querySelector('.mod-cell-tools');
-check(Math.abs(secondary.getBoundingClientRect().top-main.getBoundingClientRect().top)<1,'Menú secundario alineado a la altura del principal');
+check(main.getBoundingClientRect().bottom<=secondary.getBoundingClientRect().top-7,'Menú principal elevado sobre el secundario, sin desplazamiento lateral');
 check(main.getBoundingClientRect().bottom<=table.getBoundingClientRect().top&&secondary.getBoundingClientRect().bottom<=table.getBoundingClientRect().top,'Ambos menús están sobre el borde superior del elemento');
 check(w.getComputedStyle(scroll).overflowY==='visible','Tabla sin barra de desplazamiento vertical interna ni recorte');
 const overlaps=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;

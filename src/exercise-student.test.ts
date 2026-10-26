@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 
 // Minimal DOM fixture to exercise the actual embedded student runtime offline.
-function fixture({required=true,name='Ana Pérez',finalized=false,rich=false}={}) {
+function fixture({required=true,name='Ana Pérez',finalized=false,rich=false,reviewWatermark=false,reviewWatermarkText='Para revisión'}={}) {
   const downloads:string[]=[],clones:any[]=[],dialogs:any[]=[];
   class Element {
     children:any[]=[];dataset:any={};style:any={};attributes:any={};textContent='';value='';className='';
@@ -21,7 +21,7 @@ function fixture({required=true,name='Ana Pérez',finalized=false,rich=false}={}
   const studentName=new Element();studentName.value=name;
   const state=new Element();state.textContent=JSON.stringify({version:1,finalized});
   const save=new Element(),finish=new Element(),status=new Element(),body=new Element();
-  const submission={dataset:{exerciseId:'ACT01',requireName:String(required)}};
+  const submission={dataset:{exerciseId:'ACT01',requireName:String(required),reviewWatermark:String(reviewWatermark),reviewWatermarkText}};
   (finish as any).closest=()=>submission;
   const label=new Element();label.textContent='Finalizar y descargar HTML';finish.querySelector=()=>label;
   const document:any={body,title:'Ejercicio',addEventListener(){},
@@ -73,4 +73,29 @@ test('reopened final remains locked and cannot save progress',async()=>{
   const f=fixture({finalized:true,rich:true});assert.equal(f.answer.readOnly,true);
   assert.equal(f.richAnswer.contentEditable,'false');assert.equal(f.save.disabled,true);
   await f.save.onclick();assert.equal(f.downloads.length,0);
+});
+
+test('review watermark is optional and never appears in progress saves',async()=>{
+  const f=fixture({reviewWatermark:true});await f.save.onclick();
+  assert.equal(f.clones[0].body.children.some((node:any)=>node.className==='exercise-review-watermark'),false);
+  const disabled=fixture();disabled.finalize();
+  assert.equal(disabled.clones[0].body.children.some((node:any)=>node.className==='exercise-review-watermark'),false);
+});
+
+test('enabled final watermark defaults to Para revisión and sits at top right',()=>{
+  for(const text of ['Para revisión','','   ']){
+    const f=fixture({reviewWatermark:true,reviewWatermarkText:text});f.finalize();
+    const mark=f.clones[0].body.children.find((node:any)=>node.className==='exercise-review-watermark');
+    assert.equal(mark.textContent,'Para revisión');assert.match(mark.style.cssText,/top:12px;right:16px/);
+    assert.equal(f.answer.readOnly,true);assert.equal(f.save.hidden,true);
+  }
+});
+
+test('custom watermark is bounded plain text and final downloads retain it',()=>{
+  const text='Revisar <img src=x onerror=alert(1)> — evaluación';
+  const f=fixture({reviewWatermark:true,reviewWatermarkText:text});f.finalize();f.finish.onclick();
+  assert.equal(f.downloads.length,2);
+  for(const clone of f.clones){const mark=clone.body.children.find((node:any)=>node.className==='exercise-review-watermark');assert.equal(mark.textContent,text);assert.equal(mark.innerHTML,'');}
+  const long=fixture({reviewWatermark:true,reviewWatermarkText:'X'.repeat(150)});long.finalize();
+  assert.equal(long.clones[0].body.children.find((node:any)=>node.className==='exercise-review-watermark').textContent.length,120);
 });

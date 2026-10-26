@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { compactModularState } from './modular-table';
 import { takeWorkspaceHistory, loadWorkspaceHistory, upgradeTitleImageElements } from './vanilla-setup';
-import { parseProject, projectContent, projectNameFromFile, emptyWorkspace, type Project, type Workspace } from './project-model';
+import { parseProject, projectContent, projectNameFromFile, emptyWorkspace, workspacePendingTasks, type Project, type Workspace } from './project-model';
 
 import { startTutorial } from './tutorial';
 import { projectDialog } from './project-dialog';
@@ -12,7 +12,7 @@ import {appearanceDialog} from './appearance-dialog';
 import {applyBackground,applyFooter,restoreBackgroundMetadata,workspaceAppearanceRoot} from './workspace-appearance';
 import { tabInk,workspaceTooltip } from './project-model';
 import {installWorkspaceDrag} from './workspace-drag';
-import {automaticButtonTaskHint,syncWorkspaceButtonChecklist} from './button-checklist';
+import {automaticTaskHint,ensureMediaChecklistIds,isAutomaticTask,syncWorkspaceAutomaticChecklist} from './media-checklist';
 import type { CSSProperties } from 'react';
 
 type History = ReturnType<typeof takeWorkspaceHistory>;
@@ -64,6 +64,16 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
   const handle = useRef<any>(null);
   const blank = useRef<Workspace | null>(null);
   const histories = useRef(new Map<string, History>());
+  // Remember actual generated tasks for this editing session. Undo can then
+  // restore an existing task while automatic creation is disabled, without
+  // treating newly inserted/duplicated empty elements as previously tracked.
+  const trackedTasks=useRef({buttons:new Set<string>(),media:new Set<string>()});
+  function rememberTasks(spaces:Workspace[]){
+    spaces.forEach(space=>space.checklist?.forEach(item=>{
+      if(item.buttonId)trackedTasks.current.buttons.add(item.buttonId);
+      if(item.mediaId)trackedTasks.current.media.add(item.mediaId);
+    }));
+  }
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const busyRef=useRef(false);busyRef.current=busy;
@@ -95,6 +105,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
   }, [notice.sequence, message, busy]);
   const outer = () => document.getElementById('canvas-container-outer')!;
   function snapshot(el:HTMLElement=outer()): Pick<Workspace,'html'|'bg'|'style'|'bgColor'|'bgMargin'> {
+    ensureMediaChecklistIds(el);
     const clone = el.cloneNode(true) as HTMLElement;
     clone.querySelectorAll('.sortable-ghost,.layout-intent-indicator,#empty-state').forEach(n => n.remove());
     clone.querySelectorAll('*').forEach(n => {
@@ -112,7 +123,9 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     const p = current.current;
     if (!p) return null;
     if(window.lmsWorkspaceDragActive)return p;
-    const next = {...p, spaces:p.spaces.map(s => s.id === p.activeId ? syncWorkspaceButtonChecklist({...s,...snapshot()},outer()) : s)};
+    rememberTasks(p.spaces);
+    const next = {...p, spaces:p.spaces.map(s => s.id === p.activeId ? syncWorkspaceAutomaticChecklist({...s,...snapshot()},outer(),p.autoChecklist!==false,trackedTasks.current) : s)};
+    rememberTasks(next.spaces);
     current.current = next;
     if(next.spaces.some((space,index)=>space.checklist!==p.spaces[index].checklist)){
       setProject(next);
@@ -123,7 +136,11 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
   function publish(p: Project) {
     // Cross-page drag serializes both pages before publishing. Reconcile each
     // final snapshot, never a temporary parked/ghost canvas during the drag.
-    if(!window.lmsWorkspaceDragActive)p={...p,spaces:p.spaces.map(space=>syncWorkspaceButtonChecklist(space))};
+    if(!window.lmsWorkspaceDragActive){
+      rememberTasks(p.spaces);
+      p={...p,spaces:p.spaces.map(space=>syncWorkspaceAutomaticChecklist(space,undefined,p.autoChecklist!==false,trackedTasks.current))};
+      rememberTasks(p.spaces);
+    }
     (window as any).globalFooterConfig=p.footerConfig;
     window.currentWorkspaceFooterConfig=p.spaces.find(s=>s.id===p.activeId)?.footerConfig;
     window.lmsWorkspaceCount=p.spaces.length;
@@ -134,7 +151,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
   function setChecklistDone(spaceId:string,index:number,done:boolean) {
     if(busy || document.querySelector('iframe[title="Diseñar ejercicio descargable"]'))return;
     const p=capture();if(!p)return;
-    const space=p.spaces.find(s=>s.id===spaceId);if(!space?.checklist?.[index]||space.checklist[index].buttonId)return;
+    const space=p.spaces.find(s=>s.id===spaceId);if(!space?.checklist?.[index]||isAutomaticTask(space.checklist[index]))return;
     // Update metadata without switching tabs or rebuilding the active canvas.
     publish({...p,spaces:p.spaces.map(s=>s.id===spaceId?{...s,checklist:s.checklist!.map((item,i)=>i===index?{...item,done}:item)}:s)});
   }
@@ -144,10 +161,16 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     setNameHint(0);
     nameInput.current?.setCustomValidity('');
   }
+  function toggleAutomaticChecklist(){
+    if(busy||document.querySelector('iframe[title="Diseñar ejercicio descargable"]'))return;
+    const p=capture();if(!p)return;
+    publish({...p,autoChecklist:p.autoChecklist===false});
+  }
   function restore(s: Workspace) {
     window.currentEditableText = null;
     document.getElementById('rtf-toolbar')?.classList.add('hidden');
     outer().innerHTML=s.html; restoreBackgroundMetadata(outer(),s); outer().style.cssText=s.style;
+    if(ensureMediaChecklistIds(outer()))s.html=outer().innerHTML;
     outer().querySelectorAll('[data-sortable-active]').forEach(n => n.removeAttribute('data-sortable-active'));
     window.initNestedDropzones(); upgradeTitleImageElements(); window.checkEmptyState();
     loadWorkspaceHistory(histories.current.get(s.id));
@@ -171,6 +194,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     if (!blank.current) blank.current=emptyWorkspace();
     const s={...emptyWorkspace(),id:crypto.randomUUID(),name:'Página 1'};
     baseline.current=null;handle.current=null;histories.current.clear();
+    trackedTasks.current={buttons:new Set(),media:new Set()};
     resetNameEditor('Proyecto nuevo');
     restore(s);publish({format:'lms-builder-project',version:1,name:'Proyecto nuevo',activeId:s.id,spaces:[s]});setMenu(false);return true;
   }
@@ -213,13 +237,14 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
           if(existing) {
             histories.current.set(existing.activeId,takeWorkspaceHistory());
             p={...existing,activeId:imported.id,spaces:[...existing.spaces,imported]};
-          } else { histories.current.clear();handle.current=null;baseline.current=null; }
+          } else { histories.current.clear();handle.current=null;baseline.current=null;trackedTasks.current={buttons:new Set(),media:new Set()}; }
           restore(imported);publish(p);resetNameEditor(p.name);setMenu(false);
           setMessage('HTML anterior añadido como nueva página. Guarda el proyecto para conservarlo.');
           return;
         }
         if(!(await canReplace()))return;
         histories.current.clear();handle.current=null;
+        trackedTasks.current={buttons:new Set(),media:new Set()};
         restore(p.spaces.find(s=>s.id===p.activeId)!);
         baseline.current=projectContent(p);publish(p);resetNameEditor(p.name);setMenu(false);
         setMessage('Proyecto abierto. Guardar te permitirá elegir el archivo de destino.');
@@ -323,6 +348,14 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
   async function copy() {
     if(busy){setMessage('Espera a que termine el guardado y vuelve a copiar.');return;}
     const p=capture();if(!p)return;
+    const space=p.spaces.find(s=>s.id===p.activeId),pending=workspacePendingTasks(space);
+    if(pending.length){
+      const choice=await projectDialog('Esta pestaña tiene pendientes',undefined,[
+        {value:'cancel',label:'Regresar a editar'},
+        {value:'continue',label:'Continuar con pendientes'}
+      ],{description:`Antes de copiar «${space!.name}» a Brightspace, revisa estos pendientes. Puedes continuar con la copia o regresar para seguir editando.`,items:pending});
+      if(choice!=='continue')return;
+    }
     if(projectContent(p)!==baseline.current){
       setSaved(false);
       const choice=await projectDialog('Recuerda guardar los cambios para conservar la última versión del proyecto.',undefined,[{value:'save',label:'Guardar progreso y copiar'},{value:'copy',label:'Continuar sin guardar'},{value:'cancel',label:'Cancelar'}]);
@@ -443,7 +476,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     <div className="project-bar" data-tour="project-manager">
       <div className="project-menu-anchor" onPointerLeave={e=>{if(e.pointerType==='mouse')setMenu(false);}} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setMenu(false);}} onKeyDown={e=>{if(e.key==='Escape'){setMenu(false);(e.currentTarget.querySelector('.project-menu-toggle') as HTMLButtonElement | null)?.focus();}}}>
         <button className="project-menu-toggle" title="Menú del proyecto" aria-expanded={menu} aria-controls="project-file-menu" onClick={()=>setMenu(!menu)}><span className="material-symbols-outlined">menu</span></button>
-        <div id="project-file-menu" className={`project-menu${menu?' is-open':''}`} inert={!menu} aria-hidden={!menu}><button disabled={busy} onClick={()=>create()}>Nuevo proyecto</button><button disabled={busy} onClick={()=>open()}>Abrir proyecto o HTML</button><button disabled={!project||busy} onClick={()=>save()}>Guardar</button><button data-tour="tutorial-launcher" onClick={()=>{setMenu(false);onTutorial();}}><span className="material-symbols-outlined">school</span>Tutorial</button></div>
+        <div id="project-file-menu" className={`project-menu${menu?' is-open':''}`} inert={!menu} aria-hidden={!menu}><button disabled={busy} onClick={()=>create()}>Nuevo proyecto</button><button disabled={busy} onClick={()=>open()}>Abrir proyecto o HTML</button><button disabled={!project||busy} onClick={()=>save()}>Guardar</button><button data-tour="tutorial-launcher" onClick={()=>{setMenu(false);onTutorial();}}><span className="material-symbols-outlined">school</span>Tutorial</button><button type="button" className="project-auto-checklist" role="switch" aria-label="Pendientes automáticos" aria-checked={project?.autoChecklist!==false} disabled={!project||busy} onClick={toggleAutomaticChecklist} title="Controla la creación de nuevos pendientes. Los existentes siguen actualizándose y puedes agregar tareas manualmente."><span className="project-auto-label"><strong>Pendientes automáticos</strong><small>{project?.autoChecklist===false?'No agregar nuevos pendientes':'Agregar cuando falte contenido'}</small></span><span className="project-switch-track" aria-hidden="true"/></button></div>
       </div>
       <span className="project-save-state" role="status">{saved?'Guardado':'Sin guardar'}</span>
       <div className="project-name-anchor">
@@ -488,7 +521,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     }}>
       <strong><span className="project-tab-info-dot" style={{background:tabInfo.space.tabColor||'#ffffff'}}/>{tabInfo.space.name}</strong>
       {!!tabInfo.space.notes?.length&&<section><h3>Notas</h3>{tabInfo.space.notes.map((note,i)=><p key={i}>{note}</p>)}</section>}
-      {!!tabInfo.space.checklist?.length&&<section><h3>Checklist</h3>{tabInfo.space.checklist.map((item,i)=><label className="project-tab-info-task" data-done={item.done} title={item.buttonId?automaticButtonTaskHint:undefined} key={i}><input type="checkbox" checked={item.done} disabled={busy||!!item.buttonId} aria-label={item.text} onChange={e=>setChecklistDone(tabInfo.space.id,i,e.currentTarget.checked)}/><span>{item.text}<small>{item.done?'Completado':'Pendiente'}{item.buttonId?' · Automático':''}</small></span></label>)}</section>}
+      {!!tabInfo.space.checklist?.length&&<section><h3>Checklist</h3>{tabInfo.space.checklist.map((item,i)=><label className="project-tab-info-task" data-done={item.done} title={isAutomaticTask(item)?automaticTaskHint(item):undefined} key={i}><input type="checkbox" checked={item.done} disabled={busy||isAutomaticTask(item)} aria-label={item.text} onChange={e=>setChecklistDone(tabInfo.space.id,i,e.currentTarget.checked)}/><span>{item.text}<small>{item.done?'Completado':'Pendiente'}{isAutomaticTask(item)?' · Automático':''}</small></span></label>)}</section>}
       <section className="project-export-size" aria-label="Tamaño del código para LMS" data-level={exportSize?.count!=null&&exportSize.count>LMS_CHARACTER_LIMIT?'over':exportSize?.count!=null&&exportSize.count>=LMS_CHARACTER_LIMIT*.9?'warning':'normal'}>
         <h3>Código para LMS</h3>
         {exportSize?.id!==tabInfo.space.id?<p>Calculando caracteres…</p>:exportSize.count===null?<p>Completa y guarda los ejercicios y revisa sus recursos para calcular el HTML exportable.</p>:<>
