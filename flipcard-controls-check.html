@@ -1,0 +1,20 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Controles de flipcard</title>
+<style>body{padding:48px;font:15px Arial;background:#f3f4f6}h1{margin-bottom:16px}#preview{padding:36px;background:white;border-radius:12px}#preview>.lms-element>.block-toolbar{position:relative;opacity:1;visibility:visible;pointer-events:auto;top:auto;left:auto;transform:none;margin-bottom:24px}#preview>.lms-element{flex-direction:column;align-items:center}#result{white-space:pre-wrap;margin-bottom:20px}#legacy{margin-top:20px}#legacy .block-toolbar{position:static;opacity:1;visibility:visible}</style>
+<h1>Flipcard: controles actualizados</h1><pre id="result">Cargando…</pre><div id="preview"></div><div id="legacy" data-type="flipcard"><div class="block-toolbar"><button title="Agregar Tarjeta Abajo">add_box</button><button title="Agregar Tarjeta a la Derecha">library_add</button></div></div>
+<script type="module">
+import '/src/index.css';
+import {getBlockToolbar,getFlipcardHTML} from '/src/templates.ts';
+document.querySelector('#preview').innerHTML=getFlipcardHTML();
+const preview=document.querySelector('#preview'),legacy=document.querySelector('#legacy'),toolbar=preview.querySelector('.block-toolbar');
+const results=[
+ ['Plantillas nuevas sin Agregar Tarjeta Abajo',!toolbar.querySelector('[title="Agregar Tarjeta Abajo"]')],
+ ['Se conserva Agregar Tarjeta a la Derecha',!!toolbar.querySelector('[title="Agregar Tarjeta a la Derecha"]')],
+ ['Se conserva la edición de frente y dorso',!!toolbar.querySelector('[title="Editar Dorso/Frente (Girar Todas)"]')],
+ ['Se conservan ancho, alto y alineación',toolbar.querySelectorAll('input[type=range]').length===2&&!!toolbar.querySelector('[title="Alineación"]')],
+ ['Los proyectos anteriores tampoco muestran el control retirado',getComputedStyle(legacy.querySelector('[title="Agregar Tarjeta Abajo"]')).display==='none'],
+ ['Agregar fila de Tabla Grid no cambia',getBlockToolbar('grid_2x2').includes('addGridRow(this)')],
+ ['Agregar pestaña no cambia',getBlockToolbar('pestanas').includes('addTab(this)')],
+];
+document.querySelector('#result').textContent=results.map(([name,ok])=>`${ok?'PASS':'FAIL'} ${name}`).join('\n');
+legacy.hidden=true;
+</script></html>

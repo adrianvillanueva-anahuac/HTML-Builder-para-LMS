@@ -542,6 +542,12 @@ details[open] summary ~ * { animation: fadeIn 0.3s ease-in-out; }
 }
 
 /* Flipcards */
+/* Retired control, including toolbars embedded in previously saved projects.
+   display:none also removes it from keyboard navigation and accessibility. */
+[data-type="flipcard"] > .block-toolbar button[title="Agregar Tarjeta Abajo"] {
+    display: none !important;
+}
+
 .flipcard-item.force-flip .flipcard-inner,
 .flipcard-item.is-flipped .flipcard-inner {
     transform: rotateY(180deg);

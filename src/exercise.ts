@@ -1,4 +1,5 @@
 import { getBlockToolbar, getPaginaBasicaHTML } from './templates';
+import { getFodaExerciseHTML } from './foda-template';
 import { exerciseDownloadURL } from './exercise-download';
 import { projectDialog } from './project-dialog';
 import {normalizeFinish,setupFinishControls,configureFinish} from './finish-controls';
@@ -71,6 +72,7 @@ function setExerciseName(block: HTMLElement, value: string) {
 
 export function getExerciseBlock(type: string): string {
   if (type === 'pagina_ejercicio') return exerciseMode ? getPaginaBasicaHTML(true) : '';
+  if (type === 'pagina_foda') return exerciseMode ? getFodaExerciseHTML(getExerciseBlock('texto_alumno')) : '';
   if (!['ejercicio_descargable', 'texto_alumno', 'enviar_ejercicio'].includes(type)) return '';
   if ((type === 'ejercicio_descargable') === exerciseMode) return '';
   const controls = `<div class="exercise-tools block-toolbar"><button type="button" onclick="window.configureExercise(this)" title="Texto, colores, fuente y bordes"><span class="material-symbols-outlined">tune</span> Configurar</button>${type === 'ejercicio_descargable' ? '<button type="button" onclick="window.editExercise(this)"><span class="material-symbols-outlined">edit_document</span> Edita ejercicio</button>' : ''}</div>`;

@@ -1,0 +1,36 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Verificación de plantilla FODA</title>
+<style>body{margin:0;font:13px Arial}header{padding:8px;background:#eee}pre{white-space:pre-wrap;margin:8px;max-height:180px;overflow:auto}iframe{width:100%;height:calc(100vh - 45px);border:0}iframe[hidden]{display:none}</style>
+<header><button id="run">Verificar plantilla FODA</button> <button id="preview">Mostrar plantilla</button></header><pre id="result"></pre><iframe id="editor" src="/?editor=exercise"></iframe><iframe id="student" hidden></iframe>
+<script type="module">
+import {buildStudentDocument} from '/src/exercise-export.ts';
+import {getExerciseBlock} from '/src/exercise.ts';
+const editor=document.querySelector('#editor'),student=document.querySelector('#student'),out=document.querySelector('#result');
+const wait=(ms=120)=>new Promise(r=>setTimeout(r,ms)),env=()=>({w:editor.contentWindow,d:editor.contentDocument});let results=[];
+const check=(name,ok)=>{results.push(`${ok?'PASS':'FAIL'} ${name}`);out.textContent=results.join('\n');if(!ok)throw Error(name);};
+async function ready(){for(let i=0;i<100&&typeof env().w.insertTemplate!=='function';i++)await wait(50);}
+document.querySelector('#run').onclick=async()=>{results=[];try{
+ await ready();const {w,d}=env(),page=()=>d.querySelector('#canvas [data-type=pagina_foda]');
+ check('FODA en el catálogo de Páginas del ejercicio',d.querySelector('#catalog-pages [data-type=pagina_foda]')?.textContent.includes('FODA'));
+ check('No se ofrece fuera del editor de ejercicios',getExerciseBlock('pagina_foda')==='');
+ if(!page())w.insertTemplate('pagina_foda');await wait();
+ check('Página completa con título FODA',page()?.querySelector('h2')?.textContent==='FODA'&&page().querySelector('.lms-dropzone'));
+ check('Matriz lista sin diálogo de selección',page().querySelectorAll('.mod-card').length===4&&!d.querySelector('dialog[open]'));
+ check('Encabezados e icono Amenazas conservados',Array.from(page().querySelectorAll('.mod-student-prompt')).map(el=>el.textContent.trim()).every((text,i)=>text.endsWith(['Fortalezas','Debilidades','Oportunidades','Amenazas'][i]))&&page().querySelector('[data-cell="1:1"] .editable-icon').textContent==='bolt');
+ check('Cuatro respuestas en la matriz y otra respuesta debajo',page().querySelectorAll('[data-student=true] .mod-student-placeholder').length===4&&page().querySelectorAll('.student-answer').length===1);
+ check('Contenido inferior y footer originales',page().querySelectorAll('h2').length===2&&page().querySelectorAll('.separator-line').length===2&&page().querySelector('.lms-footer-wrapper'));
+ const rules=page().querySelectorAll('.separator-line');check('Reglas naranjas y grosor original',rules[0].dataset.lineColor==='#ff5900'&&rules[1].dataset.lineThickness==='2'&&rules[1].style.borderTopWidth==='2px');
+ check('Diseño de matriz serializado',JSON.parse(page().querySelector('.modular-table').dataset.modular).rows.join(',')==='273,286');
+ const saved=d.querySelector('#canvas-container-outer').innerHTML;w.restoreState(saved);await wait();check('Restaurar conserva matriz editable y respuesta',page().querySelectorAll('.mod-card').length===4&&!!page().querySelector('.student-answer'));
+ w.saveHistoryState(true);w.insertTemplate('pagina_foda');await wait();w.saveHistoryState(true);check('Segunda inserción independiente',d.querySelectorAll('#canvas [data-type=pagina_foda]').length===2);
+ w.undo();await wait();check('Deshacer elimina solo la nueva página',d.querySelectorAll('#canvas [data-type=pagina_foda]').length===1);
+ w.redo();await wait();check('Rehacer restaura la plantilla completa',d.querySelectorAll('#canvas [data-type=pagina_foda] .mod-card').length===8);w.undo();await wait();
+ const doc=new DOMParser().parseFromString(w.generateExportHTML(false),'text/html');doc.querySelectorAll('link[rel=stylesheet]').forEach(el=>el.remove());
+ const html=await buildStudentDocument('<!doctype html>'+doc.documentElement.outerHTML);student.srcdoc=html;
+ for(let i=0;i<100&&student.contentDocument?.querySelector('.exercise-status')?.textContent!=='Ejercicio abierto';i++)await wait(50);
+ const sd=student.contentDocument;check('HTML alumno genera cinco respuestas editables',sd.querySelectorAll('.student-answer').length===1&&sd.querySelectorAll('.student-rich-answer[contenteditable=true]').length===4&&!sd.querySelector('.student-answer').readOnly);
+ check('Exportación sin herramientas del editor',!sd.querySelector('.block-toolbar,.mod-tools')&&sd.body.textContent.includes('Fortalezas'));
+ check('Se conserva la posición de las cuatro respuestas en la matriz',sd.querySelectorAll('.mod-card[data-student=true] .student-rich-answer').length===4);
+ out.textContent=results.join('\n')+`\nTOTAL: ${results.length} / FAIL: 0`;
+ }catch(error){out.textContent+='\nERROR '+error.stack;}};
+document.querySelector('#preview').onclick=()=>{out.hidden=true;};
+</script></html>

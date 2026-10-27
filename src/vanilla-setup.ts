@@ -526,7 +526,7 @@ export function setupVanillaGlobals() {
         const renderedElement = template.content.firstElementChild as HTMLElement | null;
         if(renderedElement) {
             canvas.appendChild(renderedElement);
-            if (wasEmpty && ['bienvenida','referencias','requerimientos','indice','conclusiones','profesor','pagina_basica','pagina_ejercicio'].includes(type)) window.switchTab('elements');
+            if (wasEmpty && ['bienvenida','referencias','requerimientos','indice','conclusiones','profesor','pagina_basica','pagina_ejercicio','pagina_foda'].includes(type)) window.switchTab('elements');
             if (type === 'titulo_imagen') {
                 window.updateTitleImageContrast(renderedElement);
             }
@@ -4070,8 +4070,8 @@ export function setupVanillaGlobals() {
             // Do not allow left/right side-by-side placements directly in the root #canvas, 
             // nor allow pagina_basica to be split side-by-side or placed side-by-side with anything.
             if ((hoveredLmsEl.parentElement && hoveredLmsEl.parentElement.id === 'canvas') || 
-                ['pagina_basica', 'pagina_ejercicio'].includes(hoveredLmsEl.dataset.type || '') ||
-                ['pagina_basica', 'pagina_ejercicio'].includes(window.lmsDraggedItem?.dataset?.type || '')) {
+                ['pagina_basica', 'pagina_ejercicio', 'pagina_foda'].includes(hoveredLmsEl.dataset.type || '') ||
+                ['pagina_basica', 'pagina_ejercicio', 'pagina_foda'].includes(window.lmsDraggedItem?.dataset?.type || '')) {
                 shouldShowIndicator = false;
             } else {
                 const rect = hoveredLmsEl.getBoundingClientRect();
@@ -4237,7 +4237,7 @@ export function setupVanillaGlobals() {
                     const renderedElement = template.content.firstElementChild as HTMLElement | null;
                     if(item.parentNode && renderedElement) {
                         item.parentNode.replaceChild(renderedElement, item);
-                        if (firstPage && ['bienvenida','referencias','requerimientos','indice','conclusiones','profesor','pagina_basica','pagina_ejercicio'].includes(type)) window.switchTab('elements');
+                        if (firstPage && ['bienvenida','referencias','requerimientos','indice','conclusiones','profesor','pagina_basica','pagina_ejercicio','pagina_foda'].includes(type)) window.switchTab('elements');
                         if (type === 'titulo_imagen') {
                             window.updateTitleImageContrast(renderedElement);
                         }

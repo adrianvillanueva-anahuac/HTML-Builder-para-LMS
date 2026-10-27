@@ -718,11 +718,14 @@ export default function App() {
               <div id="tab-pages" className="tab-content active p-5 bg-white dark:bg-[#454545]">
                   <div className="text-xs text-gray-500 dark:text-gray-300 mb-4 leading-tight">Plantillas maestras completas.</div>
                   <div id="catalog-pages" className="space-y-3" data-tour="pages-catalog">
-                      {exerciseMode ? (
+                      {exerciseMode ? (<>
                         <div className="p-3 bg-anahuac-light dark:bg-[#2f2f2f] dark:text-gray-200 text-gray-800 border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center justify-between hover:border-anahuac-orange transition-colors cursor-grab shadow-sm group" data-type="pagina_ejercicio" data-tour="page-template">
                           <div className="flex items-center gap-3"><span className="material-symbols-outlined text-anahuac-orange">assignment</span><span className="text-sm font-medium">Página básica de ejercicio</span></div>
                         </div>
-                      ) : <>
+                        <div className="p-3 bg-anahuac-light dark:bg-[#2f2f2f] dark:text-gray-200 text-gray-800 border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center justify-between hover:border-anahuac-orange transition-colors cursor-grab shadow-sm group" data-type="pagina_foda">
+                          <div className="flex items-center gap-3"><span className="material-symbols-outlined text-anahuac-orange">grid_view</span><span className="text-sm font-medium">FODA</span></div>
+                        </div>
+                      </>) : <>
                       <div className="p-3 bg-anahuac-light dark:bg-[#2f2f2f] dark:text-gray-200 text-gray-800 border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center justify-between hover:border-anahuac-orange transition-colors cursor-grab shadow-sm group" data-type="bienvenida" data-tour="page-template">
                           <div className="flex items-center gap-3"><span className="material-symbols-outlined text-anahuac-orange">home</span> <span className="text-sm font-medium">Bienvenida</span></div>
                       </div>
