@@ -4,10 +4,30 @@ export function setupToolbarSelection() {
   const canvas = document.getElementById('canvas-container-outer');
   if (!canvas) return () => {};
   const style = document.createElement('style');
-  document.head.append(style);
+  const dismissedStyle = document.createElement('style');
+  document.head.append(style,dismissedStyle);
   let selected: HTMLElement | null = null;
+  let dismissedFlow:HTMLElement|null=null;
   let ignoreClickUntil = 0;
   const clear = () => { selected = null; style.textContent = ''; };
+  const pathFor=(element:HTMLElement)=>{const parts:string[]=[];let node:Element=element;while(node!==canvas){const parent=node.parentElement;if(!parent)return '';parts.unshift(`:nth-child(${Array.from(parent.children).indexOf(node)+1})`);node=parent;}return '#canvas-container-outer > '+parts.join(' > ');};
+  const renderDismissed=()=>{
+    if(!dismissedFlow||!canvas.contains(dismissedFlow)){dismissedFlow=null;dismissedStyle.textContent='';return;}
+    const path=pathFor(dismissedFlow);dismissedStyle.textContent=`${path} > .block-toolbar{opacity:0!important;pointer-events:none!important}${path} > .block-toolbar *{pointer-events:none!important}`;
+  };
+  // The diagram toolbar is a rollover, not a permanently pinned selection.
+  // Dismiss before bubbling/stopPropagation, and release stale button focus too.
+  const pointerDown=(event:PointerEvent)=>{
+    if(!(event.target instanceof Element)||event.target.closest('.flow-block > .block-toolbar,.flow-block-popover'))return;
+    if(selected?.matches('.flow-block'))clear();
+    const focused=document.activeElement;if(focused instanceof HTMLElement&&focused.closest('.flow-block > .block-toolbar'))focused.blur();
+    const block=event.target.closest<HTMLElement>('.flow-block');if(block&&canvas.contains(block)){dismissedFlow=block;renderDismissed();}
+  };
+  const pointerOver=(event:PointerEvent)=>{
+    if(!dismissedFlow||!(event.target instanceof Element)||!dismissedFlow.contains(event.target))return;
+    if(event.relatedTarget instanceof Node&&dismissedFlow.contains(event.relatedTarget))return;
+    dismissedFlow=null;renderDismissed();
+  };
   const dragging = () => document.body.classList.contains('is-dragging') || window.isLmsDragging;
   const render = () => {
     if (!selected) return;
@@ -45,6 +65,7 @@ export function setupToolbarSelection() {
     if (target.closest('[contenteditable="true"]')) { clear(); return; }
     const block = target.closest<HTMLElement>('.lms-element');
     if (!block || !block.querySelector(':scope > .block-toolbar')) { clear(); return; }
+    if(block.matches('.flow-block')){clear();return;}
     // Master-page containers are hover-only, including clicks on their own
     // toolbar. Child blocks still use the normal pinned selection behaviour.
     if (block.querySelector(':scope > .lms-dropzone.bg-white')) { clear(); return; }
@@ -61,10 +82,10 @@ export function setupToolbarSelection() {
   const doubleClick = (event: MouseEvent) => {
     if (event.target instanceof Element && canvas.contains(event.target) && event.target.closest('.editable-text,.exercise-name,.editable-icon')) clear();
   };
-  const key = (event: KeyboardEvent) => { if (event.key === 'Escape') clear(); };
+  const key = (event: KeyboardEvent) => { if (event.key === 'Escape') {clear();const focused=document.activeElement;if(focused instanceof HTMLElement&&focused.closest('.flow-block > .block-toolbar')){dismissedFlow=focused.closest<HTMLElement>('.flow-block');focused.blur();renderDismissed();}} };
   const dragStart = () => { ignoreClickUntil = Infinity; clear(); };
   const dragEnd = () => { ignoreClickUntil = performance.now() + 150; };
-  const observer = new MutationObserver(render);
+  const observer = new MutationObserver(()=>{render();renderDismissed();});
   observer.observe(canvas, {childList:true,subtree:true});
   const bodyObserver = new MutationObserver(() => {
     if (dragging()) dragStart();
@@ -72,13 +93,17 @@ export function setupToolbarSelection() {
   });
   bodyObserver.observe(document.body, {attributes:true,attributeFilter:['class']});
   document.addEventListener('click', click, true);
+  document.addEventListener('pointerdown',pointerDown,true);
+  document.addEventListener('pointerover',pointerOver,true);
   document.addEventListener('dblclick', doubleClick, true);
   document.addEventListener('keydown', key, true);
   document.addEventListener('dragstart', dragStart, true);
   document.addEventListener('dragend', dragEnd, true);
   return () => {
-    observer.disconnect(); bodyObserver.disconnect(); style.remove();
+    observer.disconnect(); bodyObserver.disconnect(); style.remove();dismissedStyle.remove();
     document.removeEventListener('click', click, true);
+    document.removeEventListener('pointerdown',pointerDown,true);
+    document.removeEventListener('pointerover',pointerOver,true);
     document.removeEventListener('dblclick', doubleClick, true);
     document.removeEventListener('keydown', key, true);
     document.removeEventListener('dragstart', dragStart, true);

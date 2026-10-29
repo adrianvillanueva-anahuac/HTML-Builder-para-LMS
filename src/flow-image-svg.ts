@@ -1,0 +1,16 @@
+import type {FlowNode} from './flow-model';
+import {flowImagePlacement} from './flow-image';
+const n=(v:number)=>String(Math.round(v*100)/100);
+const escape=(v:string)=>v.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+export function flowImageSVG(node:FlowNode,id:string,shape:(node:FlowNode)=>string,editing=false):string{
+  const image=node.image!,w=node.width,h=node.height;
+  const silhouette=shape({...node,type:image.mask==='none'?'process':image.mask,fill:'#ffffff',stroke:'none',radius:image.mask==='none'?0:node.radius});
+  const outline=shape({...node,type:image.mask==='none'?'process':image.mask,fill:'none',radius:image.mask==='none'?0:node.radius});
+  if(!image.src)return `<defs><clipPath id="${id}-clip">${silhouette}</clipPath></defs><rect width="${n(w)}" height="${n(h)}" rx="12" fill="#f3eef9" stroke="#cdd5dc" stroke-dasharray="6 4"/><path d="M ${n(w*.3)} ${n(h*.65)} L ${n(w*.45)} ${n(h*.4)} L ${n(w*.57)} ${n(h*.57)} L ${n(w*.68)} ${n(h*.43)} L ${n(w*.78)} ${n(h*.65)} Z" fill="#5d428c"/><text x="${n(w/2)}" y="${n(h*.88)}" text-anchor="middle" font-size="12" fill="#5d428c">Agregar imagen</text>`;
+  const p=flowImagePlacement(image,w,h),a=image.adjustments,c=a.contrast/100,b=a.brightness/100;
+  // SVG primitives mirror the dynamic-image controllers, and retain SourceAlpha.
+  const filter=`<filter id="${id}-filter" x="-100%" y="-100%" width="300%" height="300%" color-interpolation-filters="sRGB"><feColorMatrix type="hueRotate" values="${n(a.hue)}"/><feComponentTransfer>${['R','G','B'].map(channel=>`<feFunc${channel} type="linear" slope="${n(c)}" intercept="${n((1-c)/2)}"/>`).join('')}</feComponentTransfer><feComponentTransfer>${['R','G','B'].map(channel=>`<feFunc${channel} type="linear" slope="${n(b)}"/>`).join('')}</feComponentTransfer><feColorMatrix type="saturate" values="${n(a.saturation/100)}" result="adjusted"/>${a.tint?`<feFlood flood-color="hsl(${n(a.tintHue)},85%,50%)" result="tint"/><feBlend in="tint" in2="adjusted" mode="color" result="colored"/><feComposite in="colored" in2="adjusted" operator="arithmetic" k2="${n(a.tint/100)}" k3="${n(1-a.tint/100)}"/><feComponentTransfer><feFuncA type="discrete" tableValues="1 1"/></feComponentTransfer><feComposite in2="SourceAlpha" operator="in"/>`:''}</filter>`;
+  const picture=`<g transform="translate(${n(w/2+image.offsetX*w)} ${n(h/2+image.offsetY*h)}) rotate(${n(image.rotation)}) scale(${image.flipX?-1:1} ${image.flipY?-1:1})"><image href="${escape(image.src)}" x="${n(-p.width/2)}" y="${n(-p.height/2)}" width="${n(p.width)}" height="${n(p.height)}" preserveAspectRatio="none" filter="url(#${id}-filter)"/></g>`;
+  const outside=editing?`<mask id="${id}-outside" maskUnits="userSpaceOnUse" x="-10000" y="-10000" width="20000" height="20000"><rect x="-10000" y="-10000" width="20000" height="20000" fill="white"/>${shape({...node,type:image.mask==='none'?'process':image.mask,fill:'#000000',stroke:'none',radius:image.mask==='none'?0:node.radius})}</mask>`:'';
+  return `<defs><clipPath id="${id}-clip">${silhouette}</clipPath>${outside}${filter}</defs>${editing?`<g data-flow-image-ghost="true" opacity="0.15" mask="url(#${id}-outside)" pointer-events="none">${picture}</g>`:''}<g clip-path="url(#${id}-clip)">${picture}</g>${outline}`;
+}

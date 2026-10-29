@@ -10,6 +10,8 @@ import {createModularConnection} from './modular-model';
 import {renderCenters,updateCenter,centerShapes,syncCenterText} from './modular-centers';
 import type {CenterShape} from './modular-model';
 import {exposedCorners,sharedStrokeFactors,setAllCellColors,createModularCell,activateAllCells,clearAllCells} from './modular-model';
+import {renderBadges,syncBadgeText,handleBadgeClick,handleBadgeInput,setupBadgeDragging} from './modular-badges';
+import {renderModularTextBoxes,syncModularTextBoxes,setupModularTextBoxes,finishModularTextEditing} from './modular-text-boxes';
 
 const icon=(name:string)=>`<span class="material-symbols-outlined" aria-hidden="true">${name}</span>`;
 const button=(action:string,name:string,label:string)=>`<button type="button" data-mod-action="${action}" title="${label}" aria-label="${label}">${icon(name)}</button>`;
@@ -32,6 +34,7 @@ function updateCellAppearance(cell:HTMLElement,value:ModularModel['cells'][strin
 function sync(block:HTMLElement) {
   const model=models.get(block)!;
   syncCenterText(block,model);
+  syncBadgeText(block,model);
   block.querySelectorAll<HTMLElement>('.mod-cell').forEach(cell=>{
     const prompt=cell.querySelector<HTMLElement>('.mod-student-prompt');
     if(prompt&&model.cells[cell.dataset.cell!])model.cells[cell.dataset.cell!].studentPromptHtml=prompt.innerHTML;
@@ -42,6 +45,7 @@ function sync(block:HTMLElement) {
     if(text&&editing&&text.innerHTML!==editing.innerHTML)text.innerHTML=editing.innerHTML;
     if(text && model.cells[cell.dataset.cell!])model.cells[cell.dataset.cell!].html=text.innerHTML;
   });
+  syncModularTextBoxes(block,model);
   return model;
 }
 function persist(block:HTMLElement) {block.dataset.modular=JSON.stringify(models.get(block));}
@@ -65,6 +69,7 @@ function layout(block:HTMLElement) {
   runtimes.get(block)?.update();
 }
 function render(block:HTMLElement) {
+  finishModularTextEditing(block);
   if(connector?.block===block)closeConnector();
   runtimes.get(block)?.destroy();
   block.removeAttribute('data-pinned-cell');
@@ -141,6 +146,12 @@ function render(block:HTMLElement) {
   block.querySelector<HTMLButtonElement>('[data-mod-action=column]')!.disabled=m.columns.length>=10;
   renderCenters(grid,m);
   addStrokeControls(block);
+  block.querySelectorAll<HTMLElement>('.mod-cell-tools summary[aria-label="Alineación vertical"]').forEach(summary=>{
+    summary.innerHTML=`<span class="mod-align-text-icon" aria-hidden="true">${icon('vertical_align_center')}<small>A</small></span>`;
+    summary.nextElementSibling!.classList.add('mod-align-actions');
+  });
+  renderBadges(block,m);
+  renderModularTextBoxes(block,m);
   layout(block);persist(block);runtimes.set(block,mountModularRuntime(block));
 }
 function modal(title:string,content:string,onConfirm:(panel:HTMLElement)=>boolean|void,onCancel=()=>{}) {
@@ -185,6 +196,10 @@ function chooseGrid(block:HTMLElement) {
 function editPreview(block:HTMLElement,preview:HTMLElement) {
   const info=preview.closest<HTMLDetailsElement>('.mod-info')!;
   if(info.dataset.editing==='true')return;
+  const primary=info.closest('.mod-cell')?.querySelector<HTMLElement>('.mod-text');
+  if(primary&&!models.get(block)?.cells[info.closest<HTMLElement>('.mod-cell')!.dataset.cell!]?.student){
+    closeConnector();info.open=false;primary.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));return;
+  }
   closeConnector();info.open=true;info.dataset.editing='true';
   const cell=preview.closest<HTMLElement>('.mod-cell')!;
   const tools=cell.querySelector<HTMLElement>(':scope > .mod-cell-tools')!.cloneNode(true) as HTMLElement;
@@ -314,7 +329,7 @@ export function initModularTables() {
   });
 }
 function positionCellMenus() {
-  document.querySelectorAll<HTMLDetailsElement>('.mod-cell-tools details[open],.mod-row-tools details[open],.mod-column-tools details[open],.mod-preview-tools details[open]').forEach(menu=>{
+  document.querySelectorAll<HTMLDetailsElement>('.mod-cell-tools details[open],.mod-row-tools details[open],.mod-column-tools details[open],.mod-preview-tools details[open],.mod-badge-align-menu[open]').forEach(menu=>{
     const panel=menu.querySelector<HTMLElement>(':scope > div'),anchor=menu.querySelector('summary');
     if(!panel||!anchor)return;
     const rect=anchor.getBoundingClientRect();
@@ -336,24 +351,39 @@ function positionCellMenus() {
       {left:clampX(bar.right+6),top:clampY(rect.top)},
       {left:clampX(bar.left-width-6),top:clampY(rect.top)}
     ];
+    const badge=menu.matches('.mod-badge-menu')?menu.closest('.mod-cell')?.querySelector('.mod-badge')?.getBoundingClientRect():undefined;
+    if(badge){
+      // Keep the edited shape visible while changing its scale or color.
+      candidates.unshift({left:clampX(badge.right+8),top:clampY(Math.max(bar.bottom+6,badge.bottom+6))});
+      obstacles.push({left:badge.left-6,right:badge.right+6,top:badge.top-6,bottom:badge.bottom+6} as DOMRect);
+    }
     const overlap=(p:{left:number;top:number})=>obstacles.reduce((sum,r)=>sum+
       Math.max(0,Math.min(p.left+width,r.right+4)-Math.max(p.left,r.left-4))*
       Math.max(0,Math.min(p.top+height,r.bottom+4)-Math.max(p.top,r.top-4)),0);
     candidates.sort((a,b)=>overlap(a)-overlap(b));
     const {left,top}=candidates[0];
-    panel.style.left=left+'px';panel.style.top=top+'px';
+    // The main toolbar is transformed: its popover must use local absolute
+    // coordinates rather than viewport-fixed coordinates inside that transform.
+    const origin=menu.matches('.mod-badge-align-menu')?menu.getBoundingClientRect():{left:0,top:0};
+    panel.style.left=(left-origin.left)+'px';panel.style.top=(top-origin.top)+'px';
   });
 }
 export function setupModularTables() {
   if(installed)return;installed=true;
+  const badgeHost={model:(block:HTMLElement)=>models.get(block),sync,persist,render,save};
+  setupBadgeDragging(badgeHost);
+  setupModularTextBoxes({...badgeHost,update:block=>runtimes.get(block)?.update()});
   const hoverTimers=new WeakMap<Element,ReturnType<typeof setTimeout>>();
+  const tableHoverTimers=new WeakMap<Element,ReturnType<typeof setTimeout>>();
   const cancelHoverClose=(el:Element)=>{clearTimeout(hoverTimers.get(el));hoverTimers.delete(el);};
   window.addEventListener('scroll',positionConnector,true);window.addEventListener('resize',positionConnector);
   window.addEventListener('scroll',positionCellMenus,true);window.addEventListener('resize',positionCellMenus);
-  document.addEventListener('toggle',event=>{if((event.target as HTMLElement).matches?.('.mod-cell-tools details,.mod-row-tools details,.mod-column-tools details,.mod-preview-tools details'))positionCellMenus();},true);
+  document.addEventListener('toggle',event=>{if((event.target as HTMLElement).matches?.('.mod-cell-tools details,.mod-row-tools details,.mod-column-tools details,.mod-preview-tools details,.mod-badge-align-menu'))positionCellMenus();},true);
   document.addEventListener('pointerover',event=>{
     const target=event.target as HTMLElement,trigger=target.closest?.<HTMLElement>('[data-mod-action=connect]');
-    if(target.closest?.('.mod-info'))closeConnector();
+    const hoveredTable=target.closest?.<HTMLElement>('.modular-table');
+    if(hoveredTable){clearTimeout(tableHoverTimers.get(hoveredTable));hoveredTable.classList.add('mod-toolbar-retained');}
+    if(target.closest?.('.mod-info,.mod-badge'))closeConnector();
     const menu=target.closest?.<HTMLDetailsElement>('.modular-table .mod-tools details');
     if(menu){
       cancelHoverClose(menu);
@@ -384,6 +414,7 @@ export function setupModularTables() {
       },450));
     }
     const block=target.closest?.('.modular-table');
+    if(block&&!block.contains(event.relatedTarget as Node)){clearTimeout(tableHoverTimers.get(block));tableHoverTimers.set(block,setTimeout(()=>block.classList.remove('mod-toolbar-retained'),2000));}
     if(block)setTimeout(()=>block.querySelectorAll<HTMLElement>('[data-row-tools]').forEach(tool=>{
       const row=tool.dataset.rowTools;
       if(!block.querySelector(`.mod-cell[data-row="${row}"]:hover`)&&!tool.querySelector('details[open]'))tool.classList.remove('is-row-hovered');
@@ -414,6 +445,7 @@ export function setupModularTables() {
     const target=event.target as HTMLElement;if(!target.closest)return;
     const block=target.closest<HTMLElement>('.modular-table');
     if(!block||!models.has(block))return;
+    if(handleBadgeClick(event,block,badgeHost))return;
     const center=target.closest<HTMLElement>('.mod-center');
     if(center){
       const m=sync(block),key=center.dataset.center!;
@@ -534,6 +566,7 @@ export function setupModularTables() {
   });
   document.addEventListener('input',event=>{
     const target=event.target as HTMLInputElement,block=target.closest<HTMLElement>('.modular-table');if(!block||!models.has(block))return;
+    if(handleBadgeInput(target,block,badgeHost)){positionCellMenus();return;}
     const m=sync(block);
     const center=target.closest<HTMLElement>('.mod-center');
     if(center&&target.hasAttribute('data-center-size')){
@@ -611,6 +644,10 @@ export function prepareModularExport(root:HTMLElement) {
     if(block.dataset.modPending){block.remove();return;}
     block.classList.add('mod-published');delete block.dataset.modular;
     block.querySelectorAll<HTMLElement>('.mod-student-prompt').forEach(prompt=>{prompt.classList.remove('editable-text');prompt.removeAttribute('contenteditable');prompt.removeAttribute('title');});
+    block.querySelectorAll<HTMLElement>('.mod-badge').forEach(badge=>{badge.removeAttribute('tabindex');badge.removeAttribute('data-dragging');badge.setAttribute('aria-label','Figura del perímetro');});
+    block.querySelectorAll<HTMLElement>('.mod-badge-text').forEach(text=>{text.classList.remove('editable-text');text.removeAttribute('contenteditable');text.removeAttribute('title');});
+    block.querySelectorAll<HTMLElement>('.mod-text-box-frame').forEach(frame=>frame.classList.remove('mod-text-box-active'));
+    block.querySelectorAll<HTMLElement>('.mod-extra-text').forEach(text=>{text.classList.remove('editable-text');text.removeAttribute('contenteditable');text.removeAttribute('title');});
     block.querySelectorAll<HTMLElement>('.mod-card[data-student=true] .mod-text').forEach(text=>{
       text.innerHTML='';text.classList.remove('mod-student-placeholder');text.classList.add('student-rich-answer');text.setAttribute('role','textbox');text.setAttribute('aria-multiline','true');text.setAttribute('aria-label','Respuesta del alumno');
     });
@@ -629,13 +666,15 @@ export function compactModularState(root:HTMLElement) {
     try {
       const model=JSON.parse(block.dataset.modular!);
       syncCenterText(block,model);
+      syncBadgeText(block,model);
+      syncModularTextBoxes(block,model);
       block.querySelectorAll<HTMLElement>('.mod-cell').forEach(cell=>{
         const prompt=cell.querySelector('.mod-student-prompt');
         if(prompt&&model.cells[cell.dataset.cell!])model.cells[cell.dataset.cell!].studentPromptHtml=prompt.innerHTML;
         const text=cell.querySelector('.mod-text');
         if(text&&model.cells[cell.dataset.cell!]&&!model.cells[cell.dataset.cell!].student)model.cells[cell.dataset.cell!].html=text.innerHTML;
       });
-      block.dataset.modular=JSON.stringify(model);block.innerHTML='';block.removeAttribute('data-pinned-cell');
+      block.dataset.modular=JSON.stringify(model);block.innerHTML='';block.removeAttribute('data-pinned-cell');block.classList.remove('mod-toolbar-retained');
     }catch { /* Preserve unknown imported content. */ }
   });
 }

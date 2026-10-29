@@ -125,7 +125,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     if (!p) return null;
     if(window.lmsWorkspaceDragActive)return p;
     rememberTasks(p.spaces);
-    const next = {...p, spaces:p.spaces.map(s => s.id === p.activeId ? syncWorkspaceAutomaticChecklist({...s,...snapshot()},outer(),p.autoChecklist!==false,trackedTasks.current) : s)};
+    const next = {...p, spaces:p.spaces.map(s => s.id === p.activeId ? syncWorkspaceAutomaticChecklist({...s,...snapshot()},outer(),p.autoChecklist!==false,trackedTasks.current,false) : s)};
     rememberTasks(next.spaces);
     current.current = next;
     if(next.spaces.some((space,index)=>space.checklist!==p.spaces[index].checklist)){
@@ -139,7 +139,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     // final snapshot, never a temporary parked/ghost canvas during the drag.
     if(!window.lmsWorkspaceDragActive){
       rememberTasks(p.spaces);
-      p={...p,spaces:p.spaces.map(space=>syncWorkspaceAutomaticChecklist(space,undefined,p.autoChecklist!==false,trackedTasks.current))};
+      p={...p,spaces:p.spaces.map(space=>syncWorkspaceAutomaticChecklist(space,undefined,p.autoChecklist!==false,trackedTasks.current,space.id!==p.activeId))};
       rememberTasks(p.spaces);
     }
     (window as any).globalFooterConfig=p.footerConfig;

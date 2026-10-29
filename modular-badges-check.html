@@ -1,0 +1,90 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Figuras en el perímetro · pruebas</title>
+<style>body{margin:0;font:13px Arial}#controls{padding:8px;background:#eee}pre{white-space:pre-wrap;margin:8px;max-height:105px;overflow:auto}iframe{width:100%;height:740px;border:0}#published{height:320px}</style>
+<div id="controls"><button id="run">Verificar figuras del perímetro</button> <button id="proof">Mostrar figuras</button> <button id="global">Mostrar posición conjunta</button></div><pre id="result">Preparado</pre><iframe id="app" src="/"></iframe><iframe id="published" title="Publicación"></iframe>
+<script type="module">
+import {createModular,activateAllCells} from '/src/modular-model.ts';
+const frame=document.querySelector('#app'),out=document.querySelector('#result'),wait=(ms=260)=>new Promise(r=>setTimeout(r,ms));
+const env=()=>({w:frame.contentWindow,d:frame.contentDocument});
+let results=[];
+const check=(name,ok)=>{results.push((ok?'PASS ':'FAIL ')+name);out.textContent=results.join('\n');if(!ok)throw Error(name);};
+const table=()=>env().d.querySelector('.modular-table'),model=()=>JSON.parse(table().dataset.modular);
+const cell=key=>table().querySelector(`.mod-cell[data-cell="${key}"]`),badge=key=>cell(key).querySelector('.mod-badge');
+function clear(){const {d}=env();d.activeElement?.blur();table().removeAttribute('data-pinned-cell');table().querySelectorAll('.mod-cell-selected,.mod-cell-hover-active').forEach(el=>el.classList.remove('mod-cell-selected','mod-cell-hover-active'));table().querySelectorAll('details[open]').forEach(menu=>{menu.open=false;delete menu.dataset.menuPinned;});}
+async function select(key){clear();const {w}=env(),el=cell(key);el.classList.add('mod-cell-selected');table().dataset.pinnedCell=key;el.dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true}));await wait();return el;}
+async function setup(reset=false){const {w,d}=env();if(d.querySelector('.project-welcome')){d.querySelector('.project-welcome .welcome-actions button').click();await wait();}if(reset||!table()){
+ const m=createModular(2,3);activateAllCells(m);m.rows=[145,145];
+ const canvas=d.querySelector('#canvas');canvas.innerHTML='<div class="relative w-full lms-element is-rendered"><div class="lms-dropzone bg-white" style="padding:64px 52px;min-height:720px"><h2 style="font:bold 30px Georgia;color:#ff5900;text-align:center;margin:0 0 100px">Tabla modular</h2><section class="lms-element is-rendered modular-table" data-type="tabla_modular"></section></div></div>';
+ for(const [i,value] of Object.values(m.cells).entries())value.html='<p style="text-align:center">'+['Planeación','Desarrollo','Evaluación','Recursos','Actividades','Resultados'][i]+'</p>';
+ canvas.querySelector('section').dataset.modular=JSON.stringify(m);w.initNestedDropzones();w.checkEmptyState();await wait();w.saveHistoryState(true);
+}return table();}
+async function create(key,shape){await select(key);cell(key).querySelector('.mod-badge-menu summary').click();await wait();cell(key).querySelector(`[data-badge-shape="${shape}"]`).click();await wait();}
+function input(el,value){const {w}=env();el.value=value;el.dispatchEvent(new w.Event('input',{bubbles:true}));el.dispatchEvent(new w.Event('change',{bubbles:true}));}
+function drag(node,dx,dy,cancel=false){const {w,d}=env(),rect=node.getBoundingClientRect(),x=rect.left+rect.width/2,y=rect.top+rect.height/2;
+ // Synthetic fixture pointers do not belong to the UA pointer registry.
+ const capture=node.setPointerCapture;node.setPointerCapture=()=>{};
+ node.dispatchEvent(new w.PointerEvent('pointerdown',{bubbles:true,pointerId:77,button:0,clientX:x,clientY:y}));
+ d.dispatchEvent(new w.PointerEvent('pointermove',{bubbles:true,pointerId:77,clientX:x+dx,clientY:y+dy,cancelable:true}));
+ d.dispatchEvent(new w.PointerEvent(cancel?'pointercancel':'pointerup',{bubbles:true,pointerId:77,clientX:x+dx,clientY:y+dy}));node.setPointerCapture=capture;
+}
+function atBorder(key){const a=badge(key).getBoundingClientRect(),b=cell(key).querySelector('.mod-card').getBoundingClientRect(),x=a.left+a.width/2,y=a.top+a.height/2;
+ return Math.min(Math.abs(x-b.left),Math.abs(x-b.right),Math.abs(y-b.top),Math.abs(y-b.bottom))<1.1&&x>=b.left-1&&x<=b.right+1&&y>=b.top-1&&y<=b.bottom+1;}
+document.querySelector('#run').onclick=async()=>{results=[];try{
+ await setup(true);const {w,d}=env(),grid=table().querySelector('.mod-grid'),rect=grid.getBoundingClientRect();
+ const pseudo=w.getComputedStyle(grid,'::before');check('Zona superior ampliada exactamente 10 px sin cambiar dimensiones',pseudo.height==='10px'&&pseudo.top==='-10px'&&Math.abs(rect.height-310)<1);
+ check('Los 9 px sobre el borde pertenecen a la zona sensible',d.elementFromPoint(rect.left+rect.width/2,rect.top-9)?.closest('.modular-table')===table());
+ check('11 px sobre el borde ya están fuera de la zona sensible',d.elementFromPoint(rect.left+rect.width/2,rect.top-11)?.closest('.mod-grid')!==grid);
+ await select('0:0');const align=cell('0:0').querySelector('summary[aria-label="Alineación vertical"]');align.click();await wait();
+ check('Icono de alineación conserva el símbolo y añade una A',align.textContent.includes('vertical_align_center')&&align.querySelector('small')?.textContent==='A');
+ const panel=align.nextElementSibling;check('Alineación compacta sin espacio vacío',panel.getBoundingClientRect().width<120&&panel.getBoundingClientRect().height<50);
+ panel.querySelector('[data-value=end]').click();check('Los botones de alineación siguen funcionando',model().cells['0:0'].verticalAlign==='end');
+ check('Sin figuras no hay control conjunto',!table().querySelector('.mod-badge-align-menu'));
+ for(const [key,shape] of [['0:0','circle'],['0:1','rounded'],['0:2','hexagon']]){
+  await create(key,shape);check('Insertar '+shape,model().cells[key].badge.shape===shape&&!!badge(key));check(shape+': centro alineado al perímetro',atBorder(key));
+  if(key==='0:0')check('Una figura no muestra control conjunto',!table().querySelector('.mod-badge-align-menu'));
+ }
+ check('Con dos o más figuras aparece mini rectángulo y círculo',!!table().querySelector('.mod-badge-align-icon')&&!!table().querySelector('.mod-badge-picker-dot'));
+ clear();await wait();check('Menú general no tapa las figuras del borde superior',table().querySelector('.block-toolbar > .mod-tools').getBoundingClientRect().bottom<=Math.min(...[...table().querySelectorAll('.mod-badge')].map(b=>b.getBoundingClientRect().top))-7);
+ await select('0:1');cell('0:1').querySelector('.mod-badge-menu summary').click();await wait();
+ input(cell('0:1').querySelector('[data-badge-scale]'),'150');check('Slider de escala modifica tamaño y guarda el modelo',model().cells['0:1'].badge.scale===1.5&&badge('0:1').style.width==='144px');
+ const bp=cell('0:1').querySelector('.mod-badge-panel').getBoundingClientRect(),bv=badge('0:1').getBoundingClientRect();check('Panel de escala y color no tapa la figura seleccionada',bp.top>=bv.bottom||bp.bottom<=bv.top||bp.left>=bv.right||bp.right<=bv.left);
+ cell('0:1').querySelector('[data-badge-color="#ff5900"]').click();check('Paleta cambia color sin cambiar posición',model().cells['0:1'].badge.color==='#ff5900'&&atBorder('0:1'));
+ input(cell('0:1').querySelector('[data-badge-color-input]'),'#15803d');check('Color personalizado funciona',model().cells['0:1'].badge.color==='#15803d');
+ const text=badge('0:0').querySelector('.mod-badge-text');text.dispatchEvent(new w.MouseEvent('dblclick',{bubbles:true}));await wait();
+ check('Doble clic usa la barra de texto dinámico existente',text.contentEditable==='true'&&!d.querySelector('#rtf-toolbar').classList.contains('hidden'));
+ text.innerHTML='<b>01</b>';text.style.fontFamily='Lato';text.dispatchEvent(new w.Event('input',{bubbles:true}));text.blur();await wait();
+ check('Texto centrado y formato persistido',model().cells['0:0'].badge.html==='<b>01</b>'&&model().cells['0:0'].badge.textStyle.includes('Lato')&&w.getComputedStyle(text).textAlign==='center');
+ for(const [dx,dy,edge] of [[1000,30,'right'],[-1000,50,'left'],[30,1000,'bottom'],[20,-1000,'top']]){
+  clear();drag(badge('0:0'),dx,dy);await wait();check('Arrastre extremo hacia '+edge+' mantiene centro en el perímetro',model().cells['0:0'].badge.position.edge===edge&&atBorder('0:0'));
+ }
+ const original=JSON.stringify(model().cells['0:0'].badge.position);drag(badge('0:0'),300,80,true);await wait();check('Cancelar arrastre restaura posición y libera redimensionado',JSON.stringify(model().cells['0:0'].badge.position)===original&&!w.modularResizing);
+ const before=model().cells['0:1'].badge.position;drag(badge('0:1'),0,1000);await wait();const after=model().cells['0:1'].badge.position;
+ w.undo();await wait();check('Un deshacer revierte el arrastre completo',JSON.stringify(model().cells['0:1'].badge.position)===JSON.stringify(before));w.redo();await wait();check('Rehacer restaura el arrastre',JSON.stringify(model().cells['0:1'].badge.position)===JSON.stringify(after));
+ clear();const menu=table().querySelector('.mod-badge-align-menu');menu.querySelector('summary').click();await wait();const picker=menu.querySelector('.mod-badge-picker');
+ const pickRect=picker.getBoundingClientRect(),canvasRect=d.querySelector('#scroll-container').getBoundingClientRect();check('Selector conjunto aparece dentro del área visible de edición',pickRect.left>=canvasRect.left&&pickRect.right<=canvasRect.right&&pickRect.top>=canvasRect.top&&pickRect.bottom<=canvasRect.bottom);
+ drag(picker,1000,20);await wait();const all=model();check('Control conjunto coloca todas las figuras en la misma posición',Object.values(all.cells).filter(v=>v.badge).every(v=>JSON.stringify(v.badge.position)===JSON.stringify(all.cells['0:0'].badge.position)));
+ check('El control conjunto no altera colores, escala ni texto',all.cells['0:0'].badge.html==='<b>01</b>'&&all.cells['0:1'].badge.scale===1.5&&all.cells['0:1'].badge.color==='#15803d');
+ clear();drag(badge('0:0'),-1000,0);await wait();check('Una posición manual posterior solo cambia esa figura',model().cells['0:0'].badge.position.edge==='left'&&model().cells['0:1'].badge.position.edge==='right');
+ const picker2=table().querySelector('.mod-badge-picker');picker2.dispatchEvent(new w.KeyboardEvent('keydown',{bubbles:true,key:'Home'}));await wait();check('Nueva posición conjunta sobreescribe cambios manuales anteriores',Object.values(model().cells).filter(v=>v.badge).every(v=>v.badge.position.edge==='top'&&v.badge.position.offset===.5));
+ badge('0:0').dispatchEvent(new w.KeyboardEvent('keydown',{bubbles:true,key:'ArrowRight'}));await wait();check('Teclado permite mover una figura sin afectar las otras',model().cells['0:0'].badge.position.offset>.5&&model().cells['0:1'].badge.position.offset===.5);badge('0:0').dispatchEvent(new w.KeyboardEvent('keydown',{bubbles:true,key:'Home'}));
+ for(const width of [1150,950,750]){frame.style.width=width+'px';await wait();check(width+' px: figuras siguen ancladas al perímetro tras ajuste de ancho',['0:0','0:1','0:2'].every(atBorder));}
+ frame.style.width='100%';await wait();
+ const exported=w.generateExportHTML(false),published=new DOMParser().parseFromString(exported,'text/html');
+ check('Exportación conserva las tres figuras con texto y color',published.querySelectorAll('.mod-badge').length===3&&published.querySelector('.mod-badge-text b')?.textContent==='01');
+ check('Exportación no incluye controles ni texto editable del autor',!published.querySelector('.mod-badge-menu,.mod-badge-align-menu,.mod-badge[tabindex],.mod-badge-text[contenteditable]'));
+ published.querySelectorAll('style').forEach(el=>el.remove());const pub=document.querySelector('#published');await new Promise(resolve=>{pub.onload=resolve;pub.srcdoc='<!doctype html>'+published.documentElement.outerHTML;});await wait();
+ const pd=pub.contentDocument,pw=pub.contentWindow,pc=pd.querySelector('.mod-cell[data-cell="0:0"]'),pb=pc.querySelector('.mod-badge'),pr=pc.getBoundingClientRect(),br=pb.getBoundingClientRect();
+ check('Sin CSS externo se conserva figura centrada en el borde',pw.getComputedStyle(pb).position==='absolute'&&Math.abs(br.top+br.height/2-pr.top)<1.1&&Math.abs(br.left+br.width/2-pr.left-pr.width/2)<1.1);
+ const clip=pc.closest('.mod-scroll').getBoundingClientRect();check('Las mitades exteriores de las figuras no quedan recortadas al publicar',br.top>=clip.top&&br.left>=clip.left&&br.right<=clip.right);
+ pub.style.width='700px';await wait();const pr2=pc.getBoundingClientRect(),br2=pb.getBoundingClientRect();check('Publicación sin CSS se adapta al ancho sin perder anclaje',Math.abs(br2.left+br2.width/2-pr2.left-pr2.width/2)<1.1);
+ const restored=JSON.parse(table().dataset.modular),replacement=table().cloneNode(false);table().replaceWith(replacement);w.initNestedDropzones();await wait();check('Restaurar el estado serializado conserva todas las figuras',table().querySelectorAll('.mod-badge').length===3&&JSON.stringify(model().cells)===JSON.stringify(restored.cells));
+ await select('0:2');cell('0:2').querySelector('.mod-badge-menu summary').click();await wait();cell('0:2').querySelector('[data-badge-delete]').click();await wait();check('Eliminar figura no borra el texto del rectángulo',!badge('0:2')&&model().cells['0:2'].html.includes('Evaluación'));
+ await select('0:1');cell('0:1').querySelector('.mod-badge-menu summary').click();await wait();cell('0:1').querySelector('[data-badge-delete]').click();await wait();check('Al quedar una figura desaparece el control conjunto',!table().querySelector('.mod-badge-align-menu'));
+ await create('0:1','rounded');const rounded=badge('0:1').querySelector('svg'),corner=rounded.querySelector('rect');check('Redondeado con radios proporcionales sin deformación elíptica',rounded.getAttribute('viewBox')==='0 0 96 54'&&corner.getAttribute('rx')===corner.getAttribute('ry'));
+ await select('0:1');cell('0:1').querySelector('.mod-badge-menu summary').click();await wait();check('Eliminar figura aparece en la misma fila superior que las formas',cell('0:1').querySelector('[data-badge-delete]').parentElement.classList.contains('mod-badge-shapes'));
+ clear();const card=cell('0:0').querySelector('.mod-card').getBoundingClientRect(),b=badge('0:0').getBoundingClientRect();drag(badge('0:0'),card.right-(b.left+b.width/2),card.top+card.height/2-(b.top+b.height/2));await wait();await select('0:1');const overlap=badge('0:0').getBoundingClientRect(),hit=d.elementFromPoint(overlap.right-4,overlap.top+overlap.height/2);check('Figura de una celda queda por encima del rectángulo contiguo seleccionado',badge('0:0').contains(hit)&&w.getComputedStyle(cell('0:0')).zIndex==='auto');
+ clear();table().dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true}));table().dispatchEvent(new w.PointerEvent('pointerout',{bubbles:true,relatedTarget:d.body}));await wait(1200);check('El menú general permanece disponible durante el regreso del cursor',table().classList.contains('mod-toolbar-retained'));await wait(1100);check('El menú se oculta al terminar los dos segundos adicionales',!table().classList.contains('mod-toolbar-retained'));
+ out.textContent=results.join('\n')+'\nTOTAL: '+results.length+' / FAIL: '+results.filter(x=>x.startsWith('FAIL')).length;
+}catch(error){out.textContent+='\nERROR '+error.stack;}};
+async function proof(global=false){await setup(true);for(const [key,shape,label] of [['0:0','circle','01'],['0:1','rounded','02'],['0:2','hexagon','03']]){await create(key,shape);const text=badge(key).querySelector('.mod-badge-text');text.textContent=label;text.dispatchEvent(new (env().w.Event)('input',{bubbles:true}));}out.hidden=true;document.querySelector('#published').hidden=true;clear();await select('0:1');if(global){clear();table().querySelector('.mod-badge-align-menu summary').click();}else cell('0:1').querySelector('.mod-badge-menu summary').click();await wait();}
+document.querySelector('#proof').onclick=()=>proof();document.querySelector('#global').onclick=()=>proof(true);
+</script></html>

@@ -8,6 +8,9 @@
    share this checkmark while keeping their native checked/disabled semantics. */
 .exercise-settings.workspace-settings .workspace-task[data-done=true] input[type=checkbox],.project-tab-info-task[data-done=true] input[type=checkbox]{appearance:none;opacity:1;border:1px solid #188038;border-radius:3px;background:#188038 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m5 12 4 4L19 6' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/90% no-repeat}
 .workspace-task[data-automatic=true] input[type=checkbox],.project-tab-info-task input[type=checkbox]:disabled{cursor:default}
+.exercise-settings .workspace-task[data-automatic=true]{grid-template-columns:27px minmax(0,1fr) 20px 32px}
+.exercise-settings .workspace-task[data-automatic=true]>.material-symbols-outlined{grid-column:3;grid-row:1;font-size:18px;color:#8a8196}
+.exercise-settings .workspace-task[data-automatic=true]>button{grid-column:4}
 .project-tab-info-task[data-done=true] small{color:#188038}
 .dark .project-tab-info-task[data-done=true] small{color:#81c995}
 @media (forced-colors:active){.exercise-settings.workspace-settings .workspace-task[data-done=true] input[type=checkbox],.project-tab-info-task[data-done=true] input[type=checkbox]{appearance:auto;background:none}.project-tab-checklist-dot{forced-color-adjust:none}}

@@ -4,6 +4,16 @@ export type ImageTextLayout={margin:number;x:number;y:number;width:number;height
 export const clamp=(value:number,min:number,max:number)=>Math.min(max,Math.max(min,Number.isFinite(value)?value:min));
 const number=(value:unknown,fallback:number,min:number,max:number)=>clamp(value==null?fallback:Number(value),min,max);
 export const fullCrop:CropRect={x:0,y:0,width:1,height:1};
+export function imageRotationLayout(aspect:number,degrees:number){
+  aspect=Number.isFinite(aspect)&&aspect>0?aspect:1;
+  const radians=(Number.isFinite(degrees)?degrees:0)*Math.PI/180,c=Math.abs(Math.cos(radians)),s=Math.abs(Math.sin(radians));
+  return {aspect:(aspect*c+s)/(aspect*s+c),width:100/(c+s/aspect),height:100/(c+s*aspect)};
+}
+export function rotatedImageFrame(width:number,height:number,degrees:number,maxWidth:number){
+  const radians=degrees*Math.PI/180,c=Math.abs(Math.cos(radians)),s=Math.abs(Math.sin(radians));
+  const w=width*c+height*s,h=width*s+height*c,scale=Math.min(1,Math.max(1,maxWidth)/Math.max(1,w));
+  return{width:w*scale,height:h*scale};
+}
 export function normalizeCrop(value:Partial<CropRect>={}):CropRect{
   const width=number(value.width,1,.02,1),height=number(value.height,1,.02,1);
   return {x:number(value.x,0,0,1-width),y:number(value.y,0,0,1-height),width,height};

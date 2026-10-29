@@ -116,7 +116,7 @@ export function setupTextLinkControls(){
   let active:HTMLAnchorElement|null=null;let timer:ReturnType<typeof setTimeout>|undefined;
   const hide=()=>{clearTimeout(timer);tools.hidden=true;active=null;};
   const position=()=>{
-    if(!active?.isConnected||!canvas.contains(active)){hide();return;}
+    if(!active?.isConnected||(!canvas.contains(active)&&!active.closest('.fde-rich-edit'))){hide();return;}
     const r=active.getBoundingClientRect();
     if(r.bottom<0||r.top>innerHeight){hide();return;}
     const width=tools.offsetWidth,height=tools.offsetHeight;
@@ -130,7 +130,7 @@ export function setupTextLinkControls(){
   const scheduleHide=()=>{clearTimeout(timer);timer=setTimeout(()=>{if(!tools.contains(document.activeElement))hide();},250);};
   const find=(target:EventTarget|null)=>{
     const link=target instanceof Element?target.closest<HTMLAnchorElement>('.editable-text a[href]'):null;
-    return link&&canvas.contains(link)?link:null;
+    return link&&(canvas.contains(link)||!!link.closest('.fde-rich-edit'))?link:null;
   };
   const over=(event:PointerEvent)=>{const link=find(event.target);if(link)show(link);};
   const out=(event:PointerEvent)=>{
@@ -158,8 +158,8 @@ export function setupTextLinkControls(){
   };
   const key=(event:KeyboardEvent)=>{if(event.key==='Escape')hide();};
   const observer=new MutationObserver(()=>{if(active&&!active.isConnected)hide();});observer.observe(canvas,{childList:true,subtree:true});
-  canvas.addEventListener('pointerover',over);canvas.addEventListener('pointerout',out);canvas.addEventListener('focusin',focus);
+  document.addEventListener('pointerover',over,true);document.addEventListener('pointerout',out,true);document.addEventListener('focusin',focus,true);
   document.addEventListener('click',click,true);document.addEventListener('keydown',key);
   window.addEventListener('scroll',position,true);window.addEventListener('resize',position);
-  return ()=>{hide();tools.remove();observer.disconnect();canvas.removeEventListener('pointerover',over);canvas.removeEventListener('pointerout',out);canvas.removeEventListener('focusin',focus);document.removeEventListener('click',click,true);document.removeEventListener('keydown',key);window.removeEventListener('scroll',position,true);window.removeEventListener('resize',position);};
+  return ()=>{hide();tools.remove();observer.disconnect();document.removeEventListener('pointerover',over,true);document.removeEventListener('pointerout',out,true);document.removeEventListener('focusin',focus,true);document.removeEventListener('click',click,true);document.removeEventListener('keydown',key);window.removeEventListener('scroll',position,true);window.removeEventListener('resize',position);};
 }

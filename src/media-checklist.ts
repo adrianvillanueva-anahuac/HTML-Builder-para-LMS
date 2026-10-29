@@ -1,11 +1,12 @@
 import type {ChecklistItem,Workspace} from './project-model';
 import {automaticButtonTaskHint,syncWorkspaceButtonChecklist} from './button-checklist';
+import {normalizeFlowModel} from './flow-model';
 
-export interface MediaResource {id:string;label:string;hasContent:boolean}
-const mediaNames:Record<string,string>={calculadora_html:'Funciones externas',embed_youtube:'YouTube',embed_vimeo:'Vimeo',embed_genially:'Genially',embed_canva:'Canva',embed_sketchfab:'Sketchfab',embed_gamma:'Gamma'};
+export interface MediaResource {id:string;label:string;hasContent:boolean;deferNew?:boolean}
+const mediaNames:Record<string,string>={calculadora_html:'Funciones externas',embed_youtube:'YouTube',embed_vimeo:'Vimeo',embed_genially:'Genially',embed_canva:'Canva',embed_sketchfab:'Sketchfab',embed_gamma:'Gamma',diagrama_flujo:'Diagrama de flujo'};
 const mediaSelector=Object.keys(mediaNames).map(type=>`[data-type="${type}"]`).join(',');
 export const isAutomaticTask=(item:ChecklistItem)=>!!(item.buttonId||item.mediaId);
-export const automaticTaskHint=(item:ChecklistItem)=>item.mediaId?'Se actualiza automáticamente al insertar o quitar el contenido del medio.':automaticButtonTaskHint;
+export const automaticTaskHint=(item:ChecklistItem)=>item.mediaId?'Se actualiza automáticamente al agregar o quitar contenido del elemento.':automaticButtonTaskHint;
 
 export function reconcileMediaChecklist(checklist:ChecklistItem[]|undefined,resources:MediaResource[],allowNew=true,trackedIds:ReadonlySet<string>=new Set()):ChecklistItem[]|undefined {
   const remaining=new Map(resources.filter(resource=>resource.id).map(resource=>[resource.id,resource]));
@@ -16,7 +17,7 @@ export function reconcileMediaChecklist(checklist:ChecklistItem[]|undefined,reso
     const resource=remaining.get(item.mediaId);
     if(resource){next.push(task(resource));remaining.delete(item.mediaId);}
   }
-  remaining.forEach(resource=>{if((allowNew&&!resource.hasContent)||trackedIds.has(resource.id))next.push(task(resource));});
+  remaining.forEach(resource=>{if((allowNew&&!resource.hasContent&&!resource.deferNew)||trackedIds.has(resource.id))next.push(task(resource));});
   if(!next.length)return checklist?.length?undefined:checklist;
   if(checklist?.length===next.length&&next.every((item,index)=>{const old=checklist[index];return old.text===item.text&&old.done===item.done&&old.mediaId===item.mediaId;}))return checklist;
   return next;
@@ -31,6 +32,11 @@ export function ensureMediaChecklistIds(root:ParentNode):boolean {
 }
 
 export function isMediaFilled(block:HTMLElement):boolean {
+  if(block.dataset.type==='diagrama_flujo'){
+    // Use saved content, never the placeholder, an SVG preview or an unsaved draft.
+    try{const model=normalizeFlowModel(JSON.parse(block.dataset.flowModel||'{}'));return !!(model.nodes.length||model.lanes.length);}
+    catch{return false;}
+  }
   const result=block.querySelector<HTMLElement>(':scope > .embed-result,:scope > .calc-result');
   if(!result||result.hidden||result.classList.contains('hidden')||result.style.display==='none')return false;
   if(block.dataset.type==='calculadora_html'&&result.querySelector<HTMLElement>('[data-standalone-html]')?.dataset.standaloneHtml?.trim())return true;
@@ -40,7 +46,7 @@ export function isMediaFilled(block:HTMLElement):boolean {
   });
 }
 
-export function syncWorkspaceAutomaticChecklist(space:Workspace,root?:ParentNode,allowNew=true,tracked?:{buttons:ReadonlySet<string>;media:ReadonlySet<string>}):Workspace {
+export function syncWorkspaceAutomaticChecklist(space:Workspace,root?:ParentNode,allowNew=true,tracked?:{buttons:ReadonlySet<string>;media:ReadonlySet<string>},includeEmptyFlows=true):Workspace {
   const live=!!root;
   if(!root){
     if(!space.html.includes('data-button-deferred')&&!Object.keys(mediaNames).some(type=>space.html.includes(type))&&!space.checklist?.some(isAutomaticTask))return space;
@@ -51,7 +57,8 @@ export function syncWorkspaceAutomaticChecklist(space:Workspace,root?:ParentNode
   // normalized HTML saved too, otherwise every scan would invent new tasks.
   let next=changed&&!live?{...space,html:(root as HTMLElement).innerHTML}:space;
   next=syncWorkspaceButtonChecklist(next,root,allowNew,tracked?.buttons);
-  const resources=Array.from(root.querySelectorAll<HTMLElement>(mediaSelector)).filter(block=>!block.closest('.sortable-ghost,.sortable-fallback,.lms-drag-origin')).map(block=>({id:block.id,label:mediaNames[block.dataset.type!],hasContent:isMediaFilled(block)}));
+  const dismissed=new Set(space.dismissedAutomaticTasks);
+  const resources=Array.from(root.querySelectorAll<HTMLElement>(mediaSelector)).filter(block=>!block.closest('.sortable-ghost,.sortable-fallback,.lms-drag-origin')&&!dismissed.has('media:'+block.id)).map(block=>({id:block.id,label:mediaNames[block.dataset.type!],hasContent:isMediaFilled(block),deferNew:block.dataset.type==='diagrama_flujo'&&!includeEmptyFlows}));
   const checklist=reconcileMediaChecklist(next.checklist,resources,allowNew,tracked?.media);
   return checklist===next.checklist?next:{...next,checklist};
 }

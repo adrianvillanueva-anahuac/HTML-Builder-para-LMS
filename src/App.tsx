@@ -1,4 +1,6 @@
 import { useEffect, useState, useRef, memo } from 'react';
+import {createPortal,flushSync} from 'react-dom';
+import {builderTextHostEvent} from './builder-text-tools';
 import Sortable from 'sortablejs';
 import { setupVanillaGlobals, upgradeTitleImageElements } from './vanilla-setup';
 import { TUTORIAL_TOPICS, startTutorial, type TutorialTopicId } from './tutorial';
@@ -72,6 +74,12 @@ const includeLocalFooterLogos = (logos: FooterLogo[]): FooterLogo[] => {
 };
 
 export default function App() {
+  const [textToolsHost,setTextToolsHost]=useState<HTMLElement|null>(null);
+  useEffect(()=>{const host=(event:Event)=>flushSync(()=>setTextToolsHost((event as CustomEvent<HTMLElement|null>).detail));document.addEventListener(builderTextHostEvent,host);return()=>document.removeEventListener(builderTextHostEvent,host);},[]);
+  useEffect(()=>{
+    const grid=document.getElementById('icon-grid');if(!grid||grid.childElementCount)return;
+    for(const [category,icons]of Object.entries(iconCatalog)){const section=document.createElement('div'),title=document.createElement('h3'),items=document.createElement('div');title.className='text-sm font-bold text-gray-500 mb-2 border-b border-gray-100 pb-1';title.textContent=category;items.className='grid grid-cols-8 gap-2';for(const icon of icons){const span=document.createElement('span');span.className='material-symbols-outlined text-[32px] p-2 cursor-pointer text-anahuac-orange hover:bg-orange-50 rounded text-center';span.textContent=span.title=icon;span.onclick=()=>{if(window.currentIconTarget){window.currentIconTarget.textContent=icon;window.currentIconTarget.dispatchEvent(new Event('input',{bubbles:true}));}document.getElementById('icon-modal')?.classList.add('hidden');};items.append(span);}section.append(title,items);grid.append(section);}
+  },[textToolsHost]);
   const [sidebarWidth, setSidebarWidth] = useState(340);
   const [elementView, setElementView] = useState<'list'|'grid'>('list');
   const [workspaceCount,setWorkspaceCount]=useState(0);
@@ -437,12 +445,14 @@ export default function App() {
             }
         });
 
+        const textEditingSessions = new WeakMap<HTMLElement,symbol>();
         workspaceContainer.addEventListener('dblclick', function(e) {
             let target = e.target as HTMLElement;
             let textTarget = target.closest('.editable-text') as HTMLElement;
             const rtfToolbar = document.getElementById('rtf-toolbar');
             
             if(textTarget && rtfToolbar) {
+                const session = Symbol('text-edit'); textEditingSessions.set(textTarget,session);
                 textTarget.contentEditable = "true"; 
                 textTarget.focus(); 
                 window.currentEditableText = textTarget;
@@ -453,7 +463,11 @@ export default function App() {
                 
                 const blurHandler = (ev: Event) => { 
                     setTimeout(() => { 
-                        if(!rtfToolbar.contains(document.activeElement) && document.activeElement?.id !== "rtf-image-input" && !document.activeElement?.closest('.text-link-dialog,#text-link-tools')) {
+                        if(textEditingSessions.get(textTarget) !== session) return;
+                        // A second text box can already own the shared toolbar.
+                        if(window.currentEditableText !== textTarget) { textTarget.contentEditable = "false"; return; }
+                        if(document.activeElement === textTarget) { textTarget.addEventListener('blur',blurHandler,{once:true}); return; }
+                        if(!rtfToolbar.contains(document.activeElement) && document.activeElement?.id !== "rtf-image-input" && !document.activeElement?.closest('.text-link-dialog,#text-link-tools,#image-toolbar,#inline-icon-toolbar,#icon-modal')) {
                             textTarget.contentEditable = "false"; 
                             rtfToolbar.classList.add('hidden'); 
                             textTarget.removeEventListener('blur', blurHandler); 
@@ -566,7 +580,7 @@ export default function App() {
 
   return (
     <div className="h-full flex font-sans text-gray-800 dark:text-gray-200 overflow-hidden relative transition-colors">
-      <input type="file" id="rtf-image-input" accept="image/*" className="hidden" onChange={(e) => window.insertRTFImage(e.target)} />
+      {createPortal(<><input type="file" id="rtf-image-input" accept="image/*" className="hidden" onChange={(e) => window.insertRTFImage(e.target)} />
 
       {/* BARRA FLOTANTE RICH TEXT */}
       <div id="rtf-toolbar" onMouseDown={(e) => e.preventDefault()} className="fixed hidden bg-white shadow-xl border border-gray-200 rounded-lg p-2 flex gap-1 z-50 transform -translate-x-1/2 -translate-y-full items-center flex-wrap">
@@ -696,6 +710,7 @@ export default function App() {
           <button onClick={() => window.deleteSelectedImage()} className="w-7 h-7 flex items-center justify-center hover:bg-red-50 text-red-500 rounded"><span className="material-symbols-outlined text-[18px]">delete</span></button>
       </div>
 
+      </>,textToolsHost||document.body)}
       {/* Panel Lateral: Catálogo */}
       <aside style={{width:sidebarWidth,flexShrink:0}} className="relative bg-white dark:bg-gray-800 border-r border-anahuac-gray dark:border-gray-700 flex flex-col h-full shadow-lg z-20 transition-colors" data-tour="sidebar">
         <div className="sidebar-resizer" role="separator" tabIndex={0} aria-label="Ancho del catálogo" aria-orientation="vertical" aria-valuemin={220} aria-valuemax={520} aria-valuenow={sidebarWidth}
@@ -772,7 +787,7 @@ export default function App() {
                               {exerciseMode && ['texto_alumno', 'enviar_ejercicio'].map((type,index)=>(<div key={type} data-type={type} data-catalog-level={index===0?'common':'advanced'} className="catalog-item exercise-catalog-item"><span className="material-symbols-outlined">{index===0?'edit_note':'send'}</span><span>{index===0?'Texto alumno':'Enviar ejercicio'}</span></div>))}
                               <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab" data-type="titulo_basico" data-tour="element-template"><span className="material-symbols-outlined text-anahuac-purple dark:text-white">title</span> <span className="text-sm font-medium">Título Suelto</span></div>
                               <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center justify-between gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab group" data-type="titulo_imagen">
-                                  <div className="flex items-center gap-3"><span className="material-symbols-outlined text-anahuac-orange">image</span> <span className="text-sm font-medium">Título con Imagen</span></div>
+                                  <div className="flex items-center gap-3"><span className="catalog-title-image-icon catalog-icon" aria-hidden="true"><span className="material-symbols-outlined text-anahuac-orange">image</span><small>T</small></span> <span className="text-sm font-medium">Título con Imagen</span></div>
                               </div>
                               <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab" data-type="parrafo_basico"><span className="material-symbols-outlined text-anahuac-purple dark:text-white">segment</span> <span className="text-sm font-medium">Párrafo Suelto</span></div>
                               <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center gap-3 hover:border-anahuac-orange dark:hover:border-anahuac-orange transition-colors cursor-grab" data-type="cuadro_naranja"><span className="material-symbols-outlined text-anahuac-orange">crop_square</span> <span className="text-sm font-medium">Cuadro Naranja Sólido</span></div>
@@ -814,6 +829,7 @@ export default function App() {
                           </summary>
                           <div className="space-y-3 catalog-list pt-1">
                               <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray rounded-lg catalog-item flex items-center gap-3 cursor-grab" data-type="tabla_modular" data-catalog-level="advanced"><span className="material-symbols-outlined text-anahuac-purple dark:text-white">dashboard_customize</span><span className="text-sm font-medium">Tabla modular</span></div>
+                              <div className="p-3 bg-white dark:bg-[#2f2f2f] shadow-sm border border-anahuac-gray rounded-lg catalog-item flex items-center gap-3 cursor-grab" data-type="diagrama_flujo" data-catalog-level="advanced"><span className="material-symbols-outlined text-anahuac-orange">account_tree</span><span className="text-sm font-medium">Diagrama de flujo</span></div>
                           </div>
                       </details>
                   </div>
@@ -836,7 +852,7 @@ export default function App() {
       </aside>
 
       {/* Área Principal: El Lienzo */}
-      <main className="flex-1 flex flex-col relative dark:bg-gray-900 bg-[url('data:image/svg+xml;utf8,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%222%22%20cy%3D%222%22%20r%3D%221%22%20fill%3D%22%23e5e7eb%22%2F%3E%3C%2Fsvg%3E')] dark:bg-[url('data:image/svg+xml;utf8,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%222%22%20cy%3D%222%22%20r%3D%221%22%20fill%3D%22%234b5563%22%2F%3E%3C%2Fsvg%3E')] transition-colors">
+      <main className="flex-1 min-w-0 flex flex-col relative dark:bg-gray-900 bg-[url('data:image/svg+xml;utf8,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%222%22%20cy%3D%222%22%20r%3D%221%22%20fill%3D%22%23e5e7eb%22%2F%3E%3C%2Fsvg%3E')] dark:bg-[url('data:image/svg+xml;utf8,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%222%22%20cy%3D%222%22%20r%3D%221%22%20fill%3D%22%234b5563%22%2F%3E%3C%2Fsvg%3E')] transition-colors">
           <header className={`builder-header ${exerciseMode ? 'exercise-header' : 'project-header'} shrink-0 bg-white border-b border-gray-200 shadow-sm z-30`} data-tour="top-toolbar">
               {!exerciseMode && <ProjectManager onTutorial={()=>setShowTutorialMenu(true)} />}
               <div className="builder-header-actions flex items-center gap-2 shrink-0">
@@ -919,6 +935,7 @@ export default function App() {
           <div className="flex-1 overflow-y-auto p-8 relative bg-transparent dark:bg-[#6c6c6c]" id="scroll-container">
               <EditorCanvas />
           </div>
+          {exerciseMode && <div className="exercise-editor-actions"><strong>Ejercicio descargable</strong><span role="status">{exerciseError || (savingExercise ? 'Preparando archivo y recursos…' : 'Diseño independiente de la página LMS')}</span><button disabled={savingExercise} onClick={()=>{if(confirm('¿Descartar los cambios de este ejercicio y volver?')) parent.postMessage({type:'exercise-cancel'},location.origin);}}>Cancelar</button><button disabled={savingExercise} onClick={async()=>{setSavingExercise(true);setExerciseError('');try{await saveExercise();}catch(error){setExerciseError(error instanceof Error?error.message:'No se pudo guardar el ejercicio');}finally{setSavingExercise(false);}}}>Guardar y volver</button></div>}
       </main>
 
       {showTutorialMenu && (
@@ -983,7 +1000,6 @@ export default function App() {
       )}
 
       {/* Modales */}
-      {exerciseMode && <div className="exercise-editor-actions"><strong>Ejercicio descargable</strong><span role="status">{exerciseError || (savingExercise ? 'Preparando archivo y recursos…' : 'Diseño independiente de la página LMS')}</span><button disabled={savingExercise} onClick={()=>{if(confirm('¿Descartar los cambios de este ejercicio y volver?')) parent.postMessage({type:'exercise-cancel'},location.origin);}}>Cancelar</button><button disabled={savingExercise} onClick={async()=>{setSavingExercise(true);setExerciseError('');try{await saveExercise();}catch(error){setExerciseError(error instanceof Error?error.message:'No se pudo guardar el ejercicio');}finally{setSavingExercise(false);}}}>Guardar y volver</button></div>}
       <div id="paste-modal" className="modal-bg fixed inset-0 bg-black/60 hidden z-50 flex items-center justify-center">
           <div className="bg-white dark:bg-gray-800 dark:text-gray-200 rounded-xl shadow-2xl p-8 w-[95%] sm:w-[90%] max-w-[700px] max-h-[90vh] overflow-y-auto flex flex-col transition-colors">
               <h2 className="text-xl font-bold text-anahuac-purple dark:text-white mb-2 font-serif flex items-center gap-2"><span className="material-symbols-outlined">content_paste</span> Pegar Código HTML</h2>
@@ -1222,7 +1238,7 @@ export default function App() {
           </div>
       </div>
 
-      <div id="icon-modal" className="modal-bg fixed inset-0 bg-black/60 hidden z-[70] flex items-center justify-center">
+      {createPortal(<div id="icon-modal" className="modal-bg fixed inset-0 bg-black/60 hidden z-[70] flex items-center justify-center">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-[95%] sm:w-[90%] max-w-[550px] max-h-[90vh] overflow-y-auto transition-colors">
               <div className="flex justify-between items-center mb-4">
                   <h2 className="text-lg font-bold text-anahuac-purple dark:text-white">Catálogo de Íconos</h2>
@@ -1233,6 +1249,7 @@ export default function App() {
           </div>
       </div>
 
+      ,textToolsHost||document.body)}
       {previewMode === 'fullscreen' && (
         <button 
             onClick={() => setPreviewMode('lms')}

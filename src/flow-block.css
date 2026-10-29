@@ -1,0 +1,26 @@
+.flow-block {min-width:0;isolation:isolate;}
+.flow-preview {width:100%;min-width:0;}
+.flow-preview > svg {display:block;width:100%;height:auto;max-width:100%;}
+.flow-placeholder {display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;width:100%;min-height:240px;padding:32px;border:2px dashed #cdd5dc;border-radius:12px;background:#f7f7fa;color:#5d428c;font-family:inherit;cursor:pointer;transition:border-color .2s,background .2s;}
+.flow-placeholder:hover,.flow-placeholder:focus-visible {border-color:#ff5900;background:#fff4ed;outline:2px solid transparent;}
+.flow-placeholder strong {font-size:16px;font-weight:700;}
+.flow-placeholder span {font-size:13px;color:#64748b;}
+.dark .flow-placeholder {background:#302b38;border-color:#746683;color:#d4c2f1;}
+.dark .flow-placeholder span {color:#c3bdcc;}
+.flow-block:hover > .block-toolbar,.flow-block:has(> .block-toolbar :focus-visible) > .block-toolbar {visibility:visible;opacity:1;pointer-events:auto;}
+.flow-block .flow-block-control {min-width:28px;min-height:28px;}
+.flow-block-popover {position:fixed;z-index:1500;width:280px;max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);overflow:auto;overscroll-behavior:contain;padding:14px;background:#fff;color:#344153;border:1px solid #dcd5e6;border-radius:12px;box-shadow:0 12px 38px #29203533;font:12px/1.5 Roboto,Arial,sans-serif;}
+.flow-block-popover .flow-block-panel-heading {display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;color:#5d428c;font-size:13px;}
+.flow-block-popover .flow-block-field {display:block;margin:14px 0;}
+.flow-block-popover .flow-block-field>span {display:flex;justify-content:space-between;gap:8px;margin-bottom:5px;font-weight:600;}
+.flow-block-popover output {white-space:nowrap;color:#5d428c;font-weight:600;}
+.flow-block-popover input[type="range"] {display:block;width:100%;margin:0;accent-color:#5d428c;cursor:ew-resize;}
+.flow-block-popover input:disabled {opacity:.4;cursor:not-allowed;}
+.flow-block-popover .flow-block-check {display:flex;align-items:flex-start;gap:8px;font-weight:600;}
+.flow-block-popover input[type="checkbox"] {margin-top:3px;accent-color:#5d428c;}
+.flow-block-popover p {margin:10px 0 0;color:#6b7280;font-size:11px;line-height:1.6;}
+.flow-block-popover button:focus-visible,.flow-block-popover input:focus-visible {outline:2px solid #5d428c;outline-offset:3px;}
+.dark .flow-block-popover {background:#302b38;border-color:#746683;color:#ede9f3;}
+.dark .flow-block-popover .flow-block-panel-heading,.dark .flow-block-popover output {color:#d4c2f1;}
+.dark .flow-block-popover p {color:#c3bdcc;}
+@media(prefers-reduced-motion:reduce){.flow-placeholder{transition:none;}}

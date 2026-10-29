@@ -23,7 +23,7 @@ document.querySelector('#run').onclick=async()=>{results=[];try{
    const top=r.top;tools.dispatchEvent(new w.Event('input',{bubbles:true}));await wait();check(width+' px '+key+': posición estable al recalcular',Math.abs(main.getBoundingClientRect().top-top)<1);
    const detail=tools.querySelector('details');detail.open=true;await wait();check(width+' px '+key+': rollover del rectángulo sigue accesible',w.getComputedStyle(detail.querySelector('div')).display!=='none');detail.open=false;
   }
-  await select(table,'1:1');check(width+' px: filas inferiores no mueven el menú general',bar.style.translate.split(' ').every(value=>parseFloat(value)===0));
+  const heldTop=main.getBoundingClientRect().top;await select(table,'1:1');check(width+' px: conserva el menú elevado dos segundos para poder regresar',Math.abs(main.getBoundingClientRect().top-heldTop)<1);await wait(2250);check(width+' px: filas inferiores liberan el menú tras dos segundos',bar.style.translate.split(' ').every(value=>parseFloat(value)===0));
   clear(table);await wait();check(width+' px: al salir regresa a su posición original',Math.abs(main.getBoundingClientRect().left-base.left)<1&&Math.abs(main.getBoundingClientRect().top-base.top)<1);
  }
  frame.style.width='100%';await wait();await select(table,'0:1');const published=new DOMParser().parseFromString(w.generateExportHTML(false),'text/html');check('HTML del alumno no contiene barras del editor',!published.querySelector('.mod-editor,.block-toolbar,.mod-cell-tools'));

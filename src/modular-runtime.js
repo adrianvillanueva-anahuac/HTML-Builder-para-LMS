@@ -1,12 +1,20 @@
 // Self-contained: the same layout logic runs in the Builder and published HTML.
 export function mountModularRuntime(block) {
   let frame=0;
+  let heldLift=0,liftUntil=0,liftTimer=0;
   const set=(el,name,value)=>{
     // Reposition published overlays without erasing their inline fallback appearance.
-    if(name==='style'&&block.classList.contains('mod-published')&&el.matches('.mod-edge,.mod-center,.mod-preview')){
+    if(name==='style'&&block.classList.contains('mod-published')&&el.matches('.mod-edge,.mod-center,.mod-preview,.mod-text-box-preview')){
       const next=document.createElement('div').style;next.cssText=value;
       for(let i=0;i<next.length;i++){const key=next[i];if(el.style.getPropertyValue(key)!==next.getPropertyValue(key))el.style.setProperty(key,next.getPropertyValue(key));}
     }else if(el.getAttribute(name)!==value)el.setAttribute(name,value);
+  };
+  const positionPreview=(info,panel)=>{
+    if(!panel||!info.open&&!info.matches(':hover,:focus-within'))return;
+    const anchor=info.getBoundingClientRect(),area=block.closest('#scroll-container')?.getBoundingClientRect();
+    const leftLimit=Math.max(8,(area?.left||0)+8),rightLimit=Math.min(window.innerWidth-8,(area?.right||window.innerWidth)-8),width=Math.min(340,rightLimit-leftLimit);
+    const below=window.innerHeight-anchor.bottom-16,height=Math.min(340,Math.max(below,anchor.top-16)),top=below>=Math.min(200,height)?anchor.bottom:Math.max(8,anchor.top-height);
+    set(panel,'style',`position:fixed;left:${Math.max(leftLimit,Math.min(anchor.right-width,rightLimit-width))}px;top:${top}px;right:auto;width:${width}px;max-height:${height}px;z-index:200`);
   };
   const update=()=>{
     frame=0;
@@ -17,6 +25,7 @@ export function mountModularRuntime(block) {
     const heights=[...rows];
     block.querySelectorAll('.mod-card').forEach(card=>{
       const text=card.querySelector('.mod-text');if(!text)return;
+      if(text.closest('.mod-primary-text-frame')&&card.dataset.student!=='true')return;
       if(!auto&&!text.classList.contains('student-rich-answer')&&card.dataset.studentPrompt!=='true')return;
       const side=card.dataset.studentPrompt==='true'&&['left','right'].includes(card.dataset.promptPosition);
       const oldHeight=text.style.height,oldMin=text.style.minHeight,oldFlex=text.style.flex,oldAlign=text.style.alignSelf;
@@ -60,8 +69,12 @@ export function mountModularRuntime(block) {
       const left=Math.max(leftLimit,Math.min(cell.right-width,rightLimit-width));
       const height=tool.offsetHeight;
       const firstRow=tool.parentElement.dataset.cell?.split(':')[0]==='0';
-      const alignedTop=firstRow&&primaryBounds&&primaryBounds.top>=4&&primaryBounds.bottom<=window.innerHeight-4
+      let alignedTop=firstRow&&primaryBounds&&primaryBounds.top>=4&&primaryBounds.bottom<=window.innerHeight-4
         ?primaryBounds.top:cell.top-height-6;
+      const badge=tool.parentElement.querySelector(':scope > .mod-badge')?.getBoundingClientRect();
+      if(badge&&left<badge.right+6&&left+width>badge.left-6&&alignedTop<badge.bottom+6&&alignedTop+height>badge.top-6){
+        alignedTop=Math.min(alignedTop,badge.top-height-8);
+      }
       const top=Math.max(4,Math.min(alignedTop,window.innerHeight-height-4));
       tool.style.right='auto';
       tool.style.left=left+'px';tool.style.top=top+'px';
@@ -78,8 +91,20 @@ export function mountModularRuntime(block) {
         // controls stay anchored to their rectangle; lift only the main bar.
         dy=hit.top-8-primaryBar.offsetHeight-r.top;
       }
-      primaryBar.style.removeProperty('translate');
-      primary.style.translate=`0px ${dy}px`;
+      block.querySelectorAll('.mod-badge').forEach(badge=>{
+        const b=badge.getBoundingClientRect();
+        if(r.left<b.right+8&&r.left+width>b.left-8&&r.top+dy<b.bottom+8&&r.top+dy+primaryBar.offsetHeight>b.top-8){
+          dy=Math.min(dy,b.top-8-primaryBar.offsetHeight-r.top);
+        }
+      });
+      if(!block.querySelector('.mod-badge-picker[data-dragging]')){
+        const now=Date.now();
+        if(dy<=heldLift||primary.matches(':hover,:focus-within')){heldLift=Math.min(dy,heldLift);liftUntil=now+2000;}
+        if(dy>heldLift&&now<liftUntil){dy=heldLift;clearTimeout(liftTimer);liftTimer=setTimeout(schedule,liftUntil-now+10);}
+        else heldLift=dy;
+        primaryBar.style.removeProperty('translate');
+        primary.style.translate=`0px ${dy}px`;
+      }
     }
     block.querySelectorAll('.mod-row-tools').forEach(tool=>{
       const row=tool.closest('.mod-cell').getBoundingClientRect();
@@ -94,24 +119,26 @@ export function mountModularRuntime(block) {
       const info=card.querySelector('.mod-info');
       const preview=card.querySelector('.mod-preview-content');
       if(!text || !info)return;
-      const clipped=!auto && card.dataset.student!=='true' && (text.scrollHeight>text.clientHeight+1 || text.scrollWidth>text.clientWidth+1);
+      const clipped=(!auto||text.closest('.mod-primary-text-frame')) && card.dataset.student!=='true' && (text.scrollHeight>text.clientHeight+1 || text.scrollWidth>text.clientWidth+1);
       set(card,'data-clipped',String(clipped));
       set(info,'data-needed',String(clipped));
       if(block.classList.contains('mod-published')){
         const display=clipped?'block':'none';if(info.style.display!==display)info.style.display=display;
       }
       if(preview && info.dataset.editing!=='true' && preview.innerHTML!==text.innerHTML)preview.innerHTML=text.innerHTML;
+      if(preview&&info.dataset.editing!=='true')for(const key of ['fontSize','fontFamily','fontWeight','fontStyle','textDecoration','textAlign','color','lineHeight'])if(preview.style[key]!==text.style[key])preview.style[key]=text.style[key];
       const panel=info.querySelector('.mod-preview');
-      if(panel && (info.open || info.matches(':hover,:focus-within'))) {
-        const anchor=info.getBoundingClientRect();
-        const area=block.closest('#scroll-container')?.getBoundingClientRect();
-        const leftLimit=Math.max(8,(area?.left||0)+8),rightLimit=Math.min(window.innerWidth-8,(area?.right||window.innerWidth)-8);
-        const width=Math.min(340,rightLimit-leftLimit);
-        const below=window.innerHeight-anchor.bottom-16;
-        const height=Math.min(340,Math.max(below,anchor.top-16));
-        const top=below>=Math.min(200,height)?anchor.bottom:Math.max(8,anchor.top-height);
-        set(panel,'style',`position:fixed;left:${Math.max(leftLimit,Math.min(anchor.right-width,rightLimit-width))}px;top:${top}px;right:auto;width:${width}px;max-height:${height}px;z-index:200`);
-      }
+      positionPreview(info,panel);
+    });
+    block.querySelectorAll('.mod-text-box-frame').forEach(frame=>{
+      const text=frame.querySelector('.mod-extra-text,.mod-text');if(!text)return;
+      const clipped=text.scrollHeight>text.clientHeight+1||text.scrollWidth>text.clientWidth+1;
+      set(frame,'data-clipped',String(clipped));
+      const info=frame.querySelector('.mod-text-box-info'),preview=frame.querySelector('.mod-text-box-preview-content');
+      if(info){set(info,'data-needed',String(clipped));if(block.classList.contains('mod-published'))info.style.display=clipped?'block':'none';}
+      if(preview&&preview.innerHTML!==text.innerHTML)preview.innerHTML=text.innerHTML;
+      if(preview&&preview.style.cssText!==text.style.cssText)preview.style.cssText=text.style.cssText;
+      if(info)positionPreview(info,info.querySelector('.mod-text-box-preview'));
     });
     block.querySelectorAll('.mod-center').forEach(center=>{
       const [r,c]=center.dataset.center.split(':').map(Number);
@@ -187,9 +214,9 @@ export function mountModularRuntime(block) {
     });
   };
   const schedule=()=>{if(!frame)frame=requestAnimationFrame(update);};
-  const closeOutside=event=>block.querySelectorAll('.mod-info[open]').forEach(info=>{if(info.dataset.editing!=='true'&&!info.contains(event.target))info.open=false;});
+  const closeOutside=event=>block.querySelectorAll('.mod-info[open],.mod-text-box-info[open]').forEach(info=>{if(info.dataset.editing!=='true'&&!info.contains(event.target))info.open=false;});
   const resize=new ResizeObserver(schedule); resize.observe(block);
-  block.querySelectorAll('.mod-text,.mod-grid').forEach(el=>resize.observe(el));
+  block.querySelectorAll('.mod-text,.mod-extra-text,.mod-text-box-frame,.mod-grid').forEach(el=>resize.observe(el));
   const observer=new MutationObserver(schedule);
   observer.observe(block,{childList:true,subtree:true,characterData:true});
   block.addEventListener('input',schedule);
@@ -201,5 +228,5 @@ export function mountModularRuntime(block) {
   document.addEventListener('click',closeOutside);
   document.fonts?.ready.then(schedule);
   schedule();
-  return {update:schedule,destroy:()=>{resize.disconnect();observer.disconnect();cancelAnimationFrame(frame);block.removeEventListener('input',schedule);block.removeEventListener('pointerover',schedule);block.removeEventListener('pointerout',schedule);block.removeEventListener('focusin',schedule);block.removeEventListener('toggle',schedule,true);window.removeEventListener('scroll',schedule,true);document.removeEventListener('click',closeOutside);}};
+  return {update:schedule,destroy:()=>{clearTimeout(liftTimer);resize.disconnect();observer.disconnect();cancelAnimationFrame(frame);block.removeEventListener('input',schedule);block.removeEventListener('pointerover',schedule);block.removeEventListener('pointerout',schedule);block.removeEventListener('focusin',schedule);block.removeEventListener('toggle',schedule,true);window.removeEventListener('scroll',schedule,true);document.removeEventListener('click',closeOutside);}};
 }

@@ -1,5 +1,5 @@
 export interface ChecklistItem {text:string;done:boolean;buttonId?:string;mediaId?:string}
-export interface Workspace { id: string; name: string; html: string; bg: string; style: string; bgColor?:string; bgMargin?:string; footerConfig?:FooterConfig; tabColor?:string; notes?:string[]; checklist?:ChecklistItem[] }
+export interface Workspace { id: string; name: string; html: string; bg: string; style: string; bgColor?:string; bgMargin?:string; footerConfig?:FooterConfig; tabColor?:string; notes?:string[]; checklist?:ChecklistItem[]; dismissedAutomaticTasks?:string[] }
 export function workspacePendingTasks(space:Workspace|undefined):string[] {
   return (space?.checklist||[]).filter(item=>!item.done&&item.text.trim()).map(item=>item.text.trim());
 }
@@ -40,6 +40,7 @@ export function parseProject(text: string): Project {
     if(['bgColor','bgMargin'].some(k=>s[k]!==undefined&&typeof s[k]!=='string'))throw new Error('Configuración de fondo de página inválida.');
     if(s.tabColor!==undefined&&(typeof s.tabColor!=='string'||!/^#[0-9a-f]{6}$/i.test(s.tabColor)))throw new Error('Color de pestaña inválido.');
     if(s.notes!==undefined&&(!Array.isArray(s.notes)||s.notes.some((note:unknown)=>typeof note!=='string')))throw new Error('Notas de pestaña inválidas.');
+    if(s.dismissedAutomaticTasks!==undefined&&(!Array.isArray(s.dismissedAutomaticTasks)||s.dismissedAutomaticTasks.some((id:unknown)=>typeof id!=='string'||!id.trim())))throw new Error('Pendientes descartados inválidos.');
     if(s.checklist!==undefined&&(!Array.isArray(s.checklist)||s.checklist.some((item:any)=>!item||typeof item.text!=='string'||typeof item.done!=='boolean'||['buttonId','mediaId'].some(key=>item[key]!==undefined&&(typeof item[key]!=='string'||!item[key].trim()))||(item.buttonId!==undefined&&item.mediaId!==undefined))))throw new Error('Checklist de pestaña inválida.');
   }
   if (!ids.has(p.activeId)) throw new Error('El espacio activo del proyecto no existe.');

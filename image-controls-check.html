@@ -9,7 +9,7 @@ document.querySelector('#run').onclick=async()=>{
  try{
  const w=app.contentWindow,d=w.document,wait=(ms=160)=>new Promise(r=>setTimeout(r,ms));
  if(!d.querySelector('.project-tab-add'))d.querySelector('.project-welcome button').click();
- await wait();w.insertTemplate('pagina_basica');await wait();
+ await wait();d.querySelector('#canvas').replaceChildren();w.insertTemplate('pagina_basica');await wait();
  const page=d.querySelector('#canvas .lms-dropzone.bg-white');page.insertAdjacentHTML('beforeend',getImagenSueltaHTML());w.initNestedDropzones();
  const block=d.querySelector('#canvas [data-type=imagen_suelta]');page.insertBefore(block,page.querySelector('.lms-footer-wrapper'));
  const input=block.querySelector('.image-placeholder input[type=text]');input.value=location.origin+'/imagenes/titulos/Fondo_naranja_escolar.png';w.handleImageUrl(input);await new Promise(resolve=>{const img=block.querySelector('img');if(img.complete&&img.naturalWidth)resolve();else img.onload=resolve;});await wait();
@@ -26,6 +26,9 @@ document.querySelector('#run').onclick=async()=>{
  const rect=JSON.parse(block.dataset.imageCrop);
  check('Recorte libre aplicado con fuente original conservada',rect.width!==rect.height&&img.src===source&&img.style.position==='absolute'&&Math.abs(parseFloat(frame.style.aspectRatio)-img.naturalWidth/img.naturalHeight*rect.width/rect.height)<.001);
  const before=block.dataset.imageCrop;block.querySelector('[data-image-free-crop]').click();crop=d.querySelector('#image-crop-editor');crop.querySelector('[data-crop-handle=e]').dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}));crop.querySelector('[data-crop-cancel]').click();check('Cancelar no altera el recorte',block.dataset.imageCrop===before);
+ const originalAspect=parseFloat(frame.style.aspectRatio),originalRect=frame.getBoundingClientRect();
+ for(const angle of [90,180,270,0]){w.rotateImage(block.querySelector('button'),90);await wait();const stage=frame.querySelector('.image-rotation-stage'),r=frame.getBoundingClientRect(),expected=angle%180?1/originalAspect:originalAspect;check('Rotación '+angle+'° conserva región y gira proporción del recorte',block.dataset.imageCrop===before&&Math.abs(parseFloat(frame.style.aspectRatio)-expected)<.001&&stage&&stage.style.transform.includes('rotate('+angle+'deg)'));check('Rotación '+angle+'° cabe en el espacio sin recortar ni deformar',r.width<=page.clientWidth+1&&Math.abs(r.width/r.height-expected)<.02&&img.style.transform==='none');}
+ check('Vuelta completa conserva escala si cabe',Math.abs(frame.getBoundingClientRect().width-originalRect.width)<2);
  const original=block.querySelector('[onclick*="changeImageAspect"][onclick*="auto"]');original.click();check('Original recupera la imagen completa',JSON.parse(block.dataset.imageCrop).width===1&&JSON.parse(block.dataset.imageCrop).height===1);
  block.querySelector('[onclick*="changeImageAspect"][onclick*="1/1"]').click();await wait();
  let pop=menu('text');check('El menú sin texto permite activarlo sin editar automáticamente',!!pop.querySelector('[data-image-text-activate]')&&!frame.querySelector('.image-overlay-text'));pop.querySelector('[data-image-text-activate]').click();await wait();let text=frame.querySelector('.image-overlay-text');
@@ -41,12 +44,15 @@ document.querySelector('#run').onclick=async()=>{
  const saved=block.outerHTML;block.outerHTML=saved;w.initNestedDropzones();await wait();const restored=d.querySelector('#canvas [data-type=imagen_suelta]');
  check('Restaurar conserva texto y ajustes',restored.querySelector('.image-overlay-text').textContent==='Imagen con texto editable'&&JSON.parse(restored.dataset.imageAdjustments).contrast===140);
  restored.querySelector('[data-duplicate-element]').click();await wait();const copy=d.querySelectorAll('#canvas [data-type=imagen_suelta]')[1];check('Duplicar conserva todos los ajustes',copy.dataset.imageAdjustments===restored.dataset.imageAdjustments&&copy.dataset.imageTextLayout===restored.dataset.imageTextLayout&&copy.querySelector('.image-overlay-text').textContent===restored.querySelector('.image-overlay-text').textContent);
+ w.rotateImage(restored.querySelector('button'),90);await wait();const rotatedSource=restored.dataset.imageCrop;
  const html=w.generateExportHTML(false),doc=new DOMParser().parseFromString(html,'text/html');
  check('Exportación sin controles de edición',!doc.querySelector('.block-toolbar,#image-controls-popover,#image-crop-editor,#image-text-controls,[data-image-text-handle]')&&!!doc.querySelector('.image-overlay-text'));
- const exported=doc.querySelector('[data-type=imagen_suelta]');check('Exportación conserva filtros y proporción',exported.querySelector('.uploaded-image').style.filter.includes('140%')&&Math.abs(parseFloat(exported.querySelector('.image-wrapper').style.aspectRatio)-parseFloat(restored.querySelector('.image-wrapper').style.aspectRatio))<.001);
+ const exported=doc.querySelector('[data-type=imagen_suelta]');check('Exportación conserva filtros y proporción',exported.querySelector('.uploaded-image').style.filter.includes('140%')&&Math.abs(parseFloat(exported.querySelector('.image-wrapper').style.aspectRatio)-parseFloat(restored.querySelector('.image-wrapper').style.aspectRatio))<.001);check('Publicación conserva el mismo recorte y etapa girada sin depender del editor',exported.dataset.imageCrop===rotatedSource&&exported.querySelector('.image-rotation-stage').style.transform.includes('rotate(90deg)'));
  doc.querySelectorAll('script,style,link').forEach(n=>n.remove());const css=doc.createElement('style');css.textContent=appStyles;doc.head.append(css);published.srcdoc='<!doctype html>'+doc.documentElement.outerHTML;await new Promise(resolve=>published.onload=resolve);await wait();
  let pd=published.contentDocument,pf=pd.querySelector('.image-wrapper'),pt=pf.querySelector('.image-overlay-text');check('Texto y tinte funcionan sin CSS ni scripts propios',pt.getBoundingClientRect().width>0&&pf.querySelector('.image-color-tint').style.opacity==='0.35');
  published.style.width='420px';await wait();const pr=pf.getBoundingClientRect(),tr=pt.getBoundingClientRect();check('Imagen y texto responsivos sin desbordamiento',tr.left>=pr.left&&tr.right<=pr.right+1&&tr.bottom<=pr.bottom+1&&pd.documentElement.scrollWidth<=published.clientWidth+1);
+ const titleIcon=d.querySelector('.catalog-title-image-icon'),letter=titleIcon.querySelector('small');check('Título con imagen muestra una T pequeña arriba a la derecha del icono',letter.textContent==='T'&&letter.getBoundingClientRect().width>0&&letter.getBoundingClientRect().right>=titleIcon.getBoundingClientRect().right-2);const grid=d.querySelector('[aria-label="Cambiar a vista de cuadrícula"]');grid.click();await wait();check('La T del catálogo también permanece visible en cuadrícula',w.getComputedStyle(titleIcon).display!=='none'&&letter.getBoundingClientRect().width>0);grid.click();
+ out.textContent=results.join('\n')+'\nTOTAL: '+results.length+' / FAIL: '+results.filter(x=>x.startsWith('FAIL')).length;
  }catch(error){results.push('FAIL '+error.message);out.textContent=results.join('\n');}
 };
 </script>

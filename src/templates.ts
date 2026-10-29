@@ -1,4 +1,5 @@
 import {tableStyleButtonsHTML} from './table-style-controls';
+import {flowBlockControlsHTML} from './flow-block-controls';
 // URL absoluta de los recursos que deben seguir funcionando en el HTML exportado.
 const GITHUB_REQ_IMAGES_URL = "https://raw.githubusercontent.com/adrianvillanueva-anahuac/HTML-Builder-para-LMS/main/public/imagenes/requerimientos";
 const DEFAULT_TITLE_IMAGE_URL = `${import.meta.env.BASE_URL}imagenes/titulos/Fondo_naranja_escolar.png`;
@@ -7,7 +8,9 @@ const DEFAULT_TITLE_IMAGE_URL = `${import.meta.env.BASE_URL}imagenes/titulos/Fon
 // Plantillas y bloques HTML en crudo
 export function getBlockToolbar(type: string) {
     let extraButtons = '';
-    if (type === 'parrafo_basico') {
+    if (type === 'diagrama_flujo') {
+        extraButtons = `${flowBlockControlsHTML()}<button type="button" class="text-gray-400 hover:text-anahuac-orange p-1 rounded hover:bg-orange-50 transition-colors flex items-center justify-center" onclick="window.editFlowDiagram(this)" title="Editar diagrama de flujo" aria-label="Editar diagrama de flujo"><span class="material-symbols-outlined text-[18px]">edit</span></button>`;
+    } else if (type === 'parrafo_basico') {
         extraButtons = `<button type="button" class="text-gray-400 hover:text-anahuac-purple dark:text-white p-1 rounded hover:bg-purple-50 transition-colors flex items-center justify-center" onclick="toggleColumns(this)" title="Alternar columnas"><span class="material-symbols-outlined text-[18px]">view_column</span></button><div class="w-px h-4 bg-gray-200 mx-1"></div>`;
     } else if (type === 'separador') {
         extraButtons = `

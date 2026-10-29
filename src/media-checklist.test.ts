@@ -1,12 +1,39 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {reconcileMediaChecklist,type MediaResource} from './media-checklist';
+import {reconcileMediaChecklist,isMediaFilled,isAutomaticTask,automaticTaskHint,type MediaResource} from './media-checklist';
+import {createFlowModel,addFlowNode,addFlowLane} from './flow-model';
 import {reconcileButtonChecklist} from './button-checklist';
 import {emptyWorkspace,parseProject,projectContent,type ChecklistItem,type Project} from './project-model';
 
 const resource=(id='media-1',label='YouTube',hasContent=false):MediaResource=>({id,label,hasContent});
 const generated=(id='media-1',label='YouTube',done=false):ChecklistItem=>({mediaId:id,text:`Tienes pendiente agregar contenido en "${label}".`,done});
 const fixture=():Project=>({format:'lms-builder-project',version:1,name:'Curso',activeId:'page-1',spaces:[{...emptyWorkspace(),id:'page-1',name:'Página 1'}]});
+// The diagram branch intentionally needs only its persisted dataset, not DOM previews.
+const flowBlock=(source?:unknown)=>({dataset:{type:'diagrama_flujo',...(source===undefined?{}:{flowModel:typeof source==='string'?source:JSON.stringify(source)})},querySelector:()=>{throw Error('El SVG no determina si el diagrama está completo');}} as unknown as HTMLElement);
+test('empty diagrams and canvas-only settings remain pending independently of the preview',()=>{
+ assert.equal(isMediaFilled(flowBlock()),false);assert.equal(isMediaFilled(flowBlock(createFlowModel())),false);
+ const model=createFlowModel();Object.assign(model,{title:'Mi diagrama',background:'#ff5900',grid:false,width:1600,height:900,autoCrop:true});assert.equal(isMediaFilled(flowBlock(model)),false);
+});
+test('saved diagram nodes or lanes count as content, consistently with published diagrams',()=>{
+ for(const type of ['process','decision','terminator','circle','document','data','text','image']as const){const model=createFlowModel();addFlowNode(model,type);assert.equal(isMediaFilled(flowBlock(model)),true,type);}
+ const model=createFlowModel();addFlowLane(model);assert.equal(isMediaFilled(flowBlock(model)),true);
+});
+test('malformed diagram data cannot crash automatic scanning or complete an empty diagram',()=>{
+ for(const source of ['', '{bad', 'null','[]','42','"<svg>contenido</svg>"',JSON.stringify({nodes:[null,42,'x',[]],edges:[{}]})])assert.equal(isMediaFilled(flowBlock(source)),false);
+});
+test('diagram tasks complete, reopen and disappear using the existing linked checklist lifecycle',()=>{
+ const model=createFlowModel(),item=(hasContent:boolean)=>resource('diagram-1','Diagrama de flujo',hasContent);
+ const pending=reconcileMediaChecklist(undefined,[item(isMediaFilled(flowBlock(model)))])!;assert.deepEqual(pending,[generated('diagram-1','Diagrama de flujo')]);
+ addFlowNode(model,'process');const done=reconcileMediaChecklist(pending,[item(isMediaFilled(flowBlock(model)))],false)!;assert.equal(done[0].done,true);assert.equal(done[0].mediaId,'diagram-1');
+ model.nodes=[];assert.deepEqual(reconcileMediaChecklist(done,[item(isMediaFilled(flowBlock(model)))],false),pending);assert.equal(reconcileMediaChecklist(done,[],false),undefined);
+});
+test('automatic creation settings and distinct duplicated diagram identities are preserved',()=>{
+ const diagrams=[resource('one','Diagrama de flujo'),resource('copy','Diagrama de flujo'),resource('complete','Diagrama de flujo',true)];assert.equal(reconcileMediaChecklist(undefined,diagrams,false),undefined);
+ const tasks=reconcileMediaChecklist(undefined,diagrams)!;assert.deepEqual(tasks.map(item=>item.mediaId),['one','copy']);assert.ok(tasks.every(isAutomaticTask));assert.ok(automaticTaskHint(tasks[0]).includes('contenido del elemento'));
+});
+test('diagram pending links persist in existing project files without adding a schema',()=>{
+ const project=fixture();project.spaces[0].checklist=[generated('diagram-1','Diagrama de flujo')];assert.deepEqual(parseProject(JSON.stringify(project)),project);
+});
 
 test('empty media creates a pending linked item but populated media does not create completed noise',()=>{
   assert.deepEqual(reconcileMediaChecklist(undefined,[resource()]),[generated()]);

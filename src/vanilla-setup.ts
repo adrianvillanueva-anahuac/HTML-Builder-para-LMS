@@ -3,7 +3,7 @@ import {applyTableAppearance,setupTableStyleControls,prepareTableStylesExport} f
 import {toggleLmsTab} from './tabs-runtime.js';
 import {readBackground} from './workspace-appearance';
 import tabsRuntime from './tabs-runtime.js?raw';
-import {setupImageControls,prepareImageControlsExport,changeImageCropAspect,changeImageCropPosition} from './image-controls';
+import {setupImageControls,prepareImageControlsExport,changeImageCropAspect,changeImageCropPosition,rotateImageCrop} from './image-controls';
 import {getInteractiveButtonHTML,setupInteractiveButtons,prepareInteractiveButtonExport} from './interactive-button';
 import interactiveButtonRuntime from './interactive-button-runtime.js?raw';
 import interactiveButtonStyles from './interactive-button.css?raw';
@@ -19,6 +19,7 @@ import {isStandaloneHTML,standaloneButton} from './standalone-html';
 import {setupStandaloneHTML} from './standalone-runtime.js';
 import standaloneRuntime from './standalone-runtime.js?raw';
 import { getModularHTML, initModularTables, setupModularTables, prepareModularExport, modularExportAssets, modularExportStyles, compactModularState } from './modular-table';
+import {getFlowHTML,setupFlowBlocks,initFlowBlocks,prepareFlowExport} from './flow-block';
 import './icon-grid.css';
 import iconGridStyles from './icon-grid.css?raw';
 import './footer-layout.css';
@@ -160,6 +161,7 @@ export function setupVanillaGlobals() {
     setupSpacingHandles();
     setupGroupSelection();
     setupModularTables();
+    setupFlowBlocks();
     setupStandaloneHTML();
     window.resetExerciseHistory = () => {
         clearTimeout(historyTimeout);
@@ -512,6 +514,7 @@ export function setupVanillaGlobals() {
         else if(type === 'pagina_basica') newHTML = getPaginaBasicaHTML();
         else if(type === 'titulo_imagen') newHTML = getTituloImagenHTML();
         else if(type === 'tabla_modular') newHTML = getModularHTML();
+        else if(type === 'diagrama_flujo') newHTML = getFlowHTML();
         else if(type === 'boton_interactivo') newHTML = getInteractiveButtonHTML();
         else newHTML = getExerciseBlock(type);
         
@@ -1037,6 +1040,7 @@ export function setupVanillaGlobals() {
             else if(type === 'imagen_suelta') draggedTemplateHTML = getImagenSueltaHTML();
             else if(type === 'grid_2x2') draggedTemplateHTML = getGrid2x2HTML();
             else if(type === 'tabla_modular') draggedTemplateHTML = getModularHTML();
+            else if(type === 'diagrama_flujo') draggedTemplateHTML = getFlowHTML();
             else if(type === 'cuadro_naranja') draggedTemplateHTML = getCuadroNaranjaHTML();
             else if(type === 'boton_interactivo') draggedTemplateHTML = getInteractiveButtonHTML();
             else if(type === 'acordeon') draggedTemplateHTML = getAcordeonHTML();
@@ -1609,6 +1613,7 @@ export function setupVanillaGlobals() {
     }
     
     window.rotateImage = function(btn: HTMLElement, deg: number) { 
+        const block=btn.closest<HTMLElement>('.lms-element');if(block&&rotateImageCrop(block,deg))return;
         const img = btn.closest('.lms-element')?.querySelector<HTMLImageElement>('.uploaded-image');
         if(!img) return;
         let currentRot = parseInt(img.dataset.rotation || '0'); 
@@ -3490,6 +3495,7 @@ export function setupVanillaGlobals() {
         clone.querySelectorAll<HTMLElement>('.parallax-layer').forEach(el=>el.style.removeProperty('transform'));
         clone.querySelectorAll('.lms-drag-origin').forEach(el => el.remove());
         prepareModularExport(clone);
+        prepareFlowExport(clone);
         try { externalizeImages(clone); prepareExerciseLinks(clone); }
         catch (error) { if(!silent)alert(error instanceof Error ? error.message : 'No se pudo preparar la exportación.'); return null; }
         
@@ -4216,6 +4222,7 @@ export function setupVanillaGlobals() {
                     else if(type === 'imagen_suelta') newHTML = getImagenSueltaHTML();
                     else if(type === 'grid_2x2') newHTML = getGrid2x2HTML();
                     else if(type === 'tabla_modular') newHTML = getModularHTML();
+                    else if(type === 'diagrama_flujo') newHTML = getFlowHTML();
                     else if(type === 'cuadro_naranja') newHTML = getCuadroNaranjaHTML();
                     else if(type === 'boton_interactivo') newHTML = getInteractiveButtonHTML();
                     else if(type === 'acordeon') newHTML = getAcordeonHTML();
@@ -4421,6 +4428,7 @@ export function setupVanillaGlobals() {
 
     window.initNestedDropzones = function() {
         initModularTables();
+        initFlowBlocks();
         setupImageControls();
         setupInteractiveButtons();
         setupBoxControls();

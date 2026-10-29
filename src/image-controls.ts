@@ -1,4 +1,4 @@
-import {clamp,normalizeCrop,resizeCrop,cropForAspect,imageAdjustments,imageTextLayout,transformImageText,imageFilter,type CropRect,type ImageTextLayout} from './image-model';
+import {clamp,normalizeCrop,resizeCrop,cropForAspect,imageAdjustments,imageTextLayout,transformImageText,imageFilter,imageRotationLayout,rotatedImageFrame,type CropRect,type ImageTextLayout} from './image-model';
 import './image-controls.css';
 
 const selector='[data-type="imagen_suelta"],[data-type="profesor_img"]';
@@ -26,12 +26,20 @@ function currentCrop(block:HTMLElement):CropRect{
 function paint(block:HTMLElement){
   const frame=frameOf(block),img=picture(block);if(!frame||!img)return;
   if(img.naturalWidth&&img.naturalHeight){const value=String(img.naturalWidth/img.naturalHeight);if(block.dataset.imageNaturalRatio!==value)block.dataset.imageNaturalRatio=value;}
-  apply(frame,{position:'relative',maxWidth:'100%',boxSizing:'border-box',overflow:'hidden',isolation:'isolate',containerType:'inline-size'});
+  apply(frame,{position:'relative',maxWidth:'100%',boxSizing:'border-box',overflow:'hidden',isolation:'isolate',containerType:'inline-size',transitionProperty:'border-radius, box-shadow'});
   if(frame.parentElement!==block&&frame.parentElement?.classList.contains('justify-center'))apply(frame.parentElement,{display:'flex',flexDirection:'column',alignItems:'center',width:'100%',padding:'8px 0'});
   if(img.getAttribute('src')){if(img.classList.contains('hidden'))img.classList.remove('hidden');apply(img,{display:'block'});}
+  if(Number(img.dataset.rotation)&&!block.dataset.imageCrop)setData(block,'imageCrop',currentCrop(block));
   if(block.dataset.imageCrop){
     const crop=currentCrop(block);
-    apply(frame,{aspectRatio:String(ratioOf(block)*crop.width/crop.height)});
+    const rotation=Number(img.dataset.rotation)||0,placement=imageRotationLayout(ratioOf(block)*crop.width/crop.height,rotation);
+    apply(frame,{aspectRatio:String(placement.aspect)});
+    let stage=frame.querySelector<HTMLElement>(':scope > .image-rotation-stage');
+    if(rotation||stage){
+      if(!stage){stage=document.createElement('div');stage.className='image-rotation-stage';img.before(stage);stage.append(img);}
+      apply(stage,{position:'absolute',left:'50%',top:'50%',width:placement.width+'%',height:placement.height+'%',transform:`translate(-50%,-50%) rotate(${rotation}deg)`,transformOrigin:'center',overflow:'hidden',pointerEvents:'none'});
+      apply(img,{transform:'none',aspectRatio:'auto'});
+    }
     apply(img,{position:'absolute',width:(100/crop.width)+'%',height:(100/crop.height)+'%',maxWidth:'none',left:(-100*crop.x/crop.width)+'%',top:(-100*crop.y/crop.height)+'%',objectFit:'fill',display:'block'});
     for(const axis of ['x','y'] as const){
       const control=block.querySelector<HTMLInputElement>(`.block-toolbar input[oninput*="updateImagePosition"][oninput*="'${axis}'"]`),space=1-(axis==='x'?crop.width:crop.height);
@@ -52,6 +60,23 @@ function paint(block:HTMLElement){
     apply(text,{position:'absolute',boxSizing:'border-box',left:t.x+'%',top:t.y+'%',width:t.width+'%',height:t.height==null?'auto':t.height+'%',maxWidth:'100%',maxHeight:'100%',overflow:'hidden',overflowWrap:'anywhere',transform:`translate(-${t.x}%,-${t.y}%)`,pointerEvents:'auto',margin:'0',lineHeight:'1.3'});
     if(!text.isContentEditable)apply(text,{fontSize:`clamp(8px, ${t.size/4}cqw, 96px)`});
   }
+}
+
+/** Rotate the selected crop as a whole, not a photo inside an unchanged mask. */
+export function rotateImageCrop(block:HTMLElement,degrees:number):boolean{
+  const img=picture(block),frame=frameOf(block);
+  if(!block.matches(selector)||!img||!frame)return false;
+  cropSession?.close();
+  change(block,()=>{
+    const bounds=frame.getBoundingClientRect(),available=frame.parentElement?.clientWidth||bounds.width||1;
+    const size=rotatedImageFrame(bounds.width,bounds.height,degrees,available);
+    setData(block,'imageCrop',currentCrop(block));
+    img.dataset.rotation=String(((Number(img.dataset.rotation)||0)+degrees)%360);
+    frame.style.width=clamp(size.width/available*100,1,100)+'%';
+    const slider=block.querySelector<HTMLInputElement>('.block-toolbar input[oninput*="updateImageSize"]');
+    if(slider){slider.value=String(Math.round(size.width/available*100));slider.setAttribute('value',slider.value);}
+    paint(block);
+  });return true;
 }
 
 function normalizeTextFonts(block:HTMLElement,text:HTMLElement,width:number){

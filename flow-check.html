@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verificación de diagramas de flujo</title>
+<style>
+  *{box-sizing:border-box}body{margin:0;font:13px Arial,sans-serif;color:#253649;background:#f7f7fb}header{display:flex;align-items:center;flex-wrap:nowrap;overflow-x:auto;white-space:nowrap;height:57px;gap:8px;padding:9px 12px;border-bottom:1px solid #ddd;background:#fff}header>*{flex-shrink:0}header strong{margin-right:auto}button{padding:8px 12px;border:1px solid #5d428c;border-radius:7px;color:#5d428c;background:#fff;cursor:pointer}button:hover{background:#f3eef9}#run{color:#fff;background:#5d428c}pre{white-space:pre-wrap;margin:0;padding:10px 16px;max-height:230px;overflow:auto;font:12px/1.5 Consolas,monospace}pre:empty{display:none}iframe{width:100%;height:calc(100vh - 57px);border:0;background:white}body.results iframe{height:calc(100vh - 287px)}.note{font-size:11px;color:#687487}#student{display:none}
+</style>
+<header><strong>Prueba aislada · Diagrama de flujo</strong><button id="run">Probar integración</button><button id="empty">Abrir editor vacío</button><button id="example">Mostrar ejemplo</button><button id="edit-example">Editar ejemplo</button><button id="image-check">Probar imágenes</button><button id="image-example">Imagen y chicle · ejemplo</button><button id="crop-check">Probar recorte y retícula</button><button id="crop-example">Recorte · ejemplo</button><button id="hide">Ocultar resultados</button><span class="note">Este lienzo de prueba no modifica la pestaña de trabajo.</span></header>
+<pre id="result" role="status"></pre>
+<iframe id="app" title="Builder de prueba de flujos" src="/?check=flow"></iframe>
+<iframe id="student" title="HTML alumno de prueba"></iframe>
+<script type="module">
+import {createFlowModel,normalizeFlowModel,addFlowNode,addFlowEdge,addFlowLane} from '/src/flow-model.ts';
+import {getFlowHTML,setupFlowBlocks,initFlowBlocks,prepareFlowExport} from '/src/flow-block.ts';
+import {openFlowEditor} from '/src/flow-editor.ts';
+import {buildStudentDocument} from '/src/exercise-export.ts';
+import {flowShapeCombinations} from '/src/flow-colors.ts';
+import {normalizeFlowImage} from '/src/flow-image.ts';
+import {renderFlowSVG} from '/src/flow-svg.ts';
+import {flowOutputBox} from '/src/flow-crop.ts';
+import {flowEdgeGeometry,flowGumGeometry,flowLabelPoint} from '/src/flow-geometry.ts';
+
+const app=document.querySelector('#app'),student=document.querySelector('#student'),out=document.querySelector('#result');
+const wait=(ms=90)=>new Promise(resolve=>setTimeout(resolve,ms));
+const env=()=>({w:app.contentWindow,d:app.contentDocument});
+const blocks=()=>Array.from(env().d.querySelectorAll('#canvas [data-type="diagrama_flujo"]'));
+// SVG tspans may wrap a label without a whitespace text node between lines.
+const hasLabel=(element,label)=>String(element?.textContent||'').replace(/\s+/g,'').includes(label.replace(/\s+/g,''));
+let results=[],blank='',busy=false;
+const record=(name,ok)=>{results.push(`${ok?'PASS':'FAIL'} ${name}`);out.textContent=results.join('\n');if(!ok)throw new Error(name);};
+async function ready(){
+  let projectRequested=false;
+  for(let attempt=0;attempt<200;attempt++){
+    const {w,d}=env();
+    if(typeof w?.insertTemplate==='function'&&typeof w?.initNestedDropzones==='function'&&typeof w?.editFlowDiagram==='function'&&d.querySelector('#canvas')){
+      // Exercise real project state as well as the imperative canvas helpers:
+      // otherwise the welcome dialog would still intercept pointer actions.
+      if(!d.querySelector('.project-tab[data-active="true"]')){
+        const create=d.querySelector('.project-welcome .welcome-actions > button');
+        if(create&&!projectRequested){projectRequested=true;create.click();}
+      }else{
+        if(!blank)blank=d.querySelector('#canvas-container-outer').innerHTML;
+        return env();
+      }
+    }
+    await wait(60);
+  }
+  throw new Error('El Builder de prueba no terminó de iniciar. Revisa el servidor y recarga esta prueba.');
+}
+async function reset(){const {w,d}=await ready();const editor=d.querySelector('dialog.flow-design-editor');if(editor){editor.querySelector('[data-action="cancel"]').click();editor.querySelector('[data-flow-discard]')?.click();}w.restoreState(blank);await wait(130);return env();}
+function sample(){
+  const model=createFlowModel();Object.assign(model,{title:'Proceso de aprobación',width:1200,height:760,background:'#ffffff',grid:true});
+  const left=addFlowLane(model),right=addFlowLane(model);
+  Object.assign(left,{title:'Solicitud · Cliente',x:40,y:35,width:540,height:690,fill:'#f8f5fc',stroke:'#cdd5dc'});
+  Object.assign(right,{title:'Revisión · Equipo',x:620,y:35,width:540,height:690,fill:'#f5f9fc',stroke:'#cdd5dc'});
+  const start=addFlowNode(model,'terminator',210,105),process=addFlowNode(model,'process',210,245),decision=addFlowNode(model,'decision',210,405),data=addFlowNode(model,'data',800,110),document=addFlowNode(model,'document',800,285),finish=addFlowNode(model,'circle',830,520);
+  Object.assign(start,{text:'Inicio',width:200,height:70,fill:'#5d428c',textColor:'#ffffff',stroke:'#5d428c'});
+  Object.assign(process,{text:'Preparar solicitud',width:200,height:88,fill:'#b99bd9',textColor:'#253649',stroke:'#5d428c'});
+  Object.assign(decision,{text:'¿Información\ncompleta?',width:220,height:132,fontSize:14,fill:'#ff5900',textColor:'#ffffff',stroke:'#ff5900'});
+  Object.assign(data,{text:'Recibir datos',width:230,height:90,fill:'#4da0dd',textColor:'#ffffff',stroke:'#3285c2'});
+  Object.assign(document,{text:'Generar evidencia',width:230,height:110,fill:'#57b479',textColor:'#ffffff',stroke:'#398d56'});
+  Object.assign(finish,{text:'Fin',width:125,height:125,fill:'#5d428c',textColor:'#ffffff',stroke:'#5d428c'});
+  addFlowEdge(model,start.id,process.id,{route:'straight',fromSide:'bottom',toSide:'top'});
+  addFlowEdge(model,process.id,decision.id,{route:'orthogonal',fromSide:'bottom',toSide:'top'});
+  addFlowEdge(model,decision.id,data.id,{route:'curve',label:'Revisar',fromSide:'right',toSide:'left',color:'#4d8fc8',colorMode:'gradient',startArrow:true,startMarker:'gum',endMarker:'gum'});
+  addFlowEdge(model,decision.id,process.id,{route:'orthogonal',label:'No',fromSide:'left',toSide:'left',color:'#ff5900',dash:'dashed'});
+  addFlowEdge(model,data.id,document.id,{route:'orthogonal',fromSide:'bottom',toSide:'top',color:'#4d8fc8',dash:'dotted'});
+  addFlowEdge(model,decision.id,document.id,{route:'straight',label:'Sí',fromSide:'right',toSide:'left',color:'#398d56'});
+  addFlowEdge(model,document.id,finish.id,{route:'orthogonal',fromSide:'bottom',toSide:'top',color:'#398d56'});
+  return normalizeFlowModel(model);
+}
+function insertBlock(){
+  const {w,d}=env();
+  if(!d.querySelector('#canvas > .lms-element > .lms-dropzone.bg-white'))w.insertTemplate('pagina_basica');
+  w.insertTemplate('diagrama_flujo');
+  const block=blocks().at(-1),zone=d.querySelector('#canvas > .lms-element > .lms-dropzone.bg-white');
+  zone.insertBefore(block,zone.querySelector(':scope > .lms-footer-wrapper'));
+  w.initNestedDropzones();return block;
+}
+function setModel(block,model=sample()){block.dataset.flowModel=JSON.stringify(model);env().w.initNestedDropzones();return block;}
+function openBlock(block){env().w.editFlowDiagram(block.querySelector('[data-flow-open]')||block.querySelector('.block-toolbar button[title="Editar diagrama de flujo"]')||block);}
+function referencesStayLocal(root){
+  const ids=Array.from(root.querySelectorAll('[id]')).map(el=>el.id);
+  if(ids.length!==new Set(ids).size)return false;
+  for(const svg of root.querySelectorAll('svg[data-flow-canvas]')){
+    const available=new Set(Array.from(svg.querySelectorAll('[id]')).map(el=>el.id));
+    for(const el of [svg,...svg.querySelectorAll('*')])for(const attr of el.attributes){
+      for(const match of attr.value.matchAll(/url\(["']?#([^)'"\s]+)["']?\)/g))if(!available.has(match[1]))return false;
+      if(['href','xlink:href'].includes(attr.name)&&attr.value.startsWith('#')&&!available.has(attr.value.slice(1)))return false;
+      if(attr.name==='aria-labelledby'&&attr.value.split(/\s+/).some(id=>!available.has(id)))return false;
+    }
+  }
+  return true;
+}
+function publishedChecks(doc,expected=2){
+  const graphs=Array.from(doc.querySelectorAll('.flow-published'));
+  record('Publicación contiene cada gráfica como SVG vectorial',graphs.length===expected&&graphs.every(graph=>graph.querySelector('svg[data-flow-canvas]')));
+  record('Líneas y etiquetas se conservan',graphs.every(graph=>graph.querySelectorAll('path').length>=7&&hasLabel(graph,'Preparar solicitud')&&hasLabel(graph,'Revisar')&&hasLabel(graph,'Sí')));
+  record('Exportación sin placeholders, controles o modelo de edición',graphs.every(graph=>!graph.querySelector('.block-toolbar,.flow-placeholder,[data-flow-open],[data-flow-port],[data-flow-resize],[data-flow-lane-resize],[data-flow-bend]'))&&!doc.querySelector('[data-flow-model]'));
+  record('Gráficas sin dependencias de imágenes, fuentes de iconos ni scripts',graphs.every(graph=>!graph.querySelector('image,img,script,foreignObject,.material-symbols-outlined')&&!Array.from(graph.querySelectorAll('[href],[src]')).some(el=>/^(https?:|data:|blob:)/.test(el.getAttribute('href')||el.getAttribute('src')||''))));
+  record('IDs únicos y referencias SVG resueltas tras publicar',referencesStayLocal(doc));
+  record('Los gradientes entre figuras sobreviven a la publicación',graphs.every(graph=>graph.querySelector('linearGradient')&&graph.querySelector('path[stroke^="url(#"]')));
+}
+async function editorChecks(block){
+  const {w,d}=env(),original=JSON.parse(block.dataset.flowModel),[a,b,c]=original.nodes;
+  openBlock(block);await wait();
+  const dialog=()=>d.querySelector('.flow-design-editor'),inspector=()=>dialog().querySelector('.fde-inspector');
+  const select=(kind,id,shift=false)=>dialog().querySelector(`[data-select-kind="${kind}"][data-select-id="${id}"]`).dispatchEvent(new w.MouseEvent('click',{bubbles:true,shiftKey:shift}));
+  const change=(key,value)=>{const input=inspector().querySelector(`[data-prop="${key}"]`);if(input.type==='checkbox')input.checked=value;else input.value=String(value);input.dispatchEvent(new w.Event('input',{bubbles:true}));input.dispatchEvent(new w.Event('change',{bubbles:true}));};
+  const selectedCount=()=>Number(inspector().dataset.selectionCount);
+  record('Colores sin selectores libres del sistema',!dialog().querySelector('input[type="color"]'));
+  select('node',a.id);select('node',b.id,true);
+  record('Shift acumula figuras sin duplicar la edición de texto en el panel',selectedCount()===2&&!inspector().querySelector('[data-prop="text"],[data-prop="fontSize"],[data-prop="textColor"]'));
+  change('strokeWidth',4);
+  inspector().querySelector('[data-color-key="fill"]').click();
+  const popup=dialog().querySelector('.fde-color-popover'),bounds=popup.getBoundingClientRect(),dialogBounds=dialog().getBoundingClientRect();
+  record('Paleta circular con 38 colores institucionales y neutros dentro del editor',popup.querySelectorAll('[data-flow-color]').length===38&&bounds.left>=dialogBounds.left&&bounds.right<=dialogBounds.right+1&&bounds.top>=dialogBounds.top&&bounds.bottom<=dialogBounds.bottom+1);
+  popup.querySelector('[data-flow-color="#ff5900"]').click();
+  inspector().querySelector('[data-color-combinations]').click();
+  record('Ocho combinaciones con miniaturas de relleno, borde y texto',dialog().querySelectorAll('[data-flow-combination]').length===8&&dialog().querySelectorAll('.fde-combination-preview').length===8);
+  dialog().querySelector(`[data-flow-combination="${flowShapeCombinations[3].id}"]`).click();
+  // Reverting the one compound action must restore both nodes' previous color.
+  dialog().querySelector('[data-action="undo"]').click();
+  select('node',a.id);select('node',b.id,true);
+  record('Deshacer revierte una combinación para toda la selección',!inspector().querySelector('[data-color-key="fill"]').getAttribute('aria-label').includes('distintos'));
+  inspector().querySelector('[data-color-combinations]').click();dialog().querySelector(`[data-flow-combination="${flowShapeCombinations[3].id}"]`).click();
+  select('node',b.id,true);record('Shift vuelve a quitar una figura sin borrar las otras',selectedCount()===1);
+  const [firstEdge,secondEdge]=original.edges;
+  select('edge',firstEdge.id,true);record('Cambiar de tipo inicia una selección independiente',inspector().dataset.selectionKind==='edge'&&selectedCount()===1);
+  select('edge',secondEdge.id,true);change('dash','dotted');inspector().querySelector('[data-color-key="color"]').click();dialog().querySelector('[data-flow-color-mode="gradient"]').click();
+  record('Edición masiva de conectores y gradientes visibles',selectedCount()===2&&dialog().querySelectorAll('.fde-surface linearGradient').length===3);
+  select('lane',original.lanes[0].id);select('lane',original.lanes[1].id,true);
+  // Color controls are buttons; choose their palette rather than dispatching a free color.
+  inspector().querySelector('[data-color-key="stroke"]').click();dialog().querySelector('[data-flow-color="#5d428c"]').click();
+  record('Shift selecciona y edita varios carriles',selectedCount()===2&&inspector().dataset.selectionKind==='lane');
+  const connect=dialog().querySelector('[data-action="connect"]');connect.click();
+  select('node',a.id);select('node',c.id);select('node',b.id);select('node',c.id);
+  record('Conectar permanece activo al crear conexiones consecutivas',connect.getAttribute('role')==='switch'&&connect.getAttribute('aria-checked')==='true');
+  connect.click();record('Solo apagar el switch termina el modo Conectar',connect.getAttribute('aria-checked')==='false');
+  dialog().querySelector('[data-action="save"]').click();await wait();
+  const saved=JSON.parse(block.dataset.flowModel),preset=flowShapeCombinations[3];
+  record('El lote sobrescribe solo lo elegido y conserva los textos originales',saved.nodes.slice(0,2).every((node,index)=>node.strokeWidth===4&&node.fontSize===original.nodes[index].fontSize&&node.text===original.nodes[index].text&&['fill','stroke','textColor'].every(key=>node[key]===preset[key]))&&saved.nodes[2].fontSize===original.nodes[2].fontSize&&saved.nodes[2].fill===original.nodes[2].fill);
+  record('Conectores del lote conservan sus extremos y carriles su contenido',saved.edges.slice(0,2).every((edge,index)=>edge.colorMode==='gradient'&&edge.dash==='dotted'&&edge.from===original.edges[index].from&&edge.to===original.edges[index].to)&&saved.lanes.every(lane=>lane.stroke==='#5d428c')&&saved.nodes.length===original.nodes.length&&saved.edges.length===original.edges.length+2);
+  openBlock(block);await wait();select('edge',firstEdge.id);
+  inspector().querySelector('[data-color-key="color"]').click();
+  record('Reabrir conserva la selección de gradiente y las referencias locales',dialog().querySelector('[data-flow-color-mode="gradient"]').getAttribute('aria-pressed')==='true'&&referencesStayLocal(dialog()));
+  inspector().querySelector('[data-color-key="color"]').click();
+  dialog().querySelector('[data-action="cancel"]').click();await wait();
+  setModel(block,original);await wait();
+}
+async function advancedEditorChecks(block){
+  const {w,d}=env(),original=JSON.parse(block.dataset.flowModel),[edge]=original.edges,[lane]=original.lanes;
+  openBlock(block);await wait();
+  const dialog=()=>d.querySelector('.flow-design-editor'),inspector=()=>dialog().querySelector('.fde-inspector');
+  const select=(kind,id)=>dialog().querySelector(`[data-select-kind="${kind}"][data-select-id="${id}"]`).click();
+  const change=(key,value)=>{const input=inspector().querySelector(`[data-prop="${key}"]`);if(input.type==='checkbox')input.checked=value;else input.value=String(value);input.dispatchEvent(new w.Event('input',{bubbles:true}));input.dispatchEvent(new w.Event('change',{bubbles:true}));};
+  dialog().querySelector('[data-action="canvas"]').click();inspector().querySelector('[data-color-key="background"]').click();
+  dialog().querySelector('[data-flow-color-mode="transparent"]').click();
+  record('Fondo transparente se elige en la paleta y tiene guía ajedrezada solo al editar',dialog().querySelector('.fde-surface').classList.contains('is-transparent')&&dialog().querySelector('svg[data-flow-canvas] > rect').getAttribute('fill')==='transparent');
+  const snap=dialog().querySelector('[data-snap-mode]');snap.value='pixels';snap.dispatchEvent(new w.Event('change',{bubbles:true}));const step=dialog().querySelector('[data-snap-size]');step.value='7';step.dispatchEvent(new w.Event('change',{bubbles:true}));
+  record('Barra permite libre, retícula y un paso de píxeles configurable',snap.options.length===3&&snap.value==='pixels'&&!step.parentElement.hidden&&step.value==='7');
+  select('lane',lane.id);inspector().querySelector('[data-lane-styles]').click();record('Cuatro estilos de carril con previsualización',dialog().querySelectorAll('.fde-color-popover [data-lane-style]').length===4);dialog().querySelector('.fde-color-popover [data-lane-style="rounded"]').click();
+  inspector().querySelector('[data-lane-combinations]').click();record('Cuatro combinaciones claras de carril',dialog().querySelectorAll('[data-flow-combination]').length===4);dialog().querySelector('[data-flow-combination="durazno"]').click();
+  change('textPosition','left');change('fontFamily','Zilla Slab');change('fontSize',21);
+  record('Carril tiene ocho tiradores y controles institucionales de título',dialog().querySelectorAll(`[data-flow-lane-resize="${lane.id}"]`).length===8&&!!inspector().querySelector('[data-color-key="textColor"]')&&inspector().querySelector('[data-prop="fontFamily"]').options.length===3&&dialog().querySelector(`[data-flow-lane="${lane.id}"] g[font-family]`).getAttribute('transform').includes('-90'));
+  select('edge',edge.id);record('Se retiró Tipo de color y el grosor es slider',!inspector().querySelector('[data-prop="colorMode"]')&&inspector().querySelector('[data-prop="width"]').type==='range');
+  inspector().querySelector('[data-color-key="color"]').click();dialog().querySelector('[data-flow-color-mode="gradient"]').click();change('width',8);change('startArrow',true);change('startMarker','gum');change('endMarker','circle');change('route','curve');
+  record('Chicle y círculo se combinan con curva y gradiente',!!dialog().querySelector(`[data-flow-edge="${edge.id}"] [data-flow-gum]`)&&!!dialog().querySelector('marker[data-flow-marker="circle"]')&&!!dialog().querySelector('linearGradient'));
+  change('startArrow',false);record('Checkbox de extremo desactiva chicle sin quitar el gradiente',!dialog().querySelector(`[data-flow-edge="${edge.id}"] [data-flow-gum]`)&&!!dialog().querySelector('linearGradient'));
+  change('startArrow',true);change('endMarker','square');change('route','orthogonal');
+  record('Conector ortogonal ofrece tirador y símbolos de tamaño proporcional',!!dialog().querySelector(`[data-flow-bend="${edge.id}"]`)&&!!dialog().querySelector('marker[data-flow-marker="square"][markerWidth="28"]'));
+  dialog().querySelector('[data-action="save"]').click();await wait();const saved=JSON.parse(block.dataset.flowModel);
+  record('Nuevos ajustes sobreviven al guardar sin cambiar el contenido de figuras',saved.background==='transparent'&&saved.snapMode==='pixels'&&saved.snapSize===7&&saved.lanes[0].style==='rounded'&&saved.lanes[0].fontFamily==='Zilla Slab'&&saved.edges[0].startMarker==='gum'&&saved.edges[0].endMarker==='square'&&saved.nodes.every((node,index)=>node.text===original.nodes[index].text));
+  const holder=document.createElement('div');holder.innerHTML=block.outerHTML;prepareFlowExport(holder);
+  record('Exportación conserva chicle y transparencia sin tiradores ni paneles',!!holder.querySelector('[data-flow-gum]')&&holder.querySelector('svg > rect').getAttribute('fill')==='transparent'&&!holder.querySelector('[data-flow-lane-resize],[data-flow-bend],.fde-color-popover'));
+  setModel(block,original);await wait();
+}
+async function run(){
+ if(busy)return;busy=true;results=[];document.body.classList.add('results');out.hidden=false;
+ try{
+  record('Contrato de integración disponible',[getFlowHTML,setupFlowBlocks,initFlowBlocks,prepareFlowExport,openFlowEditor].every(fn=>typeof fn==='function'));
+  const {w,d}=await reset();
+  const catalog=d.querySelector('#tab-elements .catalog-item[data-type="diagrama_flujo"]');
+  record('Elemento disponible en Gráficas y marcado avanzado',!!catalog&&catalog.dataset.catalogLevel==='advanced'&&catalog.closest('details')?.textContent.includes('Gráficas'));
+  let block=insertBlock();await wait();
+  record('Placeholder central con icono de diagrama',!!block.querySelector('.flow-placeholder[data-flow-open] svg')&&block.textContent.includes('Diseñar diagrama de flujo'));
+  const tools=block.querySelector(':scope > .block-toolbar');
+  record('Roll over conserva mover duplicar editar eliminar y añade recorte redondeo transparencia',!!tools&&tools.querySelectorAll('.drag-handle').length===1&&tools.querySelectorAll('button').length===6&&tools.querySelectorAll('[data-flow-presentation]').length===3&&!!tools.querySelector('[data-duplicate-element]')&&!!tools.querySelector('button[title="Editar diagrama de flujo"]'));
+  openBlock(block);await wait();
+  record('Editor independiente abre sobre el Builder',!!d.querySelector('dialog.flow-design-editor[open]')&&!!d.querySelector('.fde-surface svg'));
+  const beforeCancel=block.dataset.flowModel;
+  d.querySelector('dialog.flow-design-editor [data-action="cancel"]').click();await wait();
+  record('Cancelar conserva el bloque vacío sin cambios',!d.querySelector('dialog.flow-design-editor[open]')&&block.dataset.flowModel===beforeCancel&&!!block.querySelector('.flow-placeholder'));
+  const emptyDoc=new DOMParser().parseFromString(w.generateExportHTML(false),'text/html');
+  record('Un elemento sin diseño no publica el placeholder',!emptyDoc.querySelector('[data-type="diagrama_flujo"],.flow-placeholder,.flow-published'));
+  setModel(block);await wait();
+  record('Modelo de seis figuras, siete enlaces y dos carriles',JSON.parse(block.dataset.flowModel).nodes.length===6&&JSON.parse(block.dataset.flowModel).edges.length===7&&JSON.parse(block.dataset.flowModel).lanes.length===2);
+  record('Previo vectorial reemplaza placeholder',!!block.querySelector('.flow-preview svg[data-flow-canvas]')&&!block.querySelector('.flow-placeholder')&&hasLabel(block,'Preparar solicitud'));
+  await editorChecks(block);
+  await advancedEditorChecks(block);
+  w.saveHistoryState(true);
+  w.duplicateBlock(block.querySelector('[data-duplicate-element]'));await wait(150);
+  record('Duplicar genera dos bloques completos independientes',blocks().length===2&&blocks().every(item=>item.querySelector('svg[data-flow-canvas]')&&JSON.parse(item.dataset.flowModel).nodes.length===6));
+  record('Marcadores y títulos SVG son únicos al duplicar',referencesStayLocal(d));
+  w.undo();await wait(150);record('Deshacer recupera un solo diagrama',blocks().length===1&&blocks()[0].querySelector('svg[data-flow-canvas]'));
+  w.redo();await wait(150);record('Rehacer restaura ambos diagramas y sus conexiones',blocks().length===2&&referencesStayLocal(d));
+  const saved=d.querySelector('#canvas-container-outer').innerHTML,models=blocks().map(item=>JSON.stringify(JSON.parse(item.dataset.flowModel)));
+  w.restoreState(saved);await wait(150);
+  record('Serializar y restaurar conserva todo el diseño editable',blocks().length===2&&blocks().every((item,index)=>JSON.stringify(JSON.parse(item.dataset.flowModel))===models[index]));
+  record('Hidratar el proyecto recrea IDs SVG sin colisiones',referencesStayLocal(d));
+  const exported=w.generateExportHTML(false);record('Generar HTML termina sin errores de URL de marcadores',typeof exported==='string'&&exported.includes('flow-published'));
+  const doc=new DOMParser().parseFromString(exported,'text/html');publishedChecks(doc);
+  doc.querySelectorAll('link[rel="stylesheet"]').forEach(link=>link.remove());
+  const studentHTML=await buildStudentDocument('<!doctype html>'+doc.documentElement.outerHTML);
+  const studentDoc=new DOMParser().parseFromString(studentHTML,'text/html');
+  record('El HTML alumno conserva SVG, etiquetas y referencias',studentDoc.querySelectorAll('.flow-published svg[data-flow-canvas]').length===2&&hasLabel(studentDoc.body,'Preparar solicitud')&&referencesStayLocal(studentDoc));
+  record('Sin estado editable oculto en el HTML publicado',!doc.querySelector('#lms-state,[data-flow-model]')&&!studentDoc.querySelector('#lms-state,[data-flow-model]'));
+  const editable=w.generateExportHTML(true),editableDoc=new DOMParser().parseFromString(editable,'text/html');
+  record('El HTML de respaldo conserva el modelo para reabrir',JSON.parse(editableDoc.querySelector('#lms-state').textContent).includes('data-flow-model='));
+  const holder=document.createElement('div');holder.innerHTML=getFlowHTML();holder.querySelector('[data-type="diagrama_flujo"]').dataset.flowModel=JSON.stringify(sample());
+  prepareFlowExport(holder);record('Preparador directo funciona fuera del documento vivo',!!holder.querySelector('.flow-published svg')&&!holder.querySelector('[data-flow-model]'));
+  out.textContent=results.join('\n')+`\nTOTAL: ${results.length} / FAIL: 0`;
+ }catch(error){out.textContent+='\nERROR '+error.stack;}
+ finally{busy=false;}
+}
+document.querySelector('#run').addEventListener('click',run);
+document.querySelector('#empty').addEventListener('click',async()=>{try{await reset();openBlock(insertBlock());}catch(error){out.hidden=false;out.textContent=error.stack;}});
+document.querySelector('#example').addEventListener('click',async()=>{try{await reset();setModel(insertBlock());out.hidden=true;document.body.classList.remove('results');}catch(error){out.hidden=false;out.textContent=error.stack;}});
+document.querySelector('#edit-example').addEventListener('click',async()=>{try{await ready();const block=blocks()[0]||setModel(insertBlock());openBlock(block);out.hidden=true;document.body.classList.remove('results');}catch(error){out.hidden=false;out.textContent=error.stack;}});
+document.querySelector('#hide').addEventListener('click',()=>{out.hidden=true;document.body.classList.remove('results');});
+function imageFixture(){
+ const canvas=document.createElement('canvas');canvas.width=400;canvas.height=260;const c=canvas.getContext('2d');
+ const gradient=c.createLinearGradient(40,0,360,260);gradient.addColorStop(0,'#ff5900');gradient.addColorStop(1,'#5d428c');c.fillStyle=gradient;c.beginPath();c.roundRect(30,20,340,220,55);c.fill();
+ c.fillStyle='#ffffff';c.beginPath();c.arc(135,100,45,0,Math.PI*2);c.fill();c.globalAlpha=.5;c.beginPath();c.arc(270,160,70,0,Math.PI*2);c.fill();c.fillRect(380,120,15,15);c.globalAlpha=1;c.fillStyle='#253649';c.font='bold 30px Arial';c.fillText('ALPHA',90,205);return canvas.toDataURL('image/png');
+}
+function imageSample(){
+ const model=createFlowModel();model.background='transparent';model.title='Imagen, máscaras y conexiones';
+ const source=addFlowNode(model,'process',80,320),diamond=addFlowNode(model,'decision',520,150),capsule=addFlowNode(model,'terminator',530,480),photo=addFlowNode(model,'image',830,250),alpha=addFlowNode(model,'image',70,65);
+ Object.assign(source,{text:'Proceso',width:200});Object.assign(diamond,{text:'Decisión',width:210,height:150});Object.assign(capsule,{text:'Inicio / fin',width:210,height:90});
+ Object.assign(photo,{width:260,height:220,stroke:'#ff5900',strokeWidth:4,radius:30,image:normalizeFlowImage({src:imageFixture(),naturalWidth:400,naturalHeight:260,mask:'circle',zoom:1.2})});
+ Object.assign(alpha,{width:280,height:182,image:normalizeFlowImage({src:imageFixture(),naturalWidth:400,naturalHeight:260})});
+ addFlowEdge(model,source.id,diamond.id,{fromSide:'right',toSide:'left',endMarker:'gum'});addFlowEdge(model,source.id,capsule.id,{fromSide:'right',toSide:'left',endMarker:'gum'});addFlowEdge(model,diamond.id,photo.id,{fromSide:'right',toSide:'top',route:'curve',colorMode:'gradient',startMarker:'gum',startArrow:true,endMarker:'gum'});
+ return model;
+}
+document.querySelector('#image-example').onclick=async()=>{try{await reset();const block=setModel(insertBlock(),imageSample());openBlock(block);out.hidden=true;document.body.classList.remove('results');}catch(error){out.hidden=false;out.textContent=error.stack;}};
+document.querySelector('#image-check').onclick=async()=>{
+ if(busy)return;busy=true;results=[];out.hidden=false;document.body.classList.add('results');
+ try{
+ const {w,d}=await reset(),block=setModel(insertBlock(),imageSample());openBlock(block);await wait();
+ const dialog=()=>d.querySelector('.flow-design-editor'),inspector=()=>dialog().querySelector('.fde-inspector');
+ const data=JSON.parse(block.dataset.flowModel),photo=data.nodes.find(n=>n.type==='image'&&n.image.mask==='circle');
+ const select=id=>dialog().querySelector(`[data-select-kind="node"][data-select-id="${id}"]`).click();
+ const change=(key,value)=>{const input=inspector().querySelector(`[data-prop="${key}"]`);input.value=String(value);input.dispatchEvent(new w.Event('input',{bubbles:true}));input.dispatchEvent(new w.Event('change',{bubbles:true}));};
+ record('Paleta ofrece imagen como octavo tipo de figura',dialog().querySelectorAll('[data-shape]').length===8&&!!dialog().querySelector('[data-shape="image"]'));
+ select(photo.id);record('Controles de imagen incluyen siete máscaras y ajustes de imagen dinámica',inspector().querySelector('[data-prop="image.mask"]').options.length===7&&inspector().querySelectorAll('[data-prop^="image.adjustments."]').length===6);
+ for(const mask of ['process','circle','decision','terminator','document','data','none']){change('image.mask',mask);record(`Máscara ${mask} renderiza imagen con recorte SVG`,!!dialog().querySelector(`[data-flow-node="${photo.id}"] image[clip-path]`)||!!dialog().querySelector(`[data-flow-node="${photo.id}"] clipPath`));}
+ change('image.mask','process');change('radius',40);change('image.zoom',1.7);change('image.adjustments.contrast',145);change('image.adjustments.tint',25);
+ record('Redondeado, escala y filtros SVG se actualizan sin cambiar marco',dialog().querySelector(`[data-flow-node="${photo.id}"] clipPath rect`).getAttribute('rx')==='40'&&!!dialog().querySelector(`[data-flow-node="${photo.id}"] feBlend[mode="color"]`));
+  dialog().querySelector(`.fde-surface [data-flow-node="${photo.id}"]`).dispatchEvent(new w.MouseEvent('dblclick',{bubbles:true}));
+ record('Encuadre activa tiradores independientes y oculta redimensionado del marco',!!dialog().querySelector('[data-flow-image-pan]')&&!!dialog().querySelector('[data-flow-image-scale]')&&!dialog().querySelector(`[data-flow-resize="${photo.id}"]`));
+ const input=inspector().querySelector('input[type="file"]'),blob=await(await fetch(imageFixture())).blob(),files=new w.DataTransfer();files.items.add(new w.File([blob],'alpha-test.png',{type:'image/png'}));input.files=files.files;input.dispatchEvent(new w.Event('change',{bubbles:true}));
+ for(let i=0;i<100;i++){await wait(30);if(inspector().querySelector('[data-prop="image.zoom"]')?.value==='1')break;}
+ record('Importación local genera PNG persistente y restablece encuadre',inspector().querySelector('[data-prop="image.zoom"]').value==='1'&&dialog().querySelector(`[data-flow-node="${photo.id}"] image`).getAttribute('href').startsWith('data:image/png;base64,'));
+ dialog().querySelector('[data-action="save"]').click();await wait();const saved=JSON.parse(block.dataset.flowModel),savedPhoto=saved.nodes.find(n=>n.id===photo.id);
+ record('Guardar conserva imagen, máscara, stroke y ajustes',savedPhoto.image.src.startsWith('data:image/png;base64,')&&savedPhoto.image.mask==='process'&&savedPhoto.radius===40&&savedPhoto.image.adjustments.contrast===145);
+ const html=w.generateExportHTML(false),published=new DOMParser().parseFromString(html,'text/html');
+ record('Exportación mantiene imágenes, filtros y referencias locales sin controles',published.querySelectorAll('.flow-published image').length===2&&referencesStayLocal(published)&&!published.querySelector('[data-flow-image-pan],[data-flow-image-scale],[data-flow-model]'));
+ const studentHTML=await buildStudentDocument(html),studentDoc=new DOMParser().parseFromString(studentHTML,'text/html');record('HTML alumno conserva las imágenes del diagrama',studentDoc.querySelectorAll('.flow-published image').length===2&&referencesStayLocal(studentDoc));
+ openBlock(block);await wait();select(photo.id);record('Reabrir restaura los ajustes de imagen',inspector().querySelector('[data-prop="image.adjustments.contrast"]').value==='145'&&inspector().querySelector('[data-prop="image.mask"]').value==='process');
+ dialog().querySelector('[data-action="cancel"]').click();
+ const alphaModel=createFlowModel();alphaModel.background='transparent';alphaModel.grid=false;const alpha=addFlowNode(alphaModel,'image',0,0);Object.assign(alpha,{width:400,height:260,image:normalizeFlowImage({src:imageFixture(),naturalWidth:400,naturalHeight:260})});
+ for(const tint of [0,35]){alpha.image.adjustments.tint=tint;const svg=renderFlowSVG(alphaModel),img=new Image();img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);await img.decode();const canvas=document.createElement('canvas');canvas.width=1200;canvas.height=720;const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0);const corner=ctx.getImageData(1,1,1,1).data[3],opaque=ctx.getImageData(135,100,1,1).data[3],partial=ctx.getImageData(385,125,1,1).data[3];record(`Rasterización preserva alpha con filtro ${tint}`,corner===0&&opaque===255&&partial===128);}
+ out.textContent=results.join('\n')+`\nTOTAL: ${results.length} / FAIL: 0`;
+ }catch(error){out.textContent+='\nERROR '+error.stack;}finally{busy=false;}
+};
+function cropSample(){
+ const m=createFlowModel();Object.assign(m,{title:'Recorte al diagrama',background:'transparent',snapMode:'grid'});
+ const a=addFlowNode(m,'circle',83,97),b=addFlowNode(m,'decision',560,320),c=addFlowNode(m,'terminator',100,360),e=addFlowNode(m,'circle',440,520);
+ Object.assign(a,{width:113,height:113,text:'Inicio'});Object.assign(b,{text:'Decisión',fill:'#ff5900',textColor:'#ffffff'});Object.assign(c,{text:'Proceso'});Object.assign(e,{text:'Revisar'});
+ addFlowEdge(m,a.id,b.id,{fromSide:'right',toSide:'top',route:'orthogonal',bend:{axis:'x',position:420},endMarker:'gum',label:'Continuar'});
+ addFlowEdge(m,c.id,b.id,{fromSide:'right',toSide:'left',route:'straight'});addFlowEdge(m,b.id,e.id,{fromSide:'right',toSide:'right',bend:{axis:'x',position:850},label:'No'});
+ return m;
+}
+document.querySelector('#crop-example').onclick=async()=>{try{await reset();const m=cropSample();m.autoCrop=true;const block=setModel(insertBlock(),m);openBlock(block);out.hidden=true;document.body.classList.remove('results');}catch(error){out.hidden=false;out.textContent=error.stack;}};
+document.querySelector('#crop-check').onclick=async()=>{
+ if(busy)return;busy=true;results=[];out.hidden=false;document.body.classList.add('results');
+ try{
+ const {w,d}=await reset(),initial=cropSample(),block=setModel(insertBlock(),initial);
+ const presentation=(key,value)=>{const input=d.querySelector(`.flow-block-popover [data-flow-field="${key}"]`);if(input.type==='checkbox')input.checked=value;else input.value=String(value);input.dispatchEvent(new w.Event('input',{bubbles:true}));input.dispatchEvent(new w.Event('change',{bubbles:true}));};
+ const initialCropButton=block.querySelector('[data-flow-presentation="crop"]');initialCropButton.scrollIntoView({block:'center'});initialCropButton.click();
+ record('Recorte opcional desde roll over no cambia diagramas anteriores',!d.querySelector('[data-flow-field="autoCrop"]').checked&&!JSON.parse(block.dataset.flowModel).autoCrop);
+ presentation('autoCrop',true);record('Activar recorte crea dos márgenes de 10 px con sliders independientes',d.querySelector('[data-flow-field="cropMarginX"]').type==='range'&&d.querySelector('[data-flow-field="cropMarginX"]').value==='10'&&d.querySelector('[data-flow-field="cropMarginY"]').value==='10');
+ presentation('cropMarginX',35);presentation('cropMarginY',20);d.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));openBlock(block);await wait();
+ const dialog=()=>d.querySelector('.flow-design-editor'),inspector=()=>dialog().querySelector('.fde-inspector');
+ const select=(kind,id)=>dialog().querySelector(`[data-select-kind="${kind}"][data-select-id="${id}"]`).click();
+ const change=(key,value)=>{const input=inspector().querySelector(`[data-prop="${key}"]`);if(input.type==='checkbox')input.checked=value;else input.value=String(value);input.dispatchEvent(new w.Event('input',{bubbles:true}));input.dispatchEvent(new w.Event('change',{bubbles:true}));};
+ const expected=flowOutputBox({...initial,autoCrop:true,cropMarginX:35,cropMarginY:20}),guide=dialog().querySelector('[data-flow-crop-guide]');
+ record('Guía muestra recorte incluyendo el conector exterior',Math.abs(Number(guide.getAttribute('x'))-expected.x)<.01&&Math.abs(Number(guide.getAttribute('width'))-expected.width)<.01&&expected.x+expected.width>850);
+ record('Editor conserva coordenadas de lienzo para no saltar al arrastrar',dialog().querySelector('.fde-surface svg').getAttribute('viewBox')==='0 0 1200 720');
+ const connect=dialog().querySelector('[data-action="connect"]'),background=()=>dialog().querySelector('.fde-surface svg > rect');connect.click();select('node',initial.nodes[0].id);
+ background().dispatchEvent(new w.PointerEvent('pointerdown',{bubbles:true,button:0,clientX:240,clientY:180,pointerId:987}));record('Un clic vacío conserva Conectar activo',connect.getAttribute('aria-checked')==='true');
+ background().dispatchEvent(new w.PointerEvent('pointerdown',{bubbles:true,button:0,clientX:240,clientY:180,pointerId:988}));record('Dos clics vacíos apagan Conectar y recuperan edición',connect.getAttribute('aria-checked')==='false'&&dialog().querySelector('.fde-status').textContent.includes('Shift'));
+ connect.click();background().dispatchEvent(new w.MouseEvent('dblclick',{bubbles:true}));record('Doble clic nativo en fondo también apaga el switch',connect.getAttribute('aria-checked')==='false');
+ select('node',initial.nodes[0].id);dialog().querySelector('.fde-viewport').dispatchEvent(new w.KeyboardEvent('keydown',{bubbles:true,key:'ArrowRight'}));
+ const moved=dialog().querySelector(`[data-flow-node="${initial.nodes[0].id}"]`),position=moved.getAttribute('transform').match(/translate\(([-\d.]+) ([-\d.]+)\)/).slice(1).map(Number);
+ record('Mover figura impar en retícula alinea su centro, no la esquina',(position[0]+113/2)%20===0&&(position[1]+113/2)%20===0);
+ select('edge',initial.edges[0].id);const path=dialog().querySelector(`.fde-surface [data-flow-edge="${initial.edges[0].id}"] path:last-of-type`).getAttribute('d');
+ record('Salida de conector ortogonal se conserva en centro de figura',path.startsWith(`M ${position[0]+113} ${position[1]+113/2} `));
+ dialog().querySelector('[data-action="save"]').click();await wait();const saved=JSON.parse(block.dataset.flowModel),box=flowOutputBox(saved);
+ record('Guardar conserva recorte, márgenes y figura centrada',saved.autoCrop&&saved.cropMarginX===35&&saved.cropMarginY===20&&(saved.nodes[0].x+saved.nodes[0].width/2)%20===0);
+ record('Doblez manual acompaña origen y permanece ajustado a retícula',saved.edges[0].bend.position===440);
+ record('Apagar Conectar no agregó conexiones accidentales',saved.edges.length===initial.edges.length);
+ const expectedView=[box.x,box.y,box.width,box.height].map(n=>Math.round(n*100)/100).join(' ');record('Previo usa la proporción recortada',block.querySelector('.flow-preview svg').getAttribute('viewBox')===expectedView);
+ const exported=w.generateExportHTML(false),doc=new DOMParser().parseFromString(exported,'text/html');record('HTML publicado recorta sin exportar la guía del editor',doc.querySelector('.flow-published svg').getAttribute('viewBox')===expectedView&&!doc.querySelector('[data-flow-crop-guide]'));
+ const studentHTML=await buildStudentDocument(exported),studentDoc=new DOMParser().parseFromString(studentHTML,'text/html');record('HTML alumno conserva proporción y referencias de conectores',studentDoc.querySelector('.flow-published svg').getAttribute('viewBox')===expectedView&&referencesStayLocal(studentDoc));
+ openBlock(blocks()[0]);await wait();record('Reabrir conserva márgenes sin duplicar sus opciones en el panel',JSON.parse(blocks()[0].dataset.flowModel).cropMarginX===35&&JSON.parse(blocks()[0].dataset.flowModel).cropMarginY===20&&!inspector().querySelector('[data-prop="autoCrop"],[data-prop="cropMarginX"],[data-prop="cropMarginY"]'));
+ dialog().querySelector('[data-action="cancel"]').click();const cropButton=blocks()[0].querySelector('[data-flow-presentation="crop"]');cropButton.scrollIntoView({block:'center'});cropButton.click();presentation('autoCrop',false);d.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));await wait();const restored=JSON.parse(blocks()[0].dataset.flowModel);record('Quitar recorte restaura lienzo original sin mover figuras',blocks()[0].querySelector('.flow-preview svg').getAttribute('viewBox')==='0 0 1200 720'&&JSON.stringify(restored.nodes)===JSON.stringify(saved.nodes));
+ out.textContent=results.join('\n')+`\nTOTAL: ${results.length} / FAIL: 0`;
+ }catch(error){out.textContent+='\nERROR '+error.stack;}finally{busy=false;}
+};
+const interactionButton=document.createElement('button');interactionButton.textContent='Probar edición directa';document.querySelector('header').append(interactionButton);
+interactionButton.onclick=async()=>{
+ if(busy)return;busy=true;results=[];out.hidden=false;document.body.classList.add('results');
+ try{
+ const {w,d}=await reset(),model=imageSample(),photo=model.nodes.find(n=>n.type==='image'&&n.image.mask==='circle'),alpha=model.nodes.find(n=>n.type==='image'&&n.image.mask==='none');photo.text='Hola';photo.textColor='#ffffff';const block=setModel(insertBlock(),model);openBlock(block);await wait();
+ const dialog=()=>d.querySelector('.flow-design-editor'),inspector=()=>dialog().querySelector('.fde-inspector');
+ const select=id=>dialog().querySelector(`[data-select-kind="node"][data-select-id="${id}"]`).click();
+ const double=el=>el.dispatchEvent(new w.MouseEvent('dblclick',{bubbles:true}));
+ const change=(key,value)=>{const input=inspector().querySelector(`[data-prop="${key}"]`);input.value=String(value);input.dispatchEvent(new w.Event('input',{bubbles:true}));input.dispatchEvent(new w.Event('change',{bubbles:true}));};
+ double(dialog().querySelector(`.fde-surface [data-flow-node="${photo.id}"]`));
+ record('Doble clic activa encuadre con exterior al 15 por ciento',dialog().querySelector('[data-flow-image-ghost]').getAttribute('opacity')==='0.15'&&!dialog().querySelector('.fde-image-oncanvas').hidden);
+ record('Recorte y escala tienen tiradores distintos',dialog().querySelectorAll('[data-flow-image-crop]').length===8&&dialog().querySelectorAll('[data-flow-image-scale]').length===4);
+ record('El panel de imagen no duplica controles de texto',!inspector().querySelector('[data-prop="text"],[data-prop="textColor"],[data-prop="fontSize"]'));
+ double(dialog().querySelector(`.fde-surface [data-flow-image-text="${photo.id}"]`));
+ const editable=dialog().querySelector('.fde-rich-edit'),tools=dialog().querySelector('#rtf-toolbar');record('Doble clic en texto abre editor directo con la barra principal',editable?.isContentEditable&&!!tools&&tools.querySelector('[title="Negrita"]')&&Array.from(tools.querySelectorAll('button')).some(b=>b.textContent==='Zilla'));
+ editable.innerHTML='<b>Hola</b><i> mundo</i><span style="color:#ff5900"> naranja</span>';editable.dispatchEvent(new w.Event('input',{bubbles:true}));
+ record('Escribir conserva el editor sobre la imagen sin recrearlo',editable.isConnected&&dialog().querySelector('.fde-rich-edit')===editable);
+ editable.style.fontSize='22px';editable.style.textAlign='left';editable.dispatchEvent(new w.Event('input',{bubbles:true}));tools.querySelector('[aria-label="Terminar texto"]').click();
+ record('Cerrar texto produce SVG con negrita, cursiva y color',!!dialog().querySelector(`[data-flow-node="${photo.id}"] tspan[font-weight="700"]`)&&!!dialog().querySelector(`[data-flow-node="${photo.id}"] tspan[font-style="italic"]`)&&!!dialog().querySelector(`[data-flow-node="${photo.id}"] tspan[fill="#ff5900"]`));
+ record('Texto tiene ocho tiradores dentro de la máscara visible',dialog().querySelectorAll(`[data-flow-text-resize="${photo.id}"]`).length===8&&!dialog().querySelector('.fde-rich-edit'));
+ select(alpha.id);
+ const paste=source=>{const data=new w.DataTransfer();data.setData('text/plain',source);inspector().querySelector('.fde-image-url').dispatchEvent(new w.ClipboardEvent('paste',{bubbles:true,clipboardData:data}));};
+ const loaded=async matcher=>{for(let i=0;i<100;i++){await wait(35);if(matcher.test(inspector().querySelector('.fde-image-error')?.textContent||''))return;}throw new Error('La carga pegada no terminó');};
+ paste(imageFixture());await loaded(/^Imagen cargada\.$/);record('Pegar URL carga la imagen y solo informa el resultado',inspector().querySelector('[data-prop="image.mask"]').value==='none'&&!inspector().textContent.includes('Puedes pegar una imagen')&&!inspector().textContent.includes('Transparencia alpha detectada')&&!inspector().textContent.includes('transparencia sin verificar'));
+ const opaque=document.createElement('canvas');opaque.width=400;opaque.height=260;const ctx=opaque.getContext('2d');ctx.fillStyle='#ff5900';ctx.fillRect(0,0,400,260);paste(opaque.toDataURL('image/png'));await loaded(/^Imagen cargada\.$/);record('Imagen opaca pegada se detecta y propone máscara rectangular',inspector().querySelector('[data-prop="image.mask"]').value==='process');
+ const sourceBefore=dialog().querySelector(`[data-flow-node="${alpha.id}"] image`).getAttribute('href');paste('http://127.0.0.1:3000/flow-check.html');await loaded(/^No se pudo cargar la imagen\.$/);record('URL no imagen solo informa el fallo y conserva contenido válido',dialog().querySelector(`[data-flow-node="${alpha.id}"] image`).getAttribute('href')===sourceBefore);
+ paste(opaque.toDataURL('image/png'));paste(imageFixture());await loaded(/^Imagen cargada\.$/);record('Pegados consecutivos respetan la última imagen',dialog().querySelector(`[data-flow-node="${alpha.id}"] image`).getAttribute('href')===imageFixture());
+ select(model.nodes[0].id);const edge=model.edges[0];dialog().querySelector(`[data-select-kind="edge"][data-select-id="${edge.id}"]`).click();change('dash','dashed');change('width',8);
+ const path=dialog().querySelector(`.fde-surface [data-flow-edge="${edge.id}"] [data-flow-stroke]`);record('Guiones y espacios crecen al aumentar el grosor',path.getAttribute('stroke-dasharray')==='36 24');change('dash','dotted');record('Puntos y espacios también son proporcionales',dialog().querySelector(`.fde-surface [data-flow-edge="${edge.id}"] [data-flow-stroke]`).getAttribute('stroke-dasharray')==='4 24');
+ dialog().querySelector('[data-action="save"]').click();await wait();const saved=JSON.parse(block.dataset.flowModel),savedPhoto=saved.nodes.find(n=>n.id===photo.id);record('Guardar conserva texto enriquecido, tamaño, alineación y alpha',savedPhoto.text==='Hola mundo naranja'&&savedPhoto.fontSize===22&&savedPhoto.image.textAlign==='left'&&savedPhoto.image.textRuns.some(run=>run.bold)&&saved.nodes.find(n=>n.id===alpha.id).image.alpha===true);
+ const html=w.generateExportHTML(false),doc=new DOMParser().parseFromString(html,'text/html');record('Exportación conserva texto SVG pero no el fantasma ni controles',doc.querySelector('tspan[font-weight="700"]')&&referencesStayLocal(doc)&&!doc.querySelector('[data-flow-image-ghost],[data-flow-image-crop],[data-flow-text-resize],.fde-rich-edit,.fde-rich-toolbar'));
+ openBlock(block);await wait();select(photo.id);double(dialog().querySelector(`.fde-surface [data-flow-image-text="${photo.id}"]`));record('Reabrir permite seguir editando el texto enriquecido',dialog().querySelector('.fde-rich-edit').textContent==='Hola mundo naranja');dialog().querySelector('#rtf-toolbar [aria-label="Terminar texto"]').click();
+ const beforeCancel=block.dataset.flowModel;select(alpha.id);paste(imageFixture());dialog().querySelector('[data-action="cancel"]').click();dialog()?.querySelector('[data-flow-discard]')?.click();await wait(180);record('Cancelar aborta cargas pendientes y no escribe en la página',!dialog()&&block.dataset.flowModel===beforeCancel);
+ out.textContent=results.join('\n')+`\nTOTAL: ${results.length} / FAIL: 0`;
+ }catch(error){out.textContent+='\nERROR '+error.stack;}finally{busy=false;}
+};
+function dragSample(){
+ const model=createFlowModel();model.title='PNG con alpha y conexión por arrastre';model.background='transparent';
+ const source=addFlowNode(model,'process',110,420),target=addFlowNode(model,'decision',800,410),image=addFlowNode(model,'image',450,80);
+ source.text='Origen';target.text='Destino';Object.assign(image,{width:280,height:182});return model;
+}
+const dragExample=document.createElement('button');dragExample.textContent='Arrastre y PNG · ejemplo';document.querySelector('header').append(dragExample);
+dragExample.onclick=async()=>{try{await reset();const block=setModel(insertBlock(),dragSample());openBlock(block);out.hidden=true;document.body.classList.remove('results');}catch(error){out.hidden=false;out.textContent=error.stack;}};
+const alphaDownload=document.createElement('a');alphaDownload.id='download-alpha';alphaDownload.textContent='PNG alpha de prueba';alphaDownload.href=imageFixture();alphaDownload.download='flow-alpha-test.png';document.querySelector('header').append(alphaDownload);
+const dragChecks=document.createElement('button');dragChecks.textContent='Probar arrastre y PNG';document.querySelector('header').append(dragChecks);
+dragChecks.onclick=async()=>{
+ if(busy)return;busy=true;results=[];out.hidden=false;document.body.classList.add('results');
+ try{
+  const {w,d}=await reset(),model=dragSample(),[source,target,image]=model.nodes,block=setModel(insertBlock(),model);openBlock(block);await wait();
+  const dialog=()=>d.querySelector('.flow-design-editor'),inspector=()=>dialog().querySelector('.fde-inspector'),surface=()=>dialog().querySelector('.fde-surface');
+  const select=id=>dialog().querySelector(`[data-select-kind="node"][data-select-id="${id}"]`).click();
+  const loaded=async()=>{for(let i=0;i<100;i++){await wait(35);if(/Imagen válida/.test(inspector().querySelector('.fde-image-error')?.textContent||''))return;}throw new Error(inspector().querySelector('.fde-image-error')?.textContent||'No terminó la carga');};
+  const png=await(await fetch(imageFixture())).blob();
+  async function upload(type,name){select(image.id);const files=new w.DataTransfer(),input=inspector().querySelector('input[type="file"]');files.items.add(new w.File([png],name,{type}));input.files=files.files;input.dispatchEvent(new w.Event('change',{bubbles:true}));await loaded();}
+  await upload('image/png','alpha.png');record('Archivo PNG con alpha se importa por el selector local',inspector().textContent.includes('Transparencia alpha detectada')&&inspector().querySelector('[data-prop="image.mask"]').value==='none');
+  for(const type of ['', 'application/octet-stream']){await upload(type,'alpha-sin-mime.png');record(`PNG con MIME ${type||'vacío'} se valida por sus bytes`,inspector().textContent.includes('Transparencia alpha detectada'));}
+  select(image.id);const clipboard=new w.DataTransfer();clipboard.items.add(new w.File([png],'alpha-portapapeles.png',{type:'image/png'}));inspector().querySelector('.fde-image-url').dispatchEvent(new w.ClipboardEvent('paste',{bubbles:true,clipboardData:clipboard}));await loaded();record('PNG binario pegado conserva alpha y máscara original',inspector().textContent.includes('Transparencia alpha detectada')&&inspector().querySelector('[data-prop="image.mask"]').value==='none');
+  const viewport=dialog().querySelector('.fde-viewport'),capture=viewport.setPointerCapture.bind(viewport),release=viewport.releasePointerCapture.bind(viewport),has=viewport.hasPointerCapture.bind(viewport);
+  // Synthetic events cannot own native pointer capture. Real drags are verified separately.
+  viewport.setPointerCapture=()=>{};viewport.releasePointerCapture=()=>{};viewport.hasPointerCapture=()=>false;
+  let pointer=2000;
+  const el=id=>surface().querySelector(`[data-flow-node="${id}"]`),position=node=>{const r=el(node.id).getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};};
+  const send=(element,type,p,id)=>element.dispatchEvent(new w.PointerEvent(type,{bubbles:true,button:0,buttons:type==='pointerup'?0:1,pointerId:id,clientX:p.x,clientY:p.y}));
+  const begin=(node,side)=>{const id=++pointer,p=position(node),element=side?el(node.id).querySelector(`[data-flow-port][data-side="${side}"]`):el(node.id);if(side){const r=element.getBoundingClientRect();p.x=r.x+r.width/2;p.y=r.y+r.height/2;}send(element,'pointerdown',p,id);return{id,p};};
+  const finish=(gesture,node,side)=>{const p=position(node);if(side){const r=el(node.id).querySelector(`[data-flow-port][data-side="${side}"]`).getBoundingClientRect();p.x=r.x+r.width/2;p.y=r.y+r.height/2;}send(viewport,'pointermove',p,gesture.id);send(viewport,'pointerup',p,gesture.id);};
+  const count=()=>surface().querySelectorAll('[data-flow-edge]').length;
+  const connect=dialog().querySelector('[data-action="connect"]');connect.click();
+  const beforeTransform=el(source.id).getAttribute('transform'),a=begin(source);send(viewport,'pointermove',position(target),a.id);
+  record('Arrastrar muestra un previo y resalta el destino sin crear aún un conector',!!surface().querySelector('[data-flow-connection-preview]')&&!!surface().querySelector(`[data-flow-connection-target="${target.id}"]`)&&count()===0);
+  send(viewport,'pointerup',position(target),a.id);record('Soltar sobre otra figura crea una sola conexión y mantiene el switch',count()===1&&connect.getAttribute('aria-checked')==='true'&&!surface().querySelector('[data-flow-connection-preview]'));
+  record('El arrastre de conexión no mueve la figura original',el(source.id).getAttribute('transform')===beforeTransform);
+  dialog().querySelector('[data-action="undo"]').click();record('Deshacer elimina la conexión como una sola operación',count()===0);dialog().querySelector('[data-action="redo"]').click();record('Rehacer recupera la conexión',count()===1);
+  const portDrag=begin(target,'top');finish(portDrag,image,'bottom');record('Los puertos permiten arrastrar y conectar a una imagen',count()===2);
+  const self=begin(image);send(viewport,'pointermove',{x:self.p.x+12,y:self.p.y},self.id);send(viewport,'pointerup',{x:self.p.x+12,y:self.p.y},self.id);record('Soltar en la misma figura no crea auto conexiones',count()===2);
+  const empty=begin(source),r=surface().getBoundingClientRect(),blankPoint={x:r.x+10,y:r.y+10};send(viewport,'pointermove',blankPoint,empty.id);send(viewport,'pointerup',blankPoint,empty.id);record('Soltar en un espacio vacío cancela el previo sin crear conexiones',count()===2&&!surface().querySelector('[data-flow-connection-preview]'));
+  const cancelled=begin(source);send(viewport,'pointermove',position(image),cancelled.id);send(viewport,'pointercancel',position(image),cancelled.id);record('Pointercancel limpia la conexión temporal',count()===2&&!surface().querySelector('[data-flow-connection-preview]'));
+  const escaped=begin(source);send(viewport,'pointermove',position(image),escaped.id);dialog().dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));send(viewport,'pointerup',position(image),escaped.id);record('Escape cancela el arrastre sin apagar el modo Conectar',count()===2&&!surface().querySelector('[data-flow-connection-preview]')&&connect.getAttribute('aria-checked')==='true');
+  const lost=begin(source);send(viewport,'pointermove',position(image),lost.id);send(viewport,'lostpointercapture',position(image),lost.id);record('Pérdida de captura limpia el previo',count()===2&&!surface().querySelector('[data-flow-connection-preview]'));
+  const clickA=begin(image);send(viewport,'pointerup',clickA.p,clickA.id);const clickB=begin(source);send(viewport,'pointerup',clickB.p,clickB.id);record('Dos clics separados siguen creando conexiones',count()===3);
+  const clickC=begin(target);send(viewport,'pointerup',clickC.p,clickC.id);const override=begin(source);finish(override,image);record('Arrastrar elige su propio origen aunque hubiera un clic previo pendiente',count()===4);
+  const zoom=dialog().querySelector('.fde-zoom input');zoom.value='50';zoom.dispatchEvent(new w.Event('input',{bubbles:true}));viewport.scrollTop=180;const scaled=begin(target);finish(scaled,source);record('Conexión por arrastre respeta zoom desplazamiento y coordenadas del lienzo',count()===5);
+  viewport.setPointerCapture=capture;viewport.releasePointerCapture=release;viewport.hasPointerCapture=has;
+  dialog().querySelector('[data-action="save"]').click();await wait();const saved=JSON.parse(block.dataset.flowModel),photo=saved.nodes.find(n=>n.id===image.id);
+  record('Guardar conserva conexiones y PNG alpha sin estado de arrastre',saved.edges.length===5&&photo.image.alpha===true&&photo.image.mask==='none'&&!('connectionPreview' in saved));
+  record('Las conexiones con puertos conservan sus lados exactos',saved.edges[1].from===target.id&&saved.edges[1].to===image.id&&saved.edges[1].fromSide==='top'&&saved.edges[1].toSide==='bottom');
+  record('El origen del arrastre no se confunde con el clic previo',saved.edges[3].from===source.id&&saved.edges[3].to===image.id);
+  const published=new DOMParser().parseFromString(w.generateExportHTML(false),'text/html');record('Publicar conserva la imagen y excluye previos y resaltados de arrastre',!!published.querySelector('.flow-published image')&&!published.querySelector('[data-flow-connection-preview],[data-flow-connection-target]'));
+  const decoded=new w.Image();decoded.src=photo.image.src;await decoded.decode();const canvas=d.createElement('canvas');canvas.width=400;canvas.height=260;const ctx=canvas.getContext('2d');ctx.drawImage(decoded,0,0);record('PNG importado mantiene píxeles transparentes opacos y semitransparentes',ctx.getImageData(1,1,1,1).data[3]===0&&ctx.getImageData(135,100,1,1).data[3]===255&&ctx.getImageData(385,125,1,1).data[3]===128);
+  openBlock(block);await wait();select(image.id);record('Reabrir conserva PNG con alpha y su máscara original',inspector().textContent.includes('Transparencia alpha detectada')&&inspector().querySelector('[data-prop="image.mask"]').value==='none');dialog().querySelector('[data-action="cancel"]').click();
+  out.textContent=results.join('\n')+`\nTOTAL: ${results.length} / FAIL: 0`;
+ }catch(error){out.textContent+='\nERROR '+error.stack;}finally{busy=false;}
+};
+function presentationSample(){
+ const model=createFlowModel();Object.assign(model,{title:'Recorte y fondo del diagrama',background:'#cdd5dc',width:1000,height:560});
+ const a=addFlowNode(model,'process',180,200),b=addFlowNode(model,'decision',510,180),c=addFlowNode(model,'terminator',770,200);a.text='Preparar';b.text='Revisar';c.text='Completar';
+ addFlowEdge(model,a.id,b.id);addFlowEdge(model,b.id,c.id);return model;
+}
+const presentationExample=document.createElement('button');presentationExample.textContent='Fondo · ejemplo';document.querySelector('header').append(presentationExample);
+presentationExample.onclick=async()=>{try{await reset();setModel(insertBlock(),presentationSample());out.hidden=true;document.body.classList.remove('results');}catch(error){out.hidden=false;out.textContent=error.stack;}};
+const presentationChecks=document.createElement('button');presentationChecks.textContent='Probar controles del fondo';document.querySelector('header').append(presentationChecks);
+presentationChecks.onclick=async()=>{
+ if(busy)return;busy=true;results=[];out.hidden=false;document.body.classList.add('results');
+ try{
+  const {w,d}=await reset();setModel(insertBlock(),presentationSample());await wait();
+  const block=()=>blocks()[0],read=()=>JSON.parse(block().dataset.flowModel),panel=()=>d.querySelector('.flow-block-popover'),background=()=>block().querySelector('.flow-preview [data-flow-background]');
+  const open=menu=>{const button=block().querySelector(`[data-flow-presentation="${menu}"]`);button.scrollIntoView({block:'center'});button.click();},close=()=>d.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+  const change=(key,value,commit=true)=>{const input=panel().querySelector(`[data-flow-field="${key}"]`);if(input.type==='checkbox')input.checked=value;else input.value=String(value);input.dispatchEvent(new w.Event('input',{bubbles:true}));if(commit)input.dispatchEvent(new w.Event('change',{bubbles:true}));};
+  const beforeOpen=block().dataset.flowModel;open('crop');record('Recorte se abre desde el roll over del elemento',panel()?.getAttribute('role')==='dialog'&&!!panel().querySelector('[data-flow-field="autoCrop"]'));
+  record('Abrir las opciones no modifica el modelo ni bloquea historial',block().dataset.flowModel===beforeOpen&&!w.modularResizing);
+  record('Márgenes independientes empiezan desactivados en diez píxeles',Array.from(panel().querySelectorAll('input[type="range"]')).every(input=>input.value==='10'&&input.disabled));
+  const geometry=JSON.stringify(read().nodes),edges=JSON.stringify(read().edges);change('autoCrop',true);record('Activar recorte cambia proporción y habilita márgenes',read().autoCrop&&background().getAttribute('x')!==null&&Array.from(panel().querySelectorAll('input[type="range"]')).every(input=>!input.disabled));
+  change('cropMarginX',35);change('cropMarginY',20);record('Márgenes se actualizan por separado sin mover el contenido',read().cropMarginX===35&&read().cropMarginY===20&&JSON.stringify(read().nodes)===geometry&&JSON.stringify(read().edges)===edges);close();
+  open('radius');change('backgroundRadius',80);record('Redondeo se aplica al rectángulo del fondo',read().backgroundRadius===80&&background().getAttribute('rx')==='80');
+  record('Redondeo no crea una máscara que recorte figuras',!block().querySelector('.flow-preview clipPath')&&JSON.stringify(read().nodes)===geometry);close();
+  open('opacity');change('backgroundTransparency',20,false);change('backgroundTransparency',40,false);record('Slider actualiza solo la opacidad del fondo durante el arrastre',read().backgroundOpacity===.6&&background().getAttribute('fill-opacity')==='0.6'&&w.modularResizing);
+  change('backgroundTransparency',40);record('Terminar slider libera el historial del Builder',!w.modularResizing);close();
+  w.undo();await wait();record('Un deshacer revierte el arrastre completo del slider',read().backgroundOpacity===1&&read().backgroundRadius===80&&read().cropMarginX===35);w.redo();await wait();record('Rehacer restaura transparencia sin afectar al contenido',read().backgroundOpacity===.6&&JSON.stringify(read().nodes)===geometry);
+  open('opacity');change('backgroundTransparency',100);record('Cien por ciento oculta solo el fondo manteniendo las figuras',background().getAttribute('fill-opacity')==='0'&&block().querySelectorAll('[data-flow-node]').length===3&&JSON.stringify(read().nodes)===geometry);change('backgroundTransparency',40);close();
+  const model=read(),box=flowOutputBox(model),svg=renderFlowSVG(model),image=new Image();image.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);await image.decode();const canvas=document.createElement('canvas');canvas.width=Math.ceil(box.width);canvas.height=Math.ceil(box.height);const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0);
+  const alpha=(x,y)=>ctx.getImageData(Math.round(x-box.x),Math.round(y-box.y),1,1).data[3];record('Rasterización confirma fondo semitransparente y figuras opacas',alpha(400,270)===153&&alpha(270,240)===255&&ctx.getImageData(0,0,1,1).data[3]===0);
+  const exported=w.generateExportHTML(false),published=new DOMParser().parseFromString(exported,'text/html');record('Publicación conserva redondeo transparencia y recorte sin controles',published.querySelector('[data-flow-background]').getAttribute('fill-opacity')==='0.6'&&published.querySelector('[data-flow-background]').getAttribute('rx')==='80'&&!published.querySelector('[data-flow-presentation],.flow-block-popover'));
+  const studentHTML=await buildStudentDocument(exported),studentDoc=new DOMParser().parseFromString(studentHTML,'text/html');record('HTML alumno conserva el mismo fondo y referencias locales',studentDoc.querySelector('[data-flow-background]').getAttribute('fill-opacity')==='0.6'&&referencesStayLocal(studentDoc));
+  open('crop');openBlock(block());await wait();const dialog=()=>d.querySelector('dialog.flow-design-editor');record('Editor no duplica recorte ni márgenes y cierra el menú exterior',!panel()&&!dialog().querySelector('[data-prop="autoCrop"],[data-prop="cropMarginX"],[data-prop="cropMarginY"]')&&!!dialog().querySelector('[data-flow-crop-guide]'));
+  const colour=dialog().querySelector('[data-prop="title"]');record('Editor conserva lienzo completo y el fondo semitransparente',!!colour&&dialog().querySelector('.fde-surface svg').getAttribute('viewBox')==='0 0 1000 560'&&dialog().querySelector('[data-flow-background]').getAttribute('fill-opacity')==='0.6');dialog().querySelector('[data-action="save"]').click();await wait();
+  block().querySelector('[data-duplicate-element]').click();await wait();record('Duplicar conserva las opciones en modelos independientes',blocks().length===2&&JSON.parse(blocks()[1].dataset.flowModel).backgroundOpacity===.6&&JSON.parse(blocks()[1].dataset.flowModel).backgroundRadius===80);
+  open('radius');change('backgroundRadius',24);close();record('Editar el original no cambia el fondo de su duplicado',read().backgroundRadius===24&&JSON.parse(blocks()[1].dataset.flowModel).backgroundRadius===80);
+  const state=d.querySelector('#canvas-container-outer').innerHTML;w.restoreState(state);await wait();record('Serializar y restaurar recupera opciones y tres controles sin duplicarlos',read().backgroundOpacity===.6&&read().backgroundRadius===24&&block().querySelectorAll('[data-flow-presentation]').length===3);
+  block().querySelectorAll('[data-flow-presentation]').forEach(control=>control.remove());w.initNestedDropzones();w.initNestedDropzones();record('Los diagramas anteriores migran al toolbar sin duplicar controles',block().querySelectorAll('[data-flow-presentation]').length===3);
+  const transparent=read();transparent.background='transparent';setModel(block(),transparent);open('radius');record('Con fondo transparente el redondeo está desactivado',panel().querySelector('[data-flow-field="backgroundRadius"]').disabled&&background().getAttribute('rx')==='0');open('opacity');record('Fondo transparente conserva ajustes pero no ofrece un slider engañoso',panel().querySelector('[data-flow-field="backgroundTransparency"]').disabled&&read().backgroundOpacity===.6);close();
+  transparent.background='#cdd5dc';setModel(block(),transparent);open('radius');record('Volver a fondo de color recupera redondeo y transparencia anteriores',!panel().querySelector('[data-flow-field="backgroundRadius"]').disabled&&read().backgroundRadius===24&&background().getAttribute('fill-opacity')==='0.6');panel().dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));record('Escape cierra opciones y libera el bloqueo del historial',!panel()&&!w.modularResizing);
+  open('crop');change('autoCrop',false);close();record('Desactivar recorte recupera proporción original manteniendo el fondo',block().querySelector('.flow-preview svg').getAttribute('viewBox')==='0 0 1000 560'&&read().backgroundRadius===24&&read().backgroundOpacity===.6&&JSON.stringify(read().nodes)===geometry);
+  open('opacity');d.body.dispatchEvent(new w.PointerEvent('pointerdown',{bubbles:true}));record('Clic fuera cierra el menú sin dejar paneles en el contenido',!panel()&&!d.querySelector('#canvas-container-outer .flow-block-popover'));
+  out.textContent=results.join('\n')+`\nTOTAL: ${results.length} / FAIL: 0`;
+ }catch(error){out.textContent+='\nERROR '+error.stack;}finally{busy=false;}
+};
+function bevelSample(){
+ const model=createFlowModel();model.title='Chicle con unión redondeada';model.background='#ffffff';model.width=1200;model.height=850;
+ const types=[['process','decision'],['circle','terminator'],['document','data']];
+ for(let row=0;row<3;row++){
+  const y=90+row*250,a=addFlowNode(model,types[row][0],140,y),b=addFlowNode(model,types[row][1],800,y+40);
+  Object.assign(a,{width:220,height:140,text:row===0?'Proceso':row===1?'Círculo':'Documento',stroke:'#5d428c',fill:'#f3eef9'});
+  Object.assign(b,{width:230,height:150,text:row===0?'Decisión':row===1?'Inicio / fin':'Datos',stroke:'#ff5900',fill:'#ffe1cc'});
+  addFlowEdge(model,a.id,b.id,{fromSide:'right',toSide:'left',route:row===0?'orthogonal':row===1?'curve':'straight',startArrow:true,startMarker:'gum',endMarker:'gum',colorMode:'gradient',label:row===0?'Ángulos rectos':row===1?'Curva':'Línea recta'});
+ }
+ return model;
+}
+const bevelExample=document.createElement('button');bevelExample.textContent='Chicle redondeado · ejemplo';document.querySelector('header').append(bevelExample);
+bevelExample.onclick=async()=>{try{await reset();openBlock(setModel(insertBlock(),bevelSample()));out.hidden=true;document.body.classList.remove('results');}catch(error){out.hidden=false;out.textContent=error.stack;}};
+function collarSample(){
+ const model=createFlowModel();Object.assign(model,{title:'Chicle · unión integrada al contorno',width:1200,height:760,grid:false,background:'#ffffff'});
+ for(let row=0;row<3;row++){
+  const y=80+row*220,a=addFlowNode(model,row===0?'decision':row===1?'process':'circle',110,y),b=addFlowNode(model,row===0?'process':row===1?'circle':'decision',860,y+(row===0?40:70));
+  Object.assign(a,{width:170,height:150,text:row===0?'Decisión':row===1?'Proceso':'Círculo',stroke:row===0?'#ff5900':'#5d428c',fill:'#ffffff'});
+  Object.assign(b,{width:180,height:row===0?70:100,text:row===0?'Proceso':row===1?'Círculo':'Decisión',stroke:'#ff5900',fill:'#ffffff'});
+  addFlowEdge(model,a.id,b.id,{route:row===0?'straight':row===1?'orthogonal':'curve',bend:row===1?{axis:'x',position:390}:undefined,fromSide:'right',toSide:'left',startArrow:true,startMarker:'gum',endArrow:row!==0,endMarker:'gum',color:'#ff5900',colorMode:row===0?'solid':'gradient'});
+ }
+ return model;
+}
+const collarExample=document.createElement('button');collarExample.textContent='Chicle · referencia del rombo';document.querySelector('header').append(collarExample);
+collarExample.onclick=async()=>{try{await reset();openBlock(setModel(insertBlock(),collarSample()));out.hidden=true;document.body.classList.remove('results');}catch(error){out.hidden=false;out.textContent=error.stack;}};
+const bevelChecks=document.createElement('button');bevelChecks.textContent='Probar píxeles y bisel';document.querySelector('header').append(bevelChecks);
+bevelChecks.onclick=async()=>{
+ if(busy)return;busy=true;results=[];out.hidden=false;document.body.classList.add('results');
+ try{
+  const {w,d}=await reset();let block=insertBlock();openBlock(block);await wait();const dialog=()=>d.querySelector('dialog.flow-design-editor'),snap=()=>dialog().querySelector('[data-snap-mode]');
+  record('Un diagrama nuevo abre en Por píxeles con paso de diez',snap().value==='pixels'&&dialog().querySelector('[data-snap-size]').value==='10'&&!dialog().querySelector('[data-snap-step]').hidden);
+  dialog().querySelector('[data-shape="process"]').click();dialog().querySelector('[data-shape="decision"]').click();dialog().querySelector('[data-action="save"]').click();await wait();let saved=JSON.parse(block.dataset.flowModel);
+  record('Las nuevas figuras se colocan en múltiplos del paso por píxeles',saved.nodes.every(node=>node.x%10===0&&node.y%10===0)&&saved.snapMode==='pixels');
+  openBlock(block);await wait();record('Reabrir conserva el ajuste por píxeles',snap().value==='pixels');snap().value='free';snap().dispatchEvent(new w.Event('change',{bubbles:true}));dialog().querySelector('[data-action="save"]').click();await wait();openBlock(block);await wait();record('Libre elegido por el usuario no se sobrescribe con el nuevo defecto',snap().value==='free');dialog().querySelector('[data-action="cancel"]').click();
+  const old=JSON.parse(block.dataset.flowModel);old.snapMode='grid';old.snapSize=7;setModel(block,old);openBlock(block);await wait();record('Retícula y paso guardados también se respetan',snap().value==='grid'&&dialog().querySelector('[data-snap-size]').value==='7');dialog().querySelector('[data-action="cancel"]').click();
+  const legacy=JSON.parse(block.dataset.flowModel);delete legacy.snapMode;delete legacy.snapSize;setModel(block,legacy);openBlock(block);await wait();record('Un modelo sin ajuste guardado recibe píxeles y diez px',snap().value==='pixels'&&dialog().querySelector('[data-snap-size]').value==='10');dialog().querySelector('[data-action="cancel"]').click();
+  const model=bevelSample();setModel(block,model);openBlock(block);await wait();
+  const gums=()=>Array.from(dialog().querySelectorAll('.fde-surface [data-flow-gum]'));
+  record('Cada chicle tiene dos uniones redondeadas en sus lados de origen y destino',gums().length===3&&gums().every(path=>(path.getAttribute('d').match(/ C /g)||[]).length===4));
+  record('El bisel combina curva recta y ortogonal con gradientes',dialog().querySelectorAll('.fde-surface linearGradient').length===3&&gums().every(path=>path.getAttribute('fill').startsWith('url(#')));
+  const first=model.nodes[0],pathBefore=gums()[0].getAttribute('d');dialog().querySelector(`[data-select-kind="node"][data-select-id="${first.id}"]`).click();dialog().querySelector('.fde-viewport').dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
+  record('Mover por píxeles recompone el bisel en el nuevo contorno',dialog().querySelector(`[data-flow-node="${first.id}"]`).getAttribute('transform')===`translate(${first.x+10} ${first.y})`&&gums()[0].getAttribute('d')!==pathBefore&&gums().every(path=>!/(NaN|Infinity)/.test(path.getAttribute('d'))));
+  dialog().querySelector('[data-action="undo"]').click();record('Deshacer restaura exactamente el chicle previo',gums()[0].getAttribute('d')===pathBefore);
+  dialog().querySelector('[data-action="save"]').click();await wait();saved=JSON.parse(block.dataset.flowModel);record('Guardar conserva marcadores y no introduce cambios de geometría en figuras',saved.edges.every(edge=>edge.startMarker==='gum'&&edge.endMarker==='gum')&&JSON.stringify(saved.nodes)===JSON.stringify(model.nodes));
+  const exported=w.generateExportHTML(false),published=new DOMParser().parseFromString(exported,'text/html');record('Publicar conserva los biseles y gradientes sin controles',published.querySelectorAll('[data-flow-gum]').length===3&&Array.from(published.querySelectorAll('[data-flow-gum]')).every(path=>(path.getAttribute('d').match(/ C /g)||[]).length===4)&&referencesStayLocal(published)&&!published.querySelector('[data-flow-resize]'));
+  const svg=published.querySelector('.flow-published svg'),img=new Image();img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg.outerHTML);await img.decode();record('El SVG con uniones redondeadas se rasteriza correctamente',img.naturalWidth===1200&&img.naturalHeight===850);
+  const studentHTML=await buildStudentDocument(exported),studentDoc=new DOMParser().parseFromString(studentHTML,'text/html');record('HTML alumno conserva los tres chicles redondeados',studentDoc.querySelectorAll('[data-flow-gum]').length===3&&referencesStayLocal(studentDoc));
+  block=blocks()[0];openBlock(block);await wait();record('Reabrir permite seguir editando con píxeles y los mismos biseles',snap().value==='pixels'&&gums()[0].getAttribute('d')===pathBefore);dialog().querySelector('[data-action="cancel"]').click();
+  out.textContent=results.join('\n')+`\nTOTAL: ${results.length} / FAIL: 0`;
+ }catch(error){out.textContent+='\nERROR '+error.stack;}finally{busy=false;}
+};
+function directSample(){
+ const model=createFlowModel();Object.assign(model,{title:'Edición directa y conexiones sin fijar',width:1100,height:680,grid:true});const lane=addFlowLane(model);Object.assign(lane,{x:45,y:55,width:450,height:560});
+ const a=addFlowNode(model,'process',140,190),b=addFlowNode(model,'decision',760,190),image=addFlowNode(model,'image',720,450),text=addFlowNode(model,'text',140,450);Object.assign(a,{width:230,height:110});Object.assign(b,{width:200,height:140});Object.assign(image,{width:240,height:150,image:normalizeFlowImage({src:imageFixture(),alpha:true,naturalWidth:400,naturalHeight:260})});Object.assign(text,{text:'Texto libre',width:260});addFlowEdge(model,a.id,b.id);return model;
+}
+const directExample=document.createElement('button');directExample.textContent='Edición sobre figuras · ejemplo';document.querySelector('header').append(directExample);
+directExample.onclick=async()=>{try{await reset();openBlock(setModel(insertBlock(),directSample()));out.hidden=true;document.body.classList.remove('results');}catch(error){out.hidden=false;out.textContent=error.stack;}};
+const textPreview=document.createElement('button');textPreview.textContent='Vista texto de figura';document.querySelector('header').append(textPreview);
+textPreview.onclick=async()=>{try{await reset();const model=directSample(),a=model.nodes[0];a.text='Editar texto aquí';openBlock(setModel(insertBlock(),model));out.hidden=true;document.body.classList.remove('results');await wait(120);const {w,d}=env();d.querySelector(`dialog .fde-surface [data-flow-node="${a.id}"]`).dispatchEvent(new w.MouseEvent('dblclick',{bubbles:true}));}catch(error){out.hidden=false;out.textContent=error.stack;}};
+const directChecks=document.createElement('button');directChecks.textContent='Probar figuras y rollover';document.querySelector('header').append(directChecks);
+directChecks.onclick=async()=>{
+ if(busy)return;busy=true;results=[];out.hidden=false;document.body.classList.add('results');
+ try{
+ const {w,d}=await reset(),model=directSample(),[a,b,image,text]=model.nodes,[lane]=model.lanes,block=setModel(insertBlock(),model);openBlock(block);await wait();
+ const dialog=()=>d.querySelector('dialog.flow-design-editor'),surface=()=>dialog().querySelector('.fde-surface'),node=id=>surface().querySelector(`[data-flow-node="${id}"]`),inspector=()=>dialog().querySelector('.fde-inspector');
+ const select=(kind,id)=>dialog().querySelector(`[data-select-kind="${kind}"][data-select-id="${id}"]`).click();
+ record('La barra superior solo mantiene historial y switch, no duplicar/eliminar',!dialog().querySelector('.fde-commandbar [data-action="duplicate"],.fde-commandbar [data-action="delete"]'));
+ for(const item of [a,b,text]){
+  node(item.id).dispatchEvent(new w.MouseEvent('dblclick',{bubbles:true}));
+  record(`Doble clic edita ${item.type} sobre su propia figura`,!!dialog().querySelector('.fde-rich-edit[aria-label="Texto de la figura"]')&&!!dialog().querySelector('#rtf-toolbar [title="Negrita"]')&&!inspector().querySelector('[data-prop="text"],[data-prop="fontSize"],[data-prop="textColor"]'));
+  dialog().querySelector('#rtf-toolbar [aria-label="Terminar texto"]').click();
+ }
+ node(a.id).dispatchEvent(new w.MouseEvent('dblclick',{bubbles:true}));let editable=dialog().querySelector('.fde-rich-edit'),tools=dialog().querySelector('#rtf-toolbar');
+ editable.innerHTML='<b>Proceso</b><i> directo</i><u><a href="https://example.com/" style="color:#ff5900;font-family:Zilla Slab"> con enlace</a></u>';editable.dispatchEvent(new w.Event('input',{bubbles:true}));
+ editable.style.fontSize='22px';editable.style.textAlign='left';editable.dispatchEvent(new w.Event('input',{bubbles:true}));tools.querySelector('[aria-label="Terminar texto"]').click();
+ record('SVG de figura conserva negrita cursiva subrayado fuente color y enlace',!!node(a.id).querySelector('tspan[font-weight="700"]')&&!!node(a.id).querySelector('tspan[font-style="italic"]')&&!!node(a.id).querySelector('tspan[text-decoration="underline"]')&&!!node(a.id).querySelector('tspan[fill="#ff5900"]')&&!!node(a.id).querySelector('a[href="https://example.com/"]')&&node(a.id).querySelector('text').getAttribute('text-anchor')==='start');
+ record('Clic en enlace dentro del editor no abandona el diagrama',!node(a.id).querySelector('a').dispatchEvent(new w.MouseEvent('click',{bubbles:true,cancelable:true})));
+ dialog().querySelector('[data-action="undo"]').click();record('Deshacer revierte toda una sesión de texto como una operación',hasLabel(node(a.id),'Proceso')&&!node(a.id).querySelector('tspan[font-weight="700"]'));
+ dialog().querySelector('[data-action="redo"]').click();record('Rehacer recupera el texto enriquecido',hasLabel(node(a.id),'Proceso directo con enlace')&&!!node(a.id).querySelector('tspan[font-weight="700"]'));
+ node(a.id).dispatchEvent(new w.MouseEvent('dblclick',{bubbles:true}));record('Reabrir la figura conserva el formato en el editor',dialog().querySelector('.fde-rich-edit').textContent==='Proceso directo con enlace'&&!!dialog().querySelector('.fde-rich-edit span[style*="700"]'));dialog().querySelector('#rtf-toolbar [aria-label="Terminar texto"]').click();
+ const viewport=dialog().querySelector('.fde-viewport'),capture=viewport.setPointerCapture.bind(viewport),release=viewport.releasePointerCapture.bind(viewport),has=viewport.hasPointerCapture.bind(viewport);viewport.setPointerCapture=()=>{};viewport.releasePointerCapture=()=>{};viewport.hasPointerCapture=()=>false;
+ const count=()=>surface().querySelectorAll('[data-flow-edge]').length,connect=dialog().querySelector('[data-action="connect"]');let pointer=9000;
+ const center=el=>{const r=el.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2};},send=(el,type,p,id)=>el.dispatchEvent(new w.PointerEvent(type,{bubbles:true,button:0,buttons:type==='pointerup'?0:1,pointerId:id,clientX:p.x,clientY:p.y}));
+ select('node',a.id);const originalTransform=node(a.id).getAttribute('transform'),port=node(a.id).querySelector('[data-flow-port][data-side="bottom"]'),p=center(port),end=center(node(image.id)),id=++pointer;
+ send(port,'pointerdown',p,id);send(viewport,'pointermove',end,id);record('Un puerto inicia conexión temporal con el switch apagado',connect.getAttribute('aria-checked')==='false'&&!!surface().querySelector('[data-flow-connection-preview]')&&!!surface().querySelector(`[data-flow-connection-target="${image.id}"]`));send(viewport,'pointerup',end,id);
+ record('Soltar sobre imagen conecta sin fijar el switch ni mover el origen',count()===2&&connect.getAttribute('aria-checked')==='false'&&node(a.id).getAttribute('transform')===originalTransform);
+ const clicked=node(b.id).querySelector('[data-flow-port][data-side="left"]'),p2=center(clicked),id2=++pointer;send(clicked,'pointerdown',p2,id2);send(viewport,'pointerup',p2,id2);record('Clic sin arrastrar en un punto no deja un origen pendiente',count()===2&&connect.getAttribute('aria-checked')==='false'&&!surface().querySelector('[data-flow-connection-preview]')&&!dialog().querySelector('.fde-status').textContent.startsWith('Elige el destino'));
+ const cancelPort=node(b.id).querySelector('[data-flow-port][data-side="bottom"]'),id3=++pointer;send(cancelPort,'pointerdown',center(cancelPort),id3);send(viewport,'pointermove',center(node(text.id)),id3);send(viewport,'pointercancel',center(node(text.id)),id3);record('Cancelar conexión temporal limpia previo y no fija el modo',count()===2&&!surface().querySelector('[data-flow-connection-preview]')&&connect.getAttribute('aria-checked')==='false');
+ const originalB=node(b.id).getAttribute('transform'),bp=center(node(b.id)),id4=++pointer;send(node(b.id),'pointerdown',bp,id4);send(viewport,'pointermove',{x:bp.x+20,y:bp.y+10},id4);send(viewport,'pointerup',{x:bp.x+20,y:bp.y+10},id4);record('Arrastrar el cuerpo con switch apagado sigue moviendo la figura',node(b.id).getAttribute('transform')!==originalB&&count()===2);dialog().querySelector('[data-action="undo"]').click();
+ viewport.setPointerCapture=capture;viewport.releasePointerCapture=release;viewport.hasPointerCapture=has;
+ const hover=(kind,id)=>{surface().querySelector(`[data-flow-${kind}="${id}"]`).dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true,relatedTarget:viewport}));return dialog().querySelector('.fde-item-toolbar');};
+ for(const [kind,item]of [['node',a],['node',image],['lane',lane],['edge',model.edges[0]]]){
+  const toolbar=hover(kind,item.id);record(`Hover de ${kind} ${item===image?'imagen':''} no ofrece duplicar ni eliminar`,!toolbar);
+ }
+ const key=(key,ctrlKey=false)=>viewport.dispatchEvent(new w.KeyboardEvent('keydown',{bubbles:true,cancelable:true,key,ctrlKey}));
+ select('node',a.id);key('d',true);record('Copiar figura con teclado conserva su texto y crea identidad nueva',surface().querySelectorAll('[data-flow-node]').length===5&&Array.from(surface().querySelectorAll('[data-flow-node]')).filter(el=>hasLabel(el,'Proceso directo con enlace')).length===2);dialog().querySelector('[data-action="undo"]').click();
+ select('lane',lane.id);key('d',true);record('Copiar carril no copia ni mueve sus figuras',surface().querySelectorAll('[data-flow-lane]').length===2&&surface().querySelectorAll('[data-flow-node]').length===4);dialog().querySelector('[data-action="undo"]').click();
+ select('edge',model.edges[0].id);key('d',true);record('Copiar conexión crea un conector independiente',count()===3);dialog().querySelector('[data-action="undo"]').click();
+ select('node',text.id);key('Delete');record('Eliminar con teclado afecta solo al elemento seleccionado',!node(text.id)&&!!node(a.id));dialog().querySelector('[data-action="undo"]').click();
+ hover('node',a.id);dialog().dispatchEvent(new w.PointerEvent('pointerdown',{bubbles:true}));record('Clic externo no deja rollover de figura',!dialog().querySelector('.fde-item-toolbar'));
+ dialog().querySelector('[data-action="save"]').click();await wait();const saved=JSON.parse(block.dataset.flowModel),savedA=saved.nodes.find(n=>n.id===a.id);record('Guardar conserva texto dinámico y conexión temporal con sus puertos',savedA.text==='Proceso directo con enlace'&&savedA.textRuns.some(run=>run.bold)&&savedA.textAlign==='left'&&savedA.fontSize===22&&saved.edges[1].fromSide==='bottom'&&saved.edges[1].to===image.id);
+ const html=w.generateExportHTML(false),published=new DOMParser().parseFromString(html,'text/html');record('Publicación conserva formato SVG y excluye rollovers editores y puertos',!!published.querySelector('tspan[font-weight="700"]')&&!!published.querySelector('a[href="https://example.com/"]')&&!published.querySelector('.fde-item-toolbar,.fde-rich-toolbar,[data-flow-port],[contenteditable="true"]')&&referencesStayLocal(published));
+ const liveBlock=blocks()[0],blockToolbar=liveBlock.querySelector(':scope > .block-toolbar'),trigger=liveBlock.querySelector('[data-flow-presentation="crop"]');trigger.scrollIntoView({block:'center'});trigger.click();await wait();record('Rollover del bloque abre opciones de recorte',!!d.querySelector('.flow-block-popover'));
+ d.body.dispatchEvent(new w.MouseEvent('click',{bubbles:true}));record('Clic externo sin pointerdown también cierra las opciones',!d.querySelector('.flow-block-popover'));
+ trigger.focus();d.body.dispatchEvent(new w.PointerEvent('pointerdown',{bubbles:true}));await wait(250);record('Clic externo libera foco de botones y desactiva rollover atascado',!blockToolbar.contains(d.activeElement)&&Number(w.getComputedStyle(blockToolbar).opacity)===0);
+ liveBlock.querySelector('.flow-preview').dispatchEvent(new w.PointerEvent('pointerdown',{bubbles:true}));liveBlock.querySelector('.flow-preview').dispatchEvent(new w.MouseEvent('click',{bubbles:true}));await wait(250);record('Clic dentro del diagrama pero fuera de herramientas tampoco fija su menú',Number(w.getComputedStyle(blockToolbar).opacity)===0);
+ liveBlock.dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true,relatedTarget:d.body}));trigger.click();await wait();record('Volver al bloque permite reabrir sus opciones',!!d.querySelector('.flow-block-popover'));w.dispatchEvent(new w.Event('blur'));record('Perder foco de la ventana cierra el popover sin estados atascados',!d.querySelector('.flow-block-popover'));
+ out.textContent=results.join('\n')+`\nTOTAL: ${results.length} / FAIL: 0`;
+ }catch(error){out.textContent+='\nERROR '+error.stack;}finally{busy=false;}
+};
+function organicSample(){
+ const model=createFlowModel();model.title='Chicle orgánico · Base y alcance';
+ const a=addFlowNode(model,'process',130,100),b=addFlowNode(model,'decision',860,80),c=addFlowNode(model,'process',960,370),d=addFlowNode(model,'terminator',470,510);Object.assign(a,{width:180,height:100});Object.assign(b,{width:180,height:140,stroke:'#ff5900'});c.stroke='#ff5900';
+ addFlowEdge(model,a.id,b.id,{route:'straight',fromSide:'right',toSide:'left',startArrow:true,startMarker:'gum',endMarker:'gum',colorMode:'gradient'});
+ addFlowEdge(model,c.id,d.id,{route:'curve',fromSide:'bottom',toSide:'top',startArrow:true,startMarker:'gum',endMarker:'gum',colorMode:'gradient'});return model;
+}
+function symbolSample(){
+ const model=createFlowModel();model.title='Terminaciones · grosor de 24 px';
+ for(const [i,type]of ['arrow','circle','square'].entries()){
+  const a=addFlowNode(model,'process',90,70+i*210),b=addFlowNode(model,'process',900,70+i*210+(i?40:0));Object.assign(a,{text:'Origen',stroke:'#5d428c'});Object.assign(b,{text:'Destino',stroke:'#ff5900',fill:'#fff1e8'});
+  addFlowEdge(model,a.id,b.id,{route:i===0?'straight':i===1?'curve':'orthogonal',fromSide:'right',toSide:'left',startArrow:true,startMarker:type,endMarker:type,width:24,colorMode:'gradient',label:['Flecha','Círculo','Cuadrado'][i]+' · 24 px'});
+ }return model;
+}
+const organicExample=document.createElement('button');organicExample.textContent='Chicle orgánico · ejemplo';document.querySelector('header').append(organicExample);
+organicExample.onclick=async()=>{try{await reset();const model=organicSample();openBlock(setModel(insertBlock(),model));out.hidden=true;document.body.classList.remove('results');await wait(120);const {d}=env(),editor=d.querySelector('dialog.flow-design-editor');editor.querySelector(`[data-select-kind="edge"][data-select-id="${model.edges[1].id}"]`).click();editor.querySelector('[data-prop="gumBase"]').scrollIntoView({block:'nearest'});}catch(error){out.hidden=false;out.textContent=error.stack;}};
+const symbolExample=document.createElement('button');symbolExample.textContent='Terminaciones gruesas · ejemplo';document.querySelector('header').append(symbolExample);
+symbolExample.onclick=async()=>{try{await reset();openBlock(setModel(insertBlock(),symbolSample()));out.hidden=true;document.body.classList.remove('results');}catch(error){out.hidden=false;out.textContent=error.stack;}};
+const organicChecks=document.createElement('button');organicChecks.textContent='Probar chicle y terminaciones';document.querySelector('header').append(organicChecks);
+organicChecks.onclick=async()=>{
+ if(busy)return;busy=true;results=[];out.hidden=false;document.body.classList.add('results');
+ try{
+ const {w,d}=await reset(),model=organicSample(),block=setModel(insertBlock(),model);openBlock(block);await wait();
+ const dialog=()=>d.querySelector('dialog.flow-design-editor'),surface=()=>dialog().querySelector('.fde-surface'),inspector=()=>dialog().querySelector('.fde-inspector');
+ const select=(id,shift=false)=>dialog().querySelector(`[data-select-kind="edge"][data-select-id="${id}"]`).dispatchEvent(new w.MouseEvent('click',{bubbles:true,shiftKey:shift}));
+ const change=(key,value)=>{const input=inspector().querySelector(`[data-prop="${key}"]`);input.value=String(value);input.dispatchEvent(new w.Event('input',{bubbles:true}));input.dispatchEvent(new w.Event('change',{bubbles:true}));};
+ const gum=id=>surface().querySelector(`[data-flow-edge="${id}"] [data-flow-gum]`).getAttribute('d');select(model.edges[0].id);
+ record('Chicle ofrece sliders independientes de base porcentual y alcance en píxeles',inspector().querySelector('[data-prop="gumBase"]').type==='range'&&inspector().querySelector('[data-prop="gumBase"]').value==='75'&&inspector().querySelector('[data-prop="gumReach"]').type==='range'&&inspector().querySelector('[data-prop="gumReach"]').value==='180');
+ const before=gum(model.edges[0].id);change('gumBase',40);const narrower=gum(model.edges[0].id);record('Cambiar base modifica la silueta sin modificar el grosor del trazo',narrower!==before&&surface().querySelector(`[data-flow-edge="${model.edges[0].id}"] [data-flow-stroke]`).getAttribute('stroke-width')==='2');
+ change('gumReach',70);record('Cambiar alcance modifica la longitud del estrechamiento',gum(model.edges[0].id)!==narrower);
+ dialog().querySelector('[data-action="undo"]').click();record('Deshacer revierte solo el alcance como una operación',gum(model.edges[0].id)===narrower);dialog().querySelector('[data-action="redo"]').click();select(model.edges[0].id);record('Rehacer recupera el valor del slider',inspector().querySelector('[data-prop="gumReach"]').value==='70');
+ select(model.edges[1].id,true);change('gumBase',60);change('gumReach',250);record('Multiselección permite ajustar ambos chicles sin tocar sus recorridos',Number(inspector().dataset.selectionCount)===2&&surface().querySelectorAll('[data-flow-gum]').length===2);
+ const extreme=flowGumGeometry(model.edges[1],model.nodes[2],model.nodes[3]);record('Curva extrema limita los anchos al radio de giro sin pétalos cruzados',extreme.sections.every(s=>s.width<=Math.max(extreme.waist,s.radius*.9)+.001)&&extreme.bevels.every(b=>Math.hypot(b.cut.x-b.contact.x,b.cut.y-b.contact.y)<60));
+ record('Gradientes y recorrido original se conservan al ajustar el chicle',surface().querySelectorAll('linearGradient').length===2&&!Array.from(surface().querySelectorAll('[data-flow-gum]')).some(path=>/NaN|Infinity/.test(path.getAttribute('d'))));
+ dialog().querySelector('[data-action="save"]').click();await wait();let saved=JSON.parse(block.dataset.flowModel);record('Guardar conserva base y alcance en cada conector',saved.edges.every(edge=>edge.gumBase===60&&edge.gumReach===250)&&JSON.stringify(saved.nodes)===JSON.stringify(model.nodes));
+ const html=w.generateExportHTML(false),published=new DOMParser().parseFromString(html,'text/html'),svg=published.querySelector('.flow-published svg'),img=new Image();img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg.outerHTML);await img.decode();record('Chicle orgánico se exporta y rasteriza sin controles de edición',img.naturalWidth===1200&&img.naturalHeight===720&&published.querySelectorAll('[data-flow-gum]').length===2&&!published.querySelector('[data-flow-bend],.fde-item-toolbar')&&referencesStayLocal(published));
+ const liveBlock=blocks()[0];openBlock(liveBlock);await wait();select(model.edges[1].id);record('Reabrir conserva base y alcance para continuar editando',inspector().querySelector('[data-prop="gumBase"]').value==='60'&&inspector().querySelector('[data-prop="gumReach"]').value==='250');dialog().querySelector('[data-action="cancel"]').click();
+ const markers=symbolSample();setModel(liveBlock,markers);openBlock(liveBlock);await wait();
+ for(const edge of markers.edges){
+  const group=surface().querySelector(`[data-flow-edge="${edge.id}"]`),shaft=group.querySelector('[data-flow-stroke]'),symbols=group.querySelector('[data-flow-symbols]'),a=shaft.getPointAtLength(0),b=shaft.getPointAtLength(shaft.getTotalLength()),tipA=symbols.getPointAtLength(0),tipB=symbols.getPointAtLength(symbols.getTotalLength());
+  record(`Terminación ${edge.endMarker} tiene trazo separado de sus símbolos`,shaft.getAttribute('d')!==symbols.getAttribute('d')&&!shaft.hasAttribute('marker-end')&&symbols.getAttribute('stroke')==='none'&&!!symbols.getAttribute('marker-end'));
+  record(`Terminación ${edge.endMarker} oculta el trazo antes de ambas puntas gruesas`,Math.hypot(a.x-tipA.x,a.y-tipA.y)>60&&Math.hypot(b.x-tipB.x,b.y-tipB.y)>60);
+  record(`Terminación ${edge.endMarker} mantiene tamaño proporcional de 84 px`,Array.from(surface().querySelectorAll('marker')).filter(marker=>marker.getAttribute('data-flow-marker')===edge.endMarker).every(marker=>marker.getAttribute('markerWidth')==='84'));
+ }
+ select(markers.edges[0].id);record('Los controles de chicle no ocupan espacio en conectores sin chicle',!inspector().querySelector('[data-prop="gumBase"],[data-prop="gumReach"]'));
+ change('width',8);record('Reducir grosor recalcula también el espacio de la flecha',surface().querySelector(`[data-flow-edge="${markers.edges[0].id}"] [data-flow-stroke]`).getAttribute('stroke-width')==='8'&&surface().querySelector('marker[data-flow-marker="arrow"]').getAttribute('markerWidth')==='28');
+ change('startMarker','gum');change('endMarker','circle');record('Chicle combina con círculo gradiente y grosor sin invadir el símbolo',!!surface().querySelector(`[data-flow-edge="${markers.edges[0].id}"] [data-flow-gum]`)&&!!surface().querySelector(`[data-flow-edge="${markers.edges[0].id}"] [data-flow-symbols]`)&&!!inspector().querySelector('[data-prop="gumBase"]'));
+ dialog().querySelector('[data-action="save"]').click();await wait();const output=w.generateExportHTML(false),doc=new DOMParser().parseFromString(output,'text/html');record('Publicación conserva trazo recortado y símbolos con referencias locales',doc.querySelectorAll('[data-flow-symbols]').length===3&&referencesStayLocal(doc)&&!doc.querySelector('.fde-rich-toolbar,[data-flow-port]'));
+ const studentHTML=await buildStudentDocument(output),studentDoc=new DOMParser().parseFromString(studentHTML,'text/html');record('HTML alumno conserva las terminaciones corregidas y el chicle',studentDoc.querySelectorAll('[data-flow-symbols]').length===3&&studentDoc.querySelector('[data-flow-gum]')&&referencesStayLocal(studentDoc));
+ out.textContent=results.join('\n')+`\nTOTAL: ${results.length} / FAIL: 0`;
+ }catch(error){out.textContent+='\nERROR '+error.stack;}finally{busy=false;}
+};
+function connectionSample(){const m=createFlowModel();m.background='transparent';const a=addFlowNode(m,'process',180,190),b=addFlowNode(m,'decision',760,450),c=addFlowNode(m,'circle',650,70);a.text='Origen';b.text='Destino';c.text='Alternativa';addFlowEdge(m,a.id,b.id,{fromSide:'right',toSide:'left',label:'Sí',bend:{axis:'x',position:570},width:5});addFlowEdge(m,a.id,c.id,{fromSide:'right',toSide:'left',route:'curve',label:'Otra ruta',dash:'dashed'});return m;}
+const connectionDemo=document.createElement('button');connectionDemo.textContent='Etiquetas y dobleces · ejemplo';document.querySelector('header').append(connectionDemo);connectionDemo.onclick=async()=>{const{d}=await reset();out.textContent='';document.body.classList.remove('results');const m=connectionSample();m.edges[0].labels=[{id:'validation',text:'Validación',position:.22},{id:'result',text:'Resultado',position:.83}];openBlock(setModel(insertBlock(),m));await wait();d.querySelector('.fde-outline-items [data-select-kind="edge"]').click();d.querySelector('[data-action="connect"]').click();};
+const connectionChecks=document.createElement('button');connectionChecks.textContent='Probar etiquetas y conectores';document.querySelector('header').append(connectionChecks);
+connectionChecks.onclick=async()=>{
+ if(busy)return;busy=true;results=[];out.hidden=false;document.body.classList.add('results');
+ try{
+ const{w,d}=await reset(),m=connectionSample(),[a,b]=m.nodes,[edge,other]=m.edges,block=setModel(insertBlock(),m);openBlock(block);await wait();
+ const dialog=()=>d.querySelector('dialog.flow-design-editor'),surface=()=>dialog().querySelector('.fde-surface'),inspector=()=>dialog().querySelector('.fde-inspector'),viewport=dialog().querySelector('.fde-viewport'),select=(kind,id)=>dialog().querySelector(`[data-select-kind="${kind}"][data-select-id="${id}"]`).click();
+ const labels=()=>surface().querySelectorAll(`[data-flow-label="${edge.id}"]`),edgeNode=id=>surface().querySelector(`[data-flow-edge="${id}"]`),undo=()=>dialog().querySelector('[data-action="undo"]').click(),redo=()=>dialog().querySelector('[data-action="redo"]').click();
+ const center=el=>{const r=el.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2};};
+ const world=p=>{const r=surface().getBoundingClientRect(),scale=r.width/m.width;return{x:r.left+p.x*scale,y:r.top+p.y*scale};};let pointer=12000;
+ const send=(el,type,p,id)=>el.dispatchEvent(new w.PointerEvent(type,{bubbles:true,cancelable:true,button:0,buttons:type==='pointerup'?0:1,pointerId:id,clientX:p.x,clientY:p.y}));
+ const capture=viewport.setPointerCapture.bind(viewport),release=viewport.releasePointerCapture.bind(viewport),has=viewport.hasPointerCapture.bind(viewport);viewport.setPointerCapture=()=>{};viewport.releasePointerCapture=()=>{};viewport.hasPointerCapture=()=>false;
+ select('edge',edge.id);
+ record('Conserva etiqueta anterior sin rollover de duplicar y eliminar',labels().length===1&&!dialog().querySelector('.fde-item-toolbar'));
+ const plus=inspector().querySelector('[data-action="add-label"]');record('Agregar etiqueta utiliza un botón circular con +',plus.textContent==='+'&&w.getComputedStyle(plus).borderRadius==='50%');plus.click();
+ record('El botón + crea otra etiqueta sin reemplazar la original',labels().length===2&&inspector().querySelector('[data-prop="label"]').value==='Sí');
+ const extra=inspector().querySelector('[data-prop^="labels."]'),labelId=extra.dataset.prop.slice(7);extra.value='Pendiente';extra.dispatchEvent(new w.Event('input',{bubbles:true}));extra.dispatchEvent(new w.Event('change',{bubbles:true}));record('Cada etiqueta tiene texto independiente',Array.from(labels()).some(el=>hasLabel(el,'Pendiente'))&&Array.from(labels()).some(el=>hasLabel(el,'Sí')));
+ const label=surface().querySelector(`[data-label-id="${labelId}"]`),lp=center(label),hit=d.elementFromPoint(lp.x,lp.y);record('La etiqueta permanece accesible por encima de manipuladores',hit?.closest('[data-flow-label]')?.dataset.labelId===labelId);
+ const geometry=flowEdgeGeometry(edge,a,b),target=world(flowLabelPoint(geometry.samples,.88)),beforeLabel=label.querySelector('rect').getAttribute('x'),pid=++pointer;send(label,'pointerdown',lp,pid);send(viewport,'pointermove',target,pid);send(viewport,'pointerup',target,pid);
+ const afterLabel=surface().querySelector(`[data-label-id="${labelId}"] rect`).getAttribute('x');record('Arrastre sostenido ubica la etiqueta en otro lugar de la línea',afterLabel!==beforeLabel);undo();record('Deshacer revierte solo el arrastre de etiqueta',surface().querySelector(`[data-label-id="${labelId}"] rect`).getAttribute('x')===beforeLabel);redo();record('Rehacer recupera la posición de la etiqueta',surface().querySelector(`[data-label-id="${labelId}"] rect`).getAttribute('x')===afterLabel);
+ select('edge',edge.id);let handles=surface().querySelectorAll('[data-flow-bend]');record('Cada tramo ortogonal dispone de un manipulador largo',handles.length>=3&&Array.from(handles).every(el=>Math.max(Number(el.getAttribute('width')),Number(el.getAttribute('height')))>=32));
+ const handle=Array.from(handles).find(el=>el.dataset.axis==='x'),hp=center(handle),pathBefore=edgeNode(edge.id).querySelector('[data-flow-stroke]').getAttribute('d'),hid=++pointer;send(handle,'pointerdown',hp,hid);send(viewport,'pointermove',{x:hp.x+55,y:hp.y},hid);send(viewport,'pointerup',{x:hp.x+55,y:hp.y},hid);const pathAfter=edgeNode(edge.id).querySelector('[data-flow-stroke]').getAttribute('d');record('Un manipulador mueve su tramo y conserva etiquetas',pathAfter!==pathBefore&&labels().length===2);undo();record('Deshacer restituye el recorrido anterior',edgeNode(edge.id).querySelector('[data-flow-stroke]').getAttribute('d')===pathBefore);redo();record('Rehacer conserva el recorrido manual',edgeNode(edge.id).querySelector('[data-flow-stroke]').getAttribute('d')===pathAfter);
+ select('node',a.id);const minuses=surface().querySelector(`[data-flow-node="${a.id}"]`).querySelectorAll('[data-flow-disconnect]');record('Un puerto compartido muestra un − por conexión sin ocultar el punto original',minuses.length===2&&surface().querySelector(`[data-flow-port="${a.id}"][data-side="right"]`));
+ const minus=surface().querySelector(`[data-flow-node="${a.id}"] [data-flow-disconnect="${edge.id}"]`);minus.dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true}));record('Hover en − resalta únicamente la línea que se eliminará',edgeNode(edge.id).classList.contains('is-delete-preview')&&!edgeNode(other.id).classList.contains('is-delete-preview')&&w.getComputedStyle(edgeNode(edge.id).querySelector('[data-flow-delete-highlight]')).visibility==='visible');minus.dispatchEvent(new w.PointerEvent('pointerout',{bubbles:true,relatedTarget:viewport}));record('Salir de − limpia el resaltado sin cambiar el diagrama',!edgeNode(edge.id).classList.contains('is-delete-preview'));
+ send(minus,'pointerdown',center(minus),++pointer);record('El − elimina solo su conexión con sus etiquetas',!edgeNode(edge.id)&&!!edgeNode(other.id)&&labels().length===0);undo();record('Deshacer recupera conexión etiquetas y dobleces',!!edgeNode(edge.id)&&labels().length===2&&edgeNode(edge.id).querySelector('[data-flow-stroke]').getAttribute('d')===pathAfter);
+ select('node',a.id);const port=surface().querySelector(`[data-flow-port="${a.id}"][data-side="bottom"]`),pp=center(port),to=center(surface().querySelector(`[data-flow-node="${b.id}"]`)),cid=++pointer;send(port,'pointerdown',pp,cid);send(viewport,'pointermove',to,cid);send(viewport,'pointerup',to,cid);record('El círculo original sigue conectando con arrastre y switch apagado',surface().querySelectorAll('[data-flow-edge]').length===3&&dialog().querySelector('[data-action="connect"]').getAttribute('aria-checked')==='false');undo();
+ surface().querySelector(`[data-flow-node="${a.id}"]`).dispatchEvent(new w.MouseEvent('dblclick',{bubbles:true}));const tools=dialog().querySelector('#rtf-toolbar');record('Texto usa la barra principal con todos los menús e iconos',!!tools.querySelector('[title="Negrita"]')&&!!tools.querySelector('[aria-label="Agregar hipervínculo"]')&&!!tools.querySelector('[title="Insertar Imagen Editorial"]')&&tools.querySelectorAll('[title^="Viñetas"]').length===3);tools.querySelector('[title="Insertar Ícono Embebido"]').click();tools.querySelector('[aria-label="Terminar texto"]').click();record('Insertar icono desde la barra funciona y persiste como contenido seguro',!!surface().querySelector(`[data-flow-node="${a.id}"] foreignObject .material-symbols-outlined`));
+ viewport.setPointerCapture=capture;viewport.releasePointerCapture=release;viewport.hasPointerCapture=has;
+ dialog().querySelector('[data-action="save"]').click();await wait();const saved=JSON.parse(block.dataset.flowModel),savedEdge=saved.edges.find(e=>e.id===edge.id);record('Guardar persiste posiciones de etiquetas y recorrido manual',savedEdge.labels[0].text==='Pendiente'&&Math.abs(savedEdge.labels[0].position-.88)<.01&&savedEdge.waypoints.length>=2&&savedEdge.label==='Sí');
+ const html=w.generateExportHTML(false),published=new DOMParser().parseFromString(html,'text/html');record('Exportación conserva etiquetas pero excluye manipuladores botones − y toolbars',hasLabel(published.querySelector('.flow-published'),'Pendiente')&&!published.querySelector('[data-flow-label],[data-flow-bend],[data-flow-disconnect],.fde-rich-toolbar')&&referencesStayLocal(published));
+ openBlock(block);await wait();select('edge',edge.id);record('Reabrir conserva posiciones y geometría guardadas',labels().length===2&&edgeNode(edge.id).querySelector('[data-flow-stroke]').getAttribute('d')===pathAfter);inspector().querySelector('[data-action="reset-bend"]').click();record('Restablecer doblez automático limpia los cambios de todos los tramos',edgeNode(edge.id).querySelector('[data-flow-stroke]').getAttribute('d')!==pathAfter);inspector().querySelector('[data-action="remove-label"]').click();record('Se puede quitar una etiqueta adicional sin borrar la conexión',labels().length===1&&!!edgeNode(edge.id));
+ out.textContent=results.join('\n')+`\nTOTAL: ${results.length} / FAIL: 0`;
+ }catch(error){out.textContent+='\nERROR '+error.stack;}finally{busy=false;}
+};
+const scaleDemo=document.createElement('button');scaleDemo.textContent='Escala de etiquetas · ejemplo';document.querySelector('header').append(scaleDemo);scaleDemo.onclick=async()=>{const{d}=await reset();out.textContent='';document.body.classList.remove('results');const m=connectionSample();m.edges[0].labelScale=150;m.edges[0].labels=[{id:'validation',text:'Validación',position:.22},{id:'result',text:'Resultado',position:.83}];openBlock(setModel(insertBlock(),m));await wait();d.querySelector('.fde-outline-items [data-select-kind="edge"]').click();d.querySelector('[data-action="connect"]').click();};
+const scaleChecks=document.createElement('button');scaleChecks.textContent='Probar escala de etiquetas';document.querySelector('header').append(scaleChecks);
+scaleChecks.onclick=async()=>{
+ if(busy)return;busy=true;results=[];out.hidden=false;document.body.classList.add('results');
+ try{
+ const{w,d}=await reset(),m=connectionSample(),[a,b]=m.nodes,[edge,other]=m.edges;edge.labels=[{id:'validation',text:'Validación',position:.25},{id:'result',text:'Resultado',position:.8}];const block=setModel(insertBlock(),m);openBlock(block);await wait();
+ const dialog=()=>d.querySelector('dialog.flow-design-editor'),surface=()=>dialog().querySelector('.fde-surface'),inspector=()=>dialog().querySelector('.fde-inspector'),viewport=dialog().querySelector('.fde-viewport'),select=(kind,id,shift=false)=>dialog().querySelector(`[data-select-kind="${kind}"][data-select-id="${id}"]`).dispatchEvent(new w.MouseEvent('click',{bubbles:true,shiftKey:shift}));
+ const labelGroups=()=>Array.from(surface().querySelectorAll(`[data-flow-label="${edge.id}"]`)),fontSizes=()=>labelGroups().map(el=>Number(el.querySelector('text').getAttribute('font-size'))),stroke=id=>surface().querySelector(`[data-flow-edge="${id}"] [data-flow-stroke]`).getAttribute('d'),minus=(nodeId,edgeId)=>surface().querySelector(`[data-flow-node="${nodeId}"] [data-flow-disconnect="${edgeId}"]`),undo=()=>dialog().querySelector('[data-action="undo"]').click(),redo=()=>dialog().querySelector('[data-action="redo"]').click();
+ const center=el=>{const r=el.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2};};let pointer=14000;const send=(el,type,p,id)=>el.dispatchEvent(new w.PointerEvent(type,{bubbles:true,cancelable:true,button:0,buttons:type==='pointerup'?0:1,pointerId:id,clientX:p.x,clientY:p.y}));const capture=viewport.setPointerCapture.bind(viewport),release=viewport.releasePointerCapture.bind(viewport),has=viewport.hasPointerCapture.bind(viewport);viewport.setPointerCapture=()=>{};viewport.releasePointerCapture=()=>{};viewport.hasPointerCapture=()=>false;
+ select('edge',edge.id);let slider=inspector().querySelector('[data-prop="labelScale"]');
+ record('Slider de escala aparece inmediatamente bajo Etiquetas y empieza al cien por ciento',slider.type==='range'&&slider.value==='100'&&inspector().querySelector('.fde-label-heading').nextElementSibling.contains(slider)&&slider.parentElement.querySelector('output').textContent==='100 %');
+ record('Campos de etiqueta conservan nombres accesibles sin rótulos redundantes visibles',Array.from(inspector().querySelectorAll('.fde-label-row label')).every(el=>!el.textContent.trim())&&inspector().querySelector('[data-prop="label"]').getAttribute('aria-label')==='Etiqueta');
+ record('Cada campo de etiqueta muestra un icono decorativo de etiqueta a su izquierda',Array.from(inspector().querySelectorAll('.fde-label-row')).every(row=>{const icon=row.querySelector('.fde-label-icon'),input=row.querySelector('input');return icon?.textContent==='label'&&icon.getAttribute('aria-hidden')==='true'&&icon.getBoundingClientRect().right<input.getBoundingClientRect().left;}));
+ record('Se retiraron las dos ayudas señaladas',!inspector().textContent.includes('Mantén pulsada')&&!inspector().textContent.includes('Activa cada extremo'));
+ const originalPath=stroke(edge.id),originalRects=labelGroups().map(el=>({w:Number(el.querySelector('rect').getAttribute('width')),h:Number(el.querySelector('rect').getAttribute('height')),cx:Number(el.querySelector('text').getAttribute('x')),cy:Number(el.querySelector('text').getAttribute('y'))}));
+ for(const value of [125,150,175]){slider.value=String(value);slider.dispatchEvent(new w.Event('input',{bubbles:true}));}record('Arrastrar escala actualiza todas las etiquetas de esa línea en vivo',fontSizes().length===3&&fontSizes().every(size=>size===22.75)&&slider.parentElement.querySelector('output').textContent==='175 %');slider.dispatchEvent(new w.Event('change',{bubbles:true}));
+ record('Fondo y zona de arrastre escalan junto al texto manteniendo su centro',labelGroups().every((el,index)=>Math.abs(Number(el.querySelector('rect').getAttribute('width'))-originalRects[index].w*1.75)<.02&&Number(el.querySelector('rect').getAttribute('height'))===42&&Number(el.querySelector('text').getAttribute('x'))===originalRects[index].cx&&Number(el.querySelector('text').getAttribute('y'))===originalRects[index].cy));
+ record('Escalar no altera la línea ni las etiquetas de otras conexiones',stroke(edge.id)===originalPath&&surface().querySelector(`[data-flow-label="${other.id}"] text`).getAttribute('font-size')==='13');
+ undo();record('Un deshacer revierte todo el gesto del slider',fontSizes().every(size=>size===13));redo();select('edge',edge.id);record('Rehacer recupera la escala compartida',inspector().querySelector('[data-prop="labelScale"]').value==='175'&&fontSizes().every(size=>size===22.75));
+ inspector().querySelector('[data-action="add-label"]').click();record('Las etiquetas añadidas después heredan la escala de su conexión',fontSizes().length===4&&fontSizes().every(size=>size===22.75));Array.from(inspector().querySelectorAll('[data-action="remove-label"]')).at(-1).click();
+ const source=surface().querySelector(`[data-flow-node="${a.id}"]`);source.focus();let preview=minus(a.id,edge.id);record('Hover o foco de figura muestra los círculos − atenuados y no activados',w.getComputedStyle(preview).visibility==='visible'&&Number(w.getComputedStyle(preview).opacity)===.35&&preview.getAttribute('aria-disabled')==='true');
+ const p=center(source),pid=++pointer;send(source,'pointerdown',p,pid);send(viewport,'pointerup',p,pid);record('Clic sobre la figura vuelve sólidos y activa sus círculos −',Number(w.getComputedStyle(minus(a.id,edge.id)).opacity)===1&&minus(a.id,edge.id).getAttribute('aria-disabled')==='false'&&surface().querySelectorAll('[data-flow-edge]').length===2);
+ record('Seleccionar una figura no activa los − de otras figuras',Number(w.getComputedStyle(minus(b.id,edge.id)).opacity)===.35&&minus(b.id,edge.id).getAttribute('aria-disabled')==='true');
+ dialog().querySelector('[data-action="canvas"]').click();preview=minus(a.id,edge.id);send(preview,'pointerdown',center(preview),++pointer);record('Un clic en un − atenuado primero selecciona sin borrar la conexión',surface().querySelectorAll('[data-flow-edge]').length===2&&minus(a.id,edge.id).getAttribute('aria-disabled')==='false');
+ const active=minus(a.id,edge.id);active.dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true}));record('El − activo conserva el resaltado de su línea vinculada',surface().querySelector(`[data-flow-edge="${edge.id}"]`).classList.contains('is-delete-preview')&&!surface().querySelector(`[data-flow-edge="${other.id}"]`).classList.contains('is-delete-preview'));send(active,'pointerdown',center(active),++pointer);record('Clic en el − sólido elimina solo la conexión vinculada',!surface().querySelector(`[data-flow-edge="${edge.id}"]`)&&surface().querySelectorAll('[data-flow-edge]').length===1);undo();record('Deshacer restaura conexión y etiquetas con su escala',surface().querySelectorAll('[data-flow-edge]').length===2&&fontSizes().every(size=>size===22.75));
+ select('edge',edge.id);select('edge',other.id,true);record('Selección múltiple muestra escalas distintas sin sobrescribirlas',inspector().querySelector('[data-prop="labelScale"]').parentElement.querySelector('output').textContent==='Varios');slider=inspector().querySelector('[data-prop="labelScale"]');slider.value='150';slider.dispatchEvent(new w.Event('input',{bubbles:true}));slider.dispatchEvent(new w.Event('change',{bubbles:true}));record('Escala en multiselección actualiza cada conexión sin cambiar sus textos',surface().querySelectorAll('[data-flow-label] text').length===4&&Array.from(surface().querySelectorAll('[data-flow-label] text')).every(el=>el.getAttribute('font-size')==='19.5'));undo();
+ viewport.setPointerCapture=capture;viewport.releasePointerCapture=release;viewport.hasPointerCapture=has;dialog().querySelector('[data-action="save"]').click();await wait();const saved=JSON.parse(block.dataset.flowModel);record('Guardar persiste la escala por conexión sin cambiar posiciones',saved.edges[0].labelScale===175&&saved.edges[1].labelScale===100&&saved.edges[0].labelPosition===.5&&saved.edges[0].labels[0].position===.25&&saved.edges[0].labels[1].position===.8);
+ const html=w.generateExportHTML(false),published=new DOMParser().parseFromString(html,'text/html');record('Publicación conserva escala y fondos sin opacidad ni controles de borrado del editor',published.querySelectorAll('.flow-published text[font-size="22.75"]').length===3&&!published.querySelector('[data-flow-disconnect],[data-prop="labelScale"]')&&referencesStayLocal(published));
+ openBlock(block);await wait();select('edge',edge.id);record('Reabrir mantiene el slider y todas las etiquetas a la escala guardada',inspector().querySelector('[data-prop="labelScale"]').value==='175'&&fontSizes().every(size=>size===22.75));
+ out.textContent=results.join('\n')+`\nTOTAL: ${results.length} / FAIL: 0`;
+ }catch(error){out.textContent+='\nERROR '+error.stack;}finally{busy=false;}
+};
+const reviewChecks=document.createElement('button');reviewChecks.textContent='Probar nuevas anotaciones';document.querySelector('header').prepend(reviewChecks);
+reviewChecks.onclick=async()=>{if(busy)return;busy=true;results=[];out.hidden=false;document.body.classList.add('results');try{
+ const {w,d}=await reset();await d.fonts.ready;let m=createFlowModel(),block=setModel(insertBlock(),m);openBlock(block);await wait(220);
+ const dialog=()=>d.querySelector('dialog.flow-design-editor'),vp=()=>dialog().querySelector('.fde-viewport'),surface=()=>dialog().querySelector('.fde-surface'),ins=()=>dialog().querySelector('.fde-inspector');
+ const select=id=>dialog().querySelector(`[data-select-kind="node"][data-select-id="${id}"]`).click();
+ const field=(prop,value)=>{const el=ins().querySelector(`[data-prop="${prop}"]`);el.value=String(value);el.dispatchEvent(new w.Event('input',{bubbles:true}));el.dispatchEvent(new w.Event('change',{bubbles:true}));};
+ const save=async()=>{dialog().querySelector('[data-action="save"]').click();await wait();return JSON.parse(block.dataset.flowModel);};
+ const reopen=async()=>{openBlock(block);await wait(130);};
+ const centred=()=>{const a=surface().getBoundingClientRect(),b=vp().getBoundingClientRect();return Math.abs(a.left+a.width/2-(b.left+vp().clientWidth/2))<2&&Math.abs(a.top+a.height/2-(b.top+vp().clientHeight/2))<2;};
+ record('Lienzo vacío centrado horizontal y verticalmente según su proporción',centred());
+ let width=ins().querySelector('[data-prop="width"]'),height=ins().querySelector('[data-prop="height"]');
+ record('Sliders de lienzo con límites y valores predeterminados solicitados',width.type==='range'&&width.min==='850'&&width.max==='1920'&&width.value==='1200'&&height.type==='range'&&height.min==='720'&&height.max==='3000'&&height.value==='720');
+ for(const [x,y] of [[850,720],[1920,3000],[1200,720]]){field('width',x);field('height',y);await wait();const a=surface().getBoundingClientRect(),b=vp().getBoundingClientRect();out.dataset.geometry=JSON.stringify({surface:a.toJSON(),viewport:b.toJSON(),client:[vp().clientWidth,vp().clientHeight],zoom:dialog().querySelector('[aria-label="Zoom del lienzo"]').value});record(`Lienzo ${x} × ${y} ajustado y centrado sin desbordamiento`,centred()&&a.width<=vp().clientWidth&&a.height<=vp().clientHeight);}
+ await save();m=createFlowModel();const circle=addFlowNode(m,'circle');Object.assign(circle,{x:350,y:220,width:160,height:160,text:'Círculos\nde'});block.dataset.flowModel=JSON.stringify(m);await reopen();select(circle.id);
+ let pointer=24000;const send=(el,type,x,y,shift=false)=>el.dispatchEvent(new w.PointerEvent(type,{bubbles:true,cancelable:true,button:0,buttons:type==='pointerup'?0:1,pointerId:pointer,clientX:x,clientY:y,shiftKey:shift}));
+ const resize=(dx,dy,shift)=>{const viewport=vp();viewport.setPointerCapture=()=>{};viewport.releasePointerCapture=()=>{};viewport.hasPointerCapture=()=>false;const h=surface().querySelector(`[data-flow-resize="${circle.id}"]`),r=h.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;pointer++;send(h,'pointerdown',x,y,shift);send(viewport,'pointermove',x+dx,y+dy,shift);send(viewport,'pointerup',x+dx,y+dy,shift);};
+ resize(70,15,false);let saved=await save();record('Redimensionar círculo sin Shift conserva la proporción',saved.nodes[0].width===saved.nodes[0].height&&saved.nodes[0].width>160);
+ await reopen();select(circle.id);resize(70,5,true);saved=await save();record('Shift permite convertir el círculo en óvalo',saved.nodes[0].width!==saved.nodes[0].height);
+ m=createFlowModel();const textNode=addFlowNode(m,'circle');Object.assign(textNode,{x:250,y:150,width:160,height:160,text:'Círculos de prueba extensa',fontSize:18});block.dataset.flowModel=JSON.stringify(m);await reopen();await d.fonts.ready;
+ const svgLines=()=>Array.from(surface().querySelectorAll(`[data-flow-node-text="${textNode.id}"] text`)).map(el=>el.textContent.trim());
+ const before=svgLines();surface().querySelector(`[data-flow-node="${textNode.id}"]`).dispatchEvent(new w.MouseEvent('dblclick',{bubbles:true}));await wait();
+ const edit=d.querySelector('.fde-rich-edit'),range=d.createRange(),walker=d.createTreeWalker(edit,w.NodeFilter.SHOW_TEXT),native=[];let node;
+ while(node=walker.nextNode()){for(let i=0;i<node.length;i++){if(node.textContent[i]==='\n')continue;range.setStart(node,i);range.setEnd(node,i+1);const r=range.getBoundingClientRect(),line=native.find(row=>Math.abs(row.y-r.top)<1);if(line)line.text+=node.textContent[i];else native.push({y:r.top,text:node.textContent[i]});}}
+ record('Edición HTML y SVG usan el mismo salto de línea real',JSON.stringify(before)===JSON.stringify(native.map(row=>row.text.trim())));
+ const css=w.getComputedStyle(edit);
+ record('Edición conserva tamaño tipográfico original y escala todo el cuadro',parseFloat(css.fontSize)===18&&d.querySelector('.fde-rich-box').style.transform.startsWith('scale('));
+ d.querySelector('[aria-label="Terminar texto"]').click();record('Salir de edición conserva exactamente el acomodo',JSON.stringify(svgLines())===JSON.stringify(before));await save();
+ m=createFlowModel();const free=addFlowNode(m,'text');Object.assign(free,{x:130,y:120,width:180,height:70,text:'Breve'});block.dataset.flowModel=JSON.stringify(m);await reopen();surface().querySelector(`[data-flow-node="${free.id}"]`).dispatchEvent(new w.MouseEvent('dblclick',{bubbles:true}));const editable=d.querySelector('.fde-rich-edit');editable.textContent=Array(14).fill('Texto que crece').join('\n');editable.dispatchEvent(new w.Event('input',{bubbles:true}));d.querySelector('[aria-label="Terminar texto"]').click();
+ record('Texto libre crece hacia abajo y no introduce puntos suspensivos',surface().querySelectorAll(`[data-flow-node-text="${free.id}"] text`).length===14&&!surface().querySelector(`[data-flow-node-text="${free.id}"]`).textContent.includes('…'));saved=await save();record('El alto automático se conserva al guardar',saved.nodes[0].height>300);
+ await reopen();select(free.id);vp().dispatchEvent(new w.KeyboardEvent('keydown',{key:'Delete',bubbles:true,cancelable:true}));vp().focus();record('Eliminar figura no deja un contorno negro nativo',!w.getComputedStyle(vp()).outlineColor.match(/rgb\(0, 0, 0\)/)&&!surface().querySelector('[data-flow-node]'));await save();
+ const cropButton=block.querySelector('[data-flow-presentation="crop"]');cropButton.scrollIntoView({block:'center'});cropButton.click();const cropPanel=d.querySelector('.flow-block-popover');record('Márgenes máximos corresponden al cien por ciento de cada dimensión del lienzo',cropPanel.querySelector('[data-flow-field="cropMarginX"]').max===String(saved.width)&&cropPanel.querySelector('[data-flow-field="cropMarginY"]').max===String(saved.height));d.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+ out.textContent=results.join('\n')+`\nTOTAL: ${results.length} / FAIL: 0`;
+ }catch(error){out.textContent+='\nERROR '+error.stack;}finally{busy=false;}};
+</script>
+</html>

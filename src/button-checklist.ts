@@ -29,6 +29,7 @@ export function syncWorkspaceButtonChecklist(space:Workspace,root?:ParentNode,al
     const trigger=block.querySelector<HTMLElement>(':scope > .ib-shell > .ib-button-row > .ib-trigger');
     return {id:trigger?.id||'',label:trigger?.querySelector('.ib-label')?.textContent||'Botón',action:block.dataset.buttonAction||'none'};
   });
-  const checklist=reconcileButtonChecklist(space.checklist,buttons,allowNew,trackedIds);
+  const dismissed=new Set(space.dismissedAutomaticTasks);
+  const checklist=reconcileButtonChecklist(space.checklist,buttons.filter(button=>!dismissed.has('button:'+button.id)),allowNew,trackedIds);
   return checklist===space.checklist?space:{...space,checklist};
 }
