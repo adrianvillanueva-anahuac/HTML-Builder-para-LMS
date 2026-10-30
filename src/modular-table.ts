@@ -14,12 +14,14 @@ import {renderBadges,syncBadgeText,handleBadgeClick,handleBadgeInput,setupBadgeD
 import {renderModularTextBoxes,syncModularTextBoxes,setupModularTextBoxes,finishModularTextEditing} from './modular-text-boxes';
 import {renderModularOverflow,setupModularOverflow,closeModularOverflowEditor} from './modular-overflow';
 import {renderModularCellCopy,setupModularCellCopy} from './modular-cell-copy';
+import {ensureConnectionIds,parallelConnections,addParallelConnection,distributeParallelConnections,connectorAxisLimit,setupParallelConnectionDragging} from './modular-connections';
 
 const icon=(name:string)=>`<span class="material-symbols-outlined" aria-hidden="true">${name}</span>`;
 const button=(action:string,name:string,label:string)=>`<button type="button" data-mod-action="${action}" title="${label}" aria-label="${label}">${icon(name)}</button>`;
 const escape=(value:string)=>value.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 const paletteOptions=()=>`<optgroup label="Institucionales">${modularPalette.slice(0,5).map(c=>`<option value="${c.value}">${c.name}</option>`).join('')}</optgroup><optgroup label="Claros">${modularPalette.slice(5).map(c=>`<option value="${c.value}">${c.name}</option>`).join('')}</optgroup>`;
 const models=new WeakMap<HTMLElement,ModularModel>();
+const rendering=new WeakSet<HTMLElement>();
 const runtimes=new Map<HTMLElement,ReturnType<typeof mountModularRuntime>>();
 let installed=false;
 let activeModal:HTMLElement|null=null;
@@ -69,6 +71,8 @@ function layout(block:HTMLElement) {
   runtimes.get(block)?.update();
 }
 function render(block:HTMLElement) {
+  rendering.add(block);
+  try{
   if(block.isConnected)closeModularOverflowEditor();
   finishModularTextEditing(block);
   if(connector?.block===block)closeConnector();
@@ -135,13 +139,19 @@ function render(block:HTMLElement) {
     if(r===m.rows.length-1)cell.insertAdjacentHTML('beforeend',`<div class="mod-column-tools mod-tools mod-editor"><details><summary title="Color de columna ${c+1}" aria-label="Color de columna ${c+1}">${icon('format_color_fill')}</summary><div><div class="mod-palette">${modularPalette.map(color=>`<button type="button" data-column-color="${color.value}" data-color-column="${c}" title="${color.name}" aria-label="Columna ${c+1}: ${color.name}" style="background:${color.value};border:1px solid #aaa"></button>`).join('')}</div></div></details></div>`);
     grid.append(cell);
   }));
+  ensureConnectionIds(m);
   neighbors(m).forEach(([from,to])=>{
-    const edge=m.connections.find(e=>e.from===from&&e.to===to);
+   const group=parallelConnections(m,from,to);
+   for(const edge of group.length?group:[undefined]){
     const el=document.createElement('div');el.className='mod-edge';el.dataset.from=from;el.dataset.to=to;el.dataset.direction=edge?.direction||'none';
+    if(edge)el.dataset.edgeId=edge.id!;el.dataset.parallel=String(group.length>1);
+    el.dataset.vertical=String(from.split(':')[0]!==to.split(':')[0]);
     el.innerHTML=(edge?`<svg xmlns="http://www.w3.org/2000/svg" aria-label="Conexión ${edge.direction}" role="img"><path fill="${escape(edge.fill)}" stroke="${escape(edge.stroke)}" stroke-width="${edge.strokeWidth??2}" ${edge.dotted?'stroke-dasharray="3 3"':''}/></svg>`:'')+button('connect','conversion_path','Configurar conexión').replace('<button ','<button class="mod-editor" ');
+    if(group.length>1)el.querySelector('button')!.title='Clic para configurar; mantén pulsado y arrastra para mover este conector';
     el.dataset.scale=String(edge?.scale??1);el.dataset.offset=String(edge?.offset??0);
     el.dataset.radius=String(edge?.radius??0);
     grid.append(el);
+   }
   });
   block.querySelector<HTMLButtonElement>('[data-mod-action=row]')!.disabled=m.rows.length>=10;
   block.querySelector<HTMLButtonElement>('[data-mod-action=column]')!.disabled=m.columns.length>=10;
@@ -152,6 +162,7 @@ function render(block:HTMLElement) {
   renderModularOverflow(block,m);
   renderModularCellCopy(block);
   layout(block);persist(block);runtimes.set(block,mountModularRuntime(block));
+  }finally{rendering.delete(block);}
 }
 function modal(title:string,content:string,onConfirm:(panel:HTMLElement)=>boolean|void,onCancel=()=>{}) {
   if(activeModal)return;
@@ -240,6 +251,7 @@ function editCell(block:HTMLElement,key:string) {
 }
 let connector:{block:HTMLElement;edge:HTMLElement;panel:HTMLElement}|null=null;
 function closeConnector(){connector?.panel.remove();connector?.edge.removeAttribute('data-menu-open');connector=null;}
+function connectionForEdge(model:ModularModel,edge:HTMLElement){return model.connections.find(item=>edge.dataset.edgeId?item.id===edge.dataset.edgeId:item.from===edge.dataset.from&&item.to===edge.dataset.to);}
 function positionConnector(){
   if(!connector)return;
   const {edge,panel}=connector;
@@ -257,12 +269,15 @@ function editConnection(block:HTMLElement,edge:HTMLElement) {
   panel.innerHTML=`${[['forward','arrow_forward','Hacia derecha o abajo'],['backward','arrow_back','Hacia izquierda o arriba'],['both','swap_horiz','Bidireccional'],['none','horizontal_rule','Sin dirección']].map(([v,i,label])=>`<button type="button" data-edge-field="direction" data-value="${v}" title="${label}" aria-label="${label}">${icon(i)}</button>`).join('')}<details><summary title="Trazo" aria-label="Trazo">${icon('line_style')}</summary><div>${[['false','horizontal_rule','Continuo'],['true','more_horiz','Punteado']].map(([v,i,l])=>`<button type="button" data-edge-field="dotted" data-value="${v}" title="${l}" aria-label="${l}">${icon(i)}</button>`).join('')}</div></details><details><summary title="Relleno de flecha" aria-label="Relleno de flecha">${icon('format_color_fill')}</summary><div class="mod-palette">${swatches('fill')}</div></details><details><summary title="Contorno de flecha" aria-label="Contorno de flecha">${icon('border_color')}</summary><div class="mod-palette">${swatches('stroke')}</div></details><button type="button" data-edge-field="remove" title="Eliminar conexión" aria-label="Eliminar conexión">${icon('delete')}</button>`;
   connector={block,edge,panel};edge.dataset.menuOpen='true';document.body.append(panel);positionConnector();
   for(const field of ['fill','stroke'])panel.querySelector(`[data-edge-field=${field}]`)!.parentElement!.insertAdjacentHTML('afterbegin',`<button type="button" data-edge-field="${field}" data-value="none" title="${field==='fill'?'Sin relleno':'Sin contorno'}" aria-label="${field==='fill'?'Sin relleno':'Sin contorno'}">${icon('block')}</button>`);
-  const current=models.get(block)!.connections.find(e=>e.from===from&&e.to===to);
+  const current=connectionForEdge(models.get(block)!,edge);
   const vertical=from.split(':')[0]!==to.split(':')[0];
+  const axisSize=()=>{const a=block.querySelector<HTMLElement>(`.mod-cell[data-cell="${from}"]`)!,b=block.querySelector<HTMLElement>(`.mod-cell[data-cell="${to}"]`)!;return Math.min(vertical?a.clientWidth:a.clientHeight,vertical?b.clientWidth:b.clientHeight);};
+  const axisLimit=()=>{const value=connectionForEdge(models.get(block)!,edge);return connectorAxisLimit(axisSize(),value?.scale||1,value?.stroke==='none'?0:value?.strokeWidth||2);};
   const extraMenu=(symbol:string,label:string,content:string)=>`<details><summary title="${label}" aria-label="${label}">${icon(symbol)}</summary><div>${content}</div></details>`;
   panel.querySelector('[data-edge-field=remove]')!.insertAdjacentHTML('beforebegin',
+    extraMenu('add_link','Cantidad y distribución',`<div class="mod-connection-count"><button type="button" data-edge-count="add" aria-label="Agregar conector" title="Agregar conector">${icon('add')}</button><output>${parallelConnections(models.get(block)!,from,to).length} / 8</output><button type="button" data-edge-count="remove" aria-label="Quitar conector" title="Quitar conector">${icon('remove')}</button></div><div class="mod-connection-distribution"><button type="button" data-edge-count="negative" title="Distribuir del centro hacia ${vertical?'la izquierda':'arriba'}" aria-label="Distribuir del centro hacia ${vertical?'la izquierda':'arriba'}">${icon(vertical?'align_horizontal_left':'align_vertical_top')}</button><button type="button" data-edge-count="positive" title="Distribuir del centro hacia ${vertical?'la derecha':'abajo'}" aria-label="Distribuir del centro hacia ${vertical?'la derecha':'abajo'}">${icon(vertical?'align_horizontal_right':'align_vertical_bottom')}</button></div>`)+
     extraMenu('photo_size_select_small','Tamaño del conector',`<label>Tamaño <output>${Math.round((current?.scale??1)*100)}%</output><input data-edge-scale type="range" min="50" max="300" step="10" value="${Math.round((current?.scale??1)*100)}" aria-label="Tamaño del conector"></label>`)+
-    extraMenu(vertical?'swap_horiz':'swap_vert','Posición del conector',`<label>${vertical?'Izquierda / derecha':'Arriba / abajo'} <output>${current?.offset??0} px</output><input data-edge-offset type="range" min="-100" max="100" value="${current?.offset??0}" aria-label="Desplazamiento del conector"></label><button data-edge-field="center" title="Volver al centro" aria-label="Volver al centro">${icon('center_focus_strong')}</button>`)+
+    extraMenu(vertical?'swap_horiz':'swap_vert','Posición del conector',`<label>${vertical?'Izquierda / derecha':'Arriba / abajo'} <output>${current?.offset??0} px</output><input data-edge-offset type="range" min="${-axisLimit()}" max="${axisLimit()}" value="${current?.offset??0}" aria-label="Desplazamiento del conector"></label><button data-edge-field="center" title="Volver al centro" aria-label="Volver al centro">${icon('center_focus_strong')}</button>`)+
     extraMenu('rounded_corner','Esquinas del conector',`<label>Redondeado <output>${current?.radius??0} px</output><input data-edge-radius type="range" min="0" max="6" value="${current?.radius??0}" aria-label="Redondeado del conector"></label>`));
   panel.querySelectorAll<HTMLDetailsElement>('details').forEach(menu=>{
     menu.addEventListener('pointerenter',()=>{panel.querySelectorAll<HTMLDetailsElement>('details').forEach(other=>{if(other!==menu){other.open=false;delete other.dataset.pinned;}});menu.open=true;});
@@ -281,25 +296,41 @@ function editConnection(block:HTMLElement,edge:HTMLElement) {
   tracePanel.append(colorLabel,strokePalette);
   strokeMenu.remove();
   positionConnector();
+  const countNow=parallelConnections(models.get(block)!,from,to).length;
+  panel.querySelector<HTMLButtonElement>('[data-edge-count=add]')!.disabled=countNow>=8;
+  panel.querySelector<HTMLButtonElement>('[data-edge-count=remove]')!.disabled=countNow===0;
+  panel.querySelectorAll<HTMLButtonElement>('[data-edge-count=negative],[data-edge-count=positive]').forEach(button=>button.disabled=countNow<2);
+  panel.addEventListener('pointerdown',event=>{if((event.target as Element).matches('input[type=range]'))save();});
+  panel.addEventListener('keydown',event=>{if((event.target as Element).matches('input[type=range]')&&event.key.startsWith('Arrow'))save();});
   panel.addEventListener('input',event=>{
     const input=event.target as HTMLInputElement;if(!input.matches('[data-edge-width],[data-edge-scale],[data-edge-offset],[data-edge-radius]'))return;
-    const m=sync(block);let value=m.connections.find(e=>e.from===from&&e.to===to);
+    const m=sync(block);let value=connectionForEdge(m,edge);
     if(!value){value=createModularConnection(from,to);m.connections.push(value);edge.dataset.direction=value.direction;edge.insertAdjacentHTML('afterbegin',`<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Conexión forward"><path fill="${value.fill}" stroke="${value.stroke}"/></svg>`);}
     if(input.hasAttribute('data-edge-scale')){value.scale=clamp(Number(input.value)/100,.5,3);edge.dataset.scale=String(value.scale);input.closest('label')!.querySelector('output')!.textContent=Math.round(value.scale*100)+'%';}
-    else if(input.hasAttribute('data-edge-offset')){value.offset=clamp(Number(input.value),-100,100);edge.dataset.offset=String(value.offset);input.closest('label')!.querySelector('output')!.textContent=value.offset+' px';}
+    else if(input.hasAttribute('data-edge-offset')){value.offset=clamp(Number(input.value),-axisLimit(),axisLimit());edge.dataset.offset=String(value.offset);input.closest('label')!.querySelector('output')!.textContent=value.offset+' px';}
     else if(input.hasAttribute('data-edge-radius')){value.radius=clamp(Number(input.value),0,6);edge.dataset.radius=String(value.radius);input.closest('label')!.querySelector('output')!.textContent=value.radius+' px';}
     else {value.strokeWidth=clamp(Number(input.value),1,10);input.closest('label')!.querySelector('output')!.textContent=value.strokeWidth+' px';edge.querySelector('path')!.setAttribute('stroke-width',String(value.strokeWidth));}
+    ensureConnectionIds(m);edge.dataset.edgeId=value.id!;
+    const position=panel.querySelector<HTMLInputElement>('[data-edge-offset]')!,limit=axisLimit();position.min=String(-limit);position.max=String(limit);value.offset=clamp(value.offset||0,-limit,limit);edge.dataset.offset=String(value.offset);position.value=String(value.offset);position.closest('label')!.querySelector('output')!.textContent=value.offset+' px';
     persist(block);runtimes.get(block)?.update();
   });
   panel.addEventListener('change',()=>save());
   panel.addEventListener('click',event=>{
     const target=event.target as HTMLElement;
+    const count=target.closest<HTMLElement>('[data-edge-count]');
+    if(count){event.preventDefault();save();const m=sync(block),group=parallelConnections(m,from,to),action=count.dataset.edgeCount;let selected=connectionForEdge(m,edge);
+      if(action==='add'){const next=addParallelConnection(m,from,to,selected);if(next){next.offset=clamp(next.offset||0,-axisLimit(),axisLimit());selected=next;}}
+      else if(action==='remove'){const last=group.at(-1);m.connections=m.connections.filter(item=>item!==last);selected=group.at(-2);}
+      else{const limit=Math.min(...group.map(item=>connectorAxisLimit(axisSize(),item.scale||1,item.stroke==='none'?0:item.strokeWidth||2)));distributeParallelConnections(m,from,to,limit,action==='negative'?-1:1);}
+      const id=selected?.id;render(block);persist(block);save();const next=Array.from(block.querySelectorAll<HTMLElement>('.mod-edge')).find(item=>id?item.dataset.edgeId===id:item.dataset.from===from&&item.dataset.to===to);if(next)editConnection(block,next);return;
+    }
     panel.querySelectorAll('details[open]').forEach(menu=>{if(!menu.contains(target))menu.removeAttribute('open');});
     const choice=target.closest<HTMLElement>('[data-edge-field]');if(!choice)return;
-    const m=sync(block);let value=m.connections.find(e=>e.from===from&&e.to===to);
-    if(choice.dataset.edgeField==='remove'){m.connections=m.connections.filter(e=>e!==value);edge.querySelector('svg')?.remove();}
+    save();const m=sync(block);let value=connectionForEdge(m,edge);
+    if(choice.dataset.edgeField==='remove'){m.connections=m.connections.filter(e=>e!==value);render(block);persist(block);save();return;}
     else {
       if(!value){value=createModularConnection(from,to);m.connections.push(value);}
+      ensureConnectionIds(m);edge.dataset.edgeId=value.id!;
       const field=choice.dataset.edgeField!;
       if(field==='center'){value.offset=0;const input=panel.querySelector<HTMLInputElement>('[data-edge-offset]')!;input.value='0';input.closest('label')!.querySelector('output')!.textContent='0 px';}
       if(field==='dotted')value.dotted=choice.dataset.value==='true';
@@ -366,6 +397,7 @@ export function setupModularTables() {
   if(installed)return;installed=true;
   const badgeHost={model:(block:HTMLElement)=>models.get(block),sync,persist,render,save};
   setupBadgeDragging(badgeHost);
+  setupParallelConnectionDragging({...badgeHost,update:block=>{runtimes.get(block)?.update();positionConnector();}});
   setupModularTextBoxes({...badgeHost,update:block=>runtimes.get(block)?.update()});
   setupModularOverflow({...badgeHost,update:block=>runtimes.get(block)?.update()});
   setupModularCellCopy({...badgeHost,prepare:()=>{closeModularOverflowEditor();finishModularTextEditing();closeConnector();}});
@@ -572,7 +604,7 @@ export function setupModularTables() {
     persist(block);
   });
   document.addEventListener('change',event=>{if((event.target as HTMLElement).closest?.('.modular-table'))save();});
-  document.addEventListener('focusout',event=>{const block=(event.target as HTMLElement).closest?.<HTMLElement>('.modular-table');if(block&&models.has(block)){sync(block);persist(block);}});
+  document.addEventListener('focusout',event=>{const block=(event.target as HTMLElement).closest?.<HTMLElement>('.modular-table');if(block&&models.has(block)&&!rendering.has(block)){sync(block);persist(block);}});
   document.addEventListener('keydown',event=>{
     const target=event.target as HTMLElement;
     if(event.key==='Escape'){

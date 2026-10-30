@@ -10,7 +10,7 @@ export function inlineModularLayout(root:ParentNode) {
     const badges=Array.from(block.querySelectorAll<HTMLElement>('.mod-badge'));
     // Scroll containers clip overflow on both axes. Leave space for the halves
     // outside each cell, including corner positions and enlarged shapes.
-    const gutterX=badges.length?Math.ceil(Math.max(...badges.map(b=>parseFloat(b.style.width)/2)))+2:0;
+    const gutterX=badges.length?Math.ceil(Math.max(...badges.map(b=>b.hasAttribute('data-rounded-width')?0:parseFloat(b.style.width)/2)))+2:0;
     const gutterY=badges.length?Math.ceil(Math.max(...badges.map(b=>parseFloat(b.style.height)/2)))+2:0;
     apply('.mod-scroll',{overflowX:'auto',padding:`${gutterY}px ${gutterX}px`,margin:'0px',boxSizing:'border-box'});
     apply('.mod-grid',{position:'relative',display:'grid',gap:variable(block,'--mod-gap','20px'),boxSizing:'border-box'});
@@ -88,5 +88,10 @@ export function inlineModularLayout(root:ParentNode) {
     apply('.mod-badge>svg',{position:'absolute',inset:'0',width:'100%',height:'100%',pointerEvents:'none'});
     apply('.mod-badge-text',{position:'relative',width:'70%',maxHeight:'none',minHeight:'0',overflow:'visible',overflowWrap:'anywhere',textAlign:'center',lineHeight:'1.2',whiteSpace:'pre-wrap',padding:'0',margin:'0'});
     apply('.mod-badge-text :is(p,div,h1,h2,h3)',{margin:'0',textAlign:'center'});
+    // Rounded badges remain inside their own slot even without the runtime.
+    block.querySelectorAll<HTMLElement>('.mod-badge[data-rounded-width]').forEach(node=>{
+      const width=Number(node.dataset.roundedWidth)||96,half=width/2,edge=node.dataset.badgeEdge,anchor=edge==='left'?0:edge==='right'?100:(Number(node.dataset.badgeOffset)||0)*100;
+      node.style.width=`min(${width}px, 100%)`;node.style.maxWidth='100%';node.style.left=`clamp(min(${half}px, 50%), ${anchor}%, max(calc(100% - ${half}px), 50%))`;
+    });
   });
 }

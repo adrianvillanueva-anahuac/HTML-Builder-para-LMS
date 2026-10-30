@@ -1,7 +1,7 @@
 import {clamp,type ModularModel} from './modular-model';
 
 export type PerimeterPosition={edge:'top'|'right'|'bottom'|'left';offset:number};
-export type PerimeterBadge={shape:'circle'|'rounded'|'hexagon'|'triangle';color:string;scale:number;position:PerimeterPosition;text:string;html?:string;textStyle?:string};
+export type PerimeterBadge={shape:'circle'|'rounded'|'hexagon'|'triangle';color:string;scale:number;position:PerimeterPosition;text:string;html?:string;textStyle?:string;width?:number;height?:number};
 export const badgeShapes={circle:'Círculo',rounded:'Rectángulo redondeado',hexagon:'Hexágono',triangle:'Triángulo'};
 export function normalizeBadge(value:unknown):PerimeterBadge|undefined {
   if(!value||typeof value!=='object')return;
@@ -10,7 +10,12 @@ export function normalizeBadge(value:unknown):PerimeterBadge|undefined {
   return {shape:badge.shape!,color:/^#[0-9a-f]{6}$/i.test(badge.color||'')?badge.color!:'#5d428c',
     scale:Number.isFinite(badge.scale)?clamp(badge.scale!,.5,2):1,position:normalizePosition(badge.position),
     text:typeof badge.text==='string'?badge.text:'',...(typeof badge.html==='string'?{html:badge.html}:{}),
-    ...(typeof badge.textStyle==='string'?{textStyle:badge.textStyle}:{})};
+    ...(typeof badge.textStyle==='string'?{textStyle:badge.textStyle}:{}),
+    ...(Number.isFinite(badge.width)?{width:clamp(badge.width!,16,1200)}:{}),...(Number.isFinite(badge.height)?{height:clamp(badge.height!,16,600)}:{})};
+}
+export function roundedBadgeGeometry(badge:PerimeterBadge,cellWidth:number){
+ const width=Math.min(Math.max(1,cellWidth),badge.width??96*badge.scale),height=badge.height??54*badge.scale,point=perimeterPoint(badge.position,cellWidth,100);
+ return{width,height,left:Math.max(width/2,Math.min(cellWidth-width/2,point.x))};
 }
 export function normalizePosition(value?:Partial<PerimeterPosition>):PerimeterPosition {
   return {edge:['top','right','bottom','left'].includes(value?.edge||'')?value!.edge!:'top',

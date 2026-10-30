@@ -6,6 +6,7 @@ export function builderTextSessionTarget(target:EventTarget|null,text=window.cur
 export function finishBuilderTextSession(){
  const text=window.currentEditableText;if(!text)return;
  text.contentEditable='false';window.currentEditableText=null;window.lastKnownRange=null;
+ document.getSelection()?.removeAllRanges();
  for(const id of ['rtf-toolbar','image-toolbar','icon-modal'])document.getElementById(id)?.classList.add('hidden');
  const inline=document.getElementById('inline-icon-toolbar');if(inline){inline.style.opacity='0';inline.style.pointerEvents='none';}
  const links=document.getElementById('text-link-tools');if(links)links.hidden=true;
@@ -21,7 +22,10 @@ export function applyBuilderVerticalAlignment(value:'start'|'center'|'end'){
 let installed=false;
 export function setupBuilderTextSessions(){
  if(installed)return;installed=true;
- const sync=()=>{const editing=!!window.currentEditableText?.isConnected&&window.currentEditableText.isContentEditable;if(document.body.classList.contains('builder-text-editing')!==editing)document.body.classList.toggle('builder-text-editing',editing);};
+ document.body.classList.add('builder-selection-guard');
+ if(!window.currentEditableText?.isContentEditable)document.getSelection()?.removeAllRanges();
+ document.addEventListener('selectstart',event=>{const target=event.target instanceof Element?event.target:event.target instanceof Node?event.target.parentElement:null;if(!target?.closest('[contenteditable=true],input,textarea'))event.preventDefault();},true);
+ const sync=()=>{const editing=!!window.currentEditableText?.isConnected&&window.currentEditableText.isContentEditable,wasEditing=document.body.classList.contains('builder-text-editing');if(wasEditing!==editing){document.body.classList.toggle('builder-text-editing',editing);if(!editing)document.getSelection()?.removeAllRanges();}};
  const observer=new MutationObserver(sync);observer.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class','contenteditable'],childList:true});
  window.addEventListener('pointerdown',event=>{const text=window.currentEditableText;if(text?.isContentEditable&&!builderTextSessionTarget(event.target,text))finishBuilderTextSession();},true);
  window.addEventListener('pointerover',event=>{const text=window.currentEditableText;if(text?.isContentEditable&&!builderTextSessionTarget(event.target,text))event.stopImmediatePropagation();},true);

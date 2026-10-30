@@ -4,7 +4,8 @@
 .modular-table:not(.mod-published) .mod-scroll{overflow:visible}
 .mod-grid{position:relative;display:grid;gap:var(--mod-gap,20px);box-sizing:border-box}
 /* Extra hover bridge, without adding space or changing the grid dimensions. */
-.modular-table:not(.mod-published) .mod-grid::before{content:'';position:absolute;left:0;right:0;top:-10px;height:10px}
+.modular-table:not(.mod-published){padding-top:20px}
+.modular-table:not(.mod-published) .mod-grid::before{content:'';position:absolute;left:0;right:0;top:-20px;height:20px}
 .mod-cell{position:relative;min-width:0;min-height:0;border:1px dashed #cdd5dc;box-sizing:border-box}
 .modular-table[data-joined=true] .mod-cell:has(>.mod-card){border:0}
 .modular-table[data-joined=true] .mod-card{border-radius:var(--joined-corner-0,0px) var(--joined-corner-1,0px) var(--joined-corner-2,0px) var(--joined-corner-3,0px)}
@@ -246,6 +247,10 @@ body:has(.mod-overflow-editor) :is(#rtf-toolbar,#image-toolbar,#inline-icon-tool
 .mod-connector-popover .mod-palette{display:grid;grid-template-columns:repeat(4,30px);gap:6px;min-width:156px}
 .mod-connector-popover .mod-palette button{border-radius:50%}
 .mod-edge button .material-symbols-outlined{font-size:16px}
+.modular-table:not(.mod-published) .mod-edge[data-parallel=true] :is(svg,button){pointer-events:auto;cursor:ns-resize;touch-action:none}
+.modular-table:not(.mod-published) .mod-edge[data-parallel=true][data-vertical=true] :is(svg,button){cursor:ew-resize}
+.mod-connection-count,.mod-connection-distribution{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:130px}
+.mod-connection-count output{font-size:12px;white-space:nowrap}
 .mod-info{position:absolute;inset:0;margin:auto;width:max-content;height:max-content;z-index:25;display:none}
 .mod-info[data-needed=true]{display:block}
 .mod-info>summary{cursor:pointer;list-style:none;background:var(--info-color,#5d428c);color:white;border-radius:12px;padding:2px 7px;font:12px Roboto,sans-serif;white-space:nowrap}

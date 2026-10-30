@@ -30,13 +30,13 @@ function atBorder(key){const a=badge(key).getBoundingClientRect(),b=cell(key).qu
  return Math.min(Math.abs(x-b.left),Math.abs(x-b.right),Math.abs(y-b.top),Math.abs(y-b.bottom))<1.1&&x>=b.left-1&&x<=b.right+1&&y>=b.top-1&&y<=b.bottom+1;}
 document.querySelector('#run').onclick=async()=>{results=[];try{
  await setup(true);const {w,d}=env(),grid=table().querySelector('.mod-grid'),rect=grid.getBoundingClientRect();
- const pseudo=w.getComputedStyle(grid,'::before');check('Zona superior ampliada exactamente 10 px sin cambiar dimensiones',pseudo.height==='10px'&&pseudo.top==='-10px'&&Math.abs(rect.height-310)<1);
+ const pseudo=w.getComputedStyle(grid,'::before');check('Zona superior ampliada exactamente 20 px sin cambiar dimensiones de la cuadrícula',pseudo.height==='20px'&&pseudo.top==='-20px'&&Math.abs(rect.height-310)<1);
  check('Los 9 px sobre el borde pertenecen a la zona sensible',d.elementFromPoint(rect.left+rect.width/2,rect.top-9)?.closest('.modular-table')===table());
- check('11 px sobre el borde ya están fuera de la zona sensible',d.elementFromPoint(rect.left+rect.width/2,rect.top-11)?.closest('.mod-grid')!==grid);
- await select('0:0');const align=cell('0:0').querySelector('summary[aria-label="Alineación vertical"]');align.click();await wait();
+ check('21 px sobre el borde ya están fuera de la zona sensible',d.elementFromPoint(rect.left+rect.width/2,rect.top-21)?.closest('.mod-grid')!==grid);
+ await select('0:0');cell('0:0').querySelector('.mod-text').dispatchEvent(new w.MouseEvent('dblclick',{bubbles:true}));await wait();const align=d.querySelector('#rtf-toolbar summary[aria-label="Alineación vertical del texto"]');align.click();await wait();
  check('Icono de alineación conserva el símbolo y añade una A',align.textContent.includes('vertical_align_center')&&align.querySelector('small')?.textContent==='A');
  const panel=align.nextElementSibling;check('Alineación compacta sin espacio vacío',panel.getBoundingClientRect().width<120&&panel.getBoundingClientRect().height<50);
- panel.querySelector('[data-value=end]').click();check('Los botones de alineación siguen funcionando',model().cells['0:0'].verticalAlign==='end');
+ panel.querySelector('[aria-label="Texto abajo"]').click();await wait();check('Los botones de alineación siguen funcionando desde la barra de texto',model().cells['0:0'].textStyle?.['align-content']==='end');d.querySelector('#rtf-toolbar [aria-label="Terminar texto"]').click();
  check('Sin figuras no hay control conjunto',!table().querySelector('.mod-badge-align-menu'));
  for(const [key,shape] of [['0:0','circle'],['0:1','rounded'],['0:2','hexagon']]){
   await create(key,shape);check('Insertar '+shape,model().cells[key].badge.shape===shape&&!!badge(key));check(shape+': centro alineado al perímetro',atBorder(key));
@@ -45,7 +45,7 @@ document.querySelector('#run').onclick=async()=>{results=[];try{
  check('Con dos o más figuras aparece mini rectángulo y círculo',!!table().querySelector('.mod-badge-align-icon')&&!!table().querySelector('.mod-badge-picker-dot'));
  clear();await wait();check('Menú general no tapa las figuras del borde superior',table().querySelector('.block-toolbar > .mod-tools').getBoundingClientRect().bottom<=Math.min(...[...table().querySelectorAll('.mod-badge')].map(b=>b.getBoundingClientRect().top))-7);
  await select('0:1');cell('0:1').querySelector('.mod-badge-menu summary').click();await wait();
- input(cell('0:1').querySelector('[data-badge-scale]'),'150');check('Slider de escala modifica tamaño y guarda el modelo',model().cells['0:1'].badge.scale===1.5&&badge('0:1').style.width==='144px');
+ input(cell('0:1').querySelector('[data-badge-width]'),'144');input(cell('0:1').querySelector('[data-badge-height]'),'81');check('Sliders independientes modifican ancho y alto y guardan el modelo',model().cells['0:1'].badge.width===144&&model().cells['0:1'].badge.height===81&&badge('0:1').style.width==='144px');
  const bp=cell('0:1').querySelector('.mod-badge-panel').getBoundingClientRect(),bv=badge('0:1').getBoundingClientRect();check('Panel de escala y color no tapa la figura seleccionada',bp.top>=bv.bottom||bp.bottom<=bv.top||bp.left>=bv.right||bp.right<=bv.left);
  cell('0:1').querySelector('[data-badge-color="#ff5900"]').click();check('Paleta cambia color sin cambiar posición',model().cells['0:1'].badge.color==='#ff5900'&&atBorder('0:1'));
  input(cell('0:1').querySelector('[data-badge-color-input]'),'#15803d');check('Color personalizado funciona',model().cells['0:1'].badge.color==='#15803d');
@@ -62,7 +62,7 @@ document.querySelector('#run').onclick=async()=>{results=[];try{
  clear();const menu=table().querySelector('.mod-badge-align-menu');menu.querySelector('summary').click();await wait();const picker=menu.querySelector('.mod-badge-picker');
  const pickRect=picker.getBoundingClientRect(),canvasRect=d.querySelector('#scroll-container').getBoundingClientRect();check('Selector conjunto aparece dentro del área visible de edición',pickRect.left>=canvasRect.left&&pickRect.right<=canvasRect.right&&pickRect.top>=canvasRect.top&&pickRect.bottom<=canvasRect.bottom);
  drag(picker,1000,20);await wait();const all=model();check('Control conjunto coloca todas las figuras en la misma posición',Object.values(all.cells).filter(v=>v.badge).every(v=>JSON.stringify(v.badge.position)===JSON.stringify(all.cells['0:0'].badge.position)));
- check('El control conjunto no altera colores, escala ni texto',all.cells['0:0'].badge.html==='<b>01</b>'&&all.cells['0:1'].badge.scale===1.5&&all.cells['0:1'].badge.color==='#15803d');
+ check('El control conjunto no altera colores, dimensiones ni texto',all.cells['0:0'].badge.html==='<b>01</b>'&&all.cells['0:1'].badge.width===144&&all.cells['0:1'].badge.height===81&&all.cells['0:1'].badge.color==='#15803d');
  clear();drag(badge('0:0'),-1000,0);await wait();check('Una posición manual posterior solo cambia esa figura',model().cells['0:0'].badge.position.edge==='left'&&model().cells['0:1'].badge.position.edge==='right');
  const picker2=table().querySelector('.mod-badge-picker');picker2.dispatchEvent(new w.KeyboardEvent('keydown',{bubbles:true,key:'Home'}));await wait();check('Nueva posición conjunta sobreescribe cambios manuales anteriores',Object.values(model().cells).filter(v=>v.badge).every(v=>v.badge.position.edge==='top'&&v.badge.position.offset===.5));
  badge('0:0').dispatchEvent(new w.KeyboardEvent('keydown',{bubbles:true,key:'ArrowRight'}));await wait();check('Teclado permite mover una figura sin afectar las otras',model().cells['0:0'].badge.position.offset>.5&&model().cells['0:1'].badge.position.offset===.5);badge('0:0').dispatchEvent(new w.KeyboardEvent('keydown',{bubbles:true,key:'Home'}));

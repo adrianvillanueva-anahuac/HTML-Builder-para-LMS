@@ -1,5 +1,5 @@
 import {modularPalette,modularTextColor,type ModularModel} from './modular-model';
-import {alignBadges,badgeShapes,createBadge,normalizeBadge,perimeterPoint,projectToPerimeter,stepPerimeter,type PerimeterBadge,type PerimeterPosition} from './modular-badges-model';
+import {alignBadges,badgeShapes,createBadge,normalizeBadge,perimeterPoint,projectToPerimeter,stepPerimeter,roundedBadgeGeometry,type PerimeterBadge,type PerimeterPosition} from './modular-badges-model';
 
 type BadgeHost={model:(block:HTMLElement)=>ModularModel|undefined;sync:(block:HTMLElement)=>ModularModel;
   persist:(block:HTMLElement)=>void;render:(block:HTMLElement)=>void;save:()=>void};
@@ -17,6 +17,11 @@ export function updateBadge(cell:HTMLElement,badge:PerimeterBadge) {
   node.style.left=point.x+'%';node.style.top=point.y+'%';
   node.style.width=(badge.shape==='rounded'?96:badge.shape==='hexagon'?76:64)*badge.scale+'px';
   node.style.height=(badge.shape==='rounded'?54:64)*badge.scale+'px';
+  if(badge.shape==='rounded'){
+    const size=roundedBadgeGeometry(badge,cell.clientWidth);node.style.width=size.width+'px';node.style.height=size.height+'px';node.style.left=size.left/cell.clientWidth*100+'%';
+    node.dataset.roundedWidth=String(badge.width??96*badge.scale);node.dataset.roundedHeight=String(badge.height??54*badge.scale);node.dataset.badgeEdge=badge.position.edge;node.dataset.badgeOffset=String(badge.position.offset);
+    for(const axis of ['width','height']as const){const input=cell.querySelector<HTMLInputElement>(`[data-badge-${axis}]`);if(input){if(axis==='width')input.max=String(Math.floor(cell.clientWidth));input.value=String(Math.round(size[axis]));input.closest('label')!.querySelector('output')!.textContent=input.value+' px';}}
+  }else{delete node.dataset.roundedWidth;delete node.dataset.roundedHeight;}
   node.style.color=ink(badge.color);node.style.fontSize=14*badge.scale+'px';
   node.querySelector('svg')!.innerHTML=outlines[badge.shape];
   node.querySelector('svg')!.setAttribute('viewBox',badge.shape==='rounded'?'0 0 96 54':'0 0 100 100');
@@ -48,6 +53,7 @@ export function renderBadges(block:HTMLElement,model:ModularModel) {
     menu.innerHTML=`<summary title="Figura en el perímetro" aria-label="Figura en el perímetro">${icon('category')}</summary><div class="mod-badge-panel"><div class="mod-badge-shapes" role="group" aria-label="Forma de la figura">${Object.entries(badgeShapes).map(([shape,label])=>`<button type="button" data-badge-shape="${shape}" title="${label}" aria-label="${label}" aria-pressed="${shape===badge?.shape}">${icon(symbols[shape as keyof typeof symbols])}</button>`).join('')}${badge?`<button type="button" data-badge-delete title="Eliminar figura del perímetro" aria-label="Eliminar figura del perímetro">${icon('delete')}</button>`:''}</div>${badge?`<label>Escala <output>${Math.round(badge.scale*100)}%</output><input data-badge-scale aria-label="Escala de la figura" type="range" min="50" max="200" value="${Math.round(badge.scale*100)}"></label><label class="mod-badge-color">Color <input data-badge-color-input type="color" aria-label="Color de la figura" value="${badge.color}"></label><div class="mod-palette">${modularPalette.map(c=>`<button type="button" data-badge-color="${c.value}" title="${c.name}" aria-label="Figura: ${c.name}" style="background:${c.value};border:1px solid #aaa"></button>`).join('')}</div>`:''}</div>`;
     cell.querySelector('.mod-cell-tools')!.append(menu);
     if(badge){
+      if(badge.shape==='rounded'){const scale=menu.querySelector('[data-badge-scale]')!.closest('label')!;scale.outerHTML=(['width','height']as const).map(axis=>`<label>${axis==='width'?'Ancho':'Alto'} <output></output><input data-badge-${axis} aria-label="${axis==='width'?'Ancho':'Alto'} de la figura" type="range" min="16" max="${axis==='width'?Math.floor(cell.clientWidth):600}" value="${badge[axis]??(axis==='width'?96:54)*badge.scale}"></label>`).join('');}
       const iconButton=document.createElement('button');iconButton.type='button';iconButton.dataset.badgeIcon='true';iconButton.title='Insertar icono del catálogo';iconButton.setAttribute('aria-label','Insertar icono del catálogo');iconButton.innerHTML=icon('add_reaction');menu.querySelector('.mod-badge-shapes')!.insertBefore(iconButton,menu.querySelector('[data-badge-delete]'));
       const node=document.createElement('div');node.className='mod-badge';node.tabIndex=0;
       node.setAttribute('role','group');node.setAttribute('aria-label','Figura del perímetro; arrastra para mover, doble clic para editar texto');
@@ -103,10 +109,12 @@ export function handleBadgeClick(event:MouseEvent,block:HTMLElement,host:BadgeHo
   host.save();return true;
 }
 export function handleBadgeInput(target:HTMLInputElement,block:HTMLElement,host:BadgeHost) {
-  if(!target.matches('[data-badge-scale],[data-badge-color-input]'))return false;
+  if(!target.matches('[data-badge-scale],[data-badge-color-input],[data-badge-width],[data-badge-height]'))return false;
   const cell=target.closest<HTMLElement>('.mod-cell')!,badge=host.sync(block).cells[cell.dataset.cell!]?.badge;
   if(!badge)return true;
   if(target.hasAttribute('data-badge-scale'))badge.scale=Math.max(.5,Math.min(2,Number(target.value)/100));
+  else if(target.hasAttribute('data-badge-width'))badge.width=Math.max(16,Math.min(cell.clientWidth,Number(target.value)));
+  else if(target.hasAttribute('data-badge-height'))badge.height=Math.max(16,Math.min(600,Number(target.value)));
   else badge.color=target.value;
   updateBadge(cell,badge);host.persist(block);return true;
 }

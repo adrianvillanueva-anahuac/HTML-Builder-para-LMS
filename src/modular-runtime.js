@@ -102,6 +102,12 @@ export function mountModularRuntime(block) {
     });
     const template=heights.map(n=>n+'px').join(' ');
     if(template && grid.style.gridTemplateRows!==template)grid.style.gridTemplateRows=template;
+    block.querySelectorAll('.mod-badge[data-rounded-width]').forEach(node=>{
+      const cell=node.parentElement,w=cell.clientWidth,width=Math.min(w,Number(node.dataset.roundedWidth)||96),offset=Number(node.dataset.badgeOffset)||0,edge=node.dataset.badgeEdge;
+      const anchor=edge==='left'?0:edge==='right'?w:offset*w;
+      node.style.width=width+'px';node.style.height=(Number(node.dataset.roundedHeight)||54)+'px';node.style.left=Math.max(width/2,Math.min(w-width/2,anchor))/w*100+'%';
+      const input=cell.querySelector('[data-badge-width]');if(input){input.max=String(Math.floor(w));input.value=String(Math.round(width));input.closest('label').querySelector('output').textContent=input.value+' px';}
+    });
     const base=grid.getBoundingClientRect();
     const scrollBounds=block.querySelector('.mod-scroll').getBoundingClientRect();
     // Clamp the whole toolbar, not just its menus, inside the clipping scroll area.
@@ -218,13 +224,15 @@ export function mountModularRuntime(block) {
       const distance=vertical?br.top-ar.bottom:br.left-ar.right;
       const length=Math.max(24,distance+8);
       const scale=Math.max(.5,Math.min(3,Number(edge.dataset.scale)||1));
-      const offset=Math.max(-100,Math.min(100,Number(edge.dataset.offset)||0));
+      const offset=Number(edge.dataset.offset)||0;
       // Resolve obstacles from the authored position every time, never accumulate displacement.
-      const desired=(vertical?x:y)+offset;
+      let desired=(vertical?x:y)+offset;
       const cross=vertical?y:x;
       const pathNode=edge.querySelector('path');
       const stroke=pathNode?.getAttribute('stroke')==='none'?0:Number(pathNode?.getAttribute('stroke-width')||2)*scale/2;
       const half=14*scale+stroke,along=length*scale/2+stroke;
+      const center=vertical?x:y,limit=Math.max(0,Math.min(vertical?ar.width:ar.height,vertical?br.width:br.height)/2-half-2);
+      desired=Math.max(center-limit,Math.min(center+limit,desired));
       const intervals=[];
       block.querySelectorAll('.mod-center:has(.mod-center-visual)').forEach(center=>{
         const rect=center.getBoundingClientRect();
@@ -235,7 +243,7 @@ export function mountModularRuntime(block) {
         if(cross+along+2>crossMin&&cross-along-2<crossMax)intervals.push([axisMin-half-2,axisMax+half+2]);
       });
       const free=p=>intervals.every(([lo,hi])=>p<=lo||p>=hi);
-      const candidates=[desired,...intervals.flat()].filter(free);
+      const candidates=[desired,...intervals.flat()].filter(p=>p>=center-limit&&p<=center+limit&&free(p));
       candidates.sort((a,b)=>Math.abs(a-desired)-Math.abs(b-desired));
       const position=candidates[0]??desired;
       set(edge,'style',`left:${vertical?position:x}px;top:${vertical?y:position}px;width:${(vertical?28:length)*scale}px;height:${(vertical?length:28)*scale}px`);
@@ -287,6 +295,6 @@ export function mountModularRuntime(block) {
   window.addEventListener('scroll',schedule,true);
   document.addEventListener('click',closeOutside);
   document.fonts?.ready.then(schedule);
-  schedule();
+  update();
   return {update:schedule,destroy:()=>{clearTimeout(liftTimer);hoverTimers.forEach(clearTimeout);resize.disconnect();observer.disconnect();cancelAnimationFrame(frame);block.removeEventListener('input',schedule);block.removeEventListener('pointerover',schedule);block.removeEventListener('pointerout',schedule);block.removeEventListener('focusin',schedule);block.removeEventListener('toggle',schedule,true);block.removeEventListener('pointerover',overflowHover);block.removeEventListener('pointerout',overflowLeave);block.removeEventListener('click',overflowClick);window.removeEventListener('scroll',schedule,true);document.removeEventListener('click',closeOutside);}};
 }

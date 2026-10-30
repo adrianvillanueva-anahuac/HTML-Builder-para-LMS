@@ -8,6 +8,9 @@
 .rtf-vertical-menu button{width:30px;height:30px;display:grid;place-items:center;border-radius:4px}
 .rtf-vertical-menu :is(button,summary):hover{background:var(--editor-icon-hover-bg,#f3f4f6)}
 .dark .rtf-vertical-menu>div{background:#292f3b;border-color:#475268}
+/* Design gestures must never select labels, menus or authored page text. */
+body.builder-selection-guard,body.builder-selection-guard *{-webkit-user-select:none;user-select:none}
+body.builder-selection-guard [contenteditable=true],body.builder-selection-guard [contenteditable=true] *,body.builder-selection-guard input,body.builder-selection-guard textarea{-webkit-user-select:text;user-select:text}
 /* While text owns the pointer, only its original tools and geometry may appear. */
 body.builder-text-editing :is(.block-toolbar,.mod-cell-tools,.mod-row-tools,.mod-column-tools,.mod-center-tools,.mod-badge-menu,.mod-connector-popover,.flow-block-popover,.finish-tools,#element-spacing-handles,.fde-item-toolbar){display:none!important;pointer-events:none!important}
 body.builder-text-editing :is(.mod-edge>button,.mod-resize,.mod-badge-picker){visibility:hidden!important;pointer-events:none!important}
