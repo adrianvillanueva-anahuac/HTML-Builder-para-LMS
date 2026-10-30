@@ -56,10 +56,11 @@ export function setupGroupSelection(){
       zone=nearest.querySelector<HTMLElement>(':scope > .lms-dropzone.bg-white')!;
     }
     const siblings=Array.from(zone.children).filter((el):el is HTMLElement=>el instanceof HTMLElement&&el.matches('.lms-element')&&!selected.includes(el));
-    const before=siblings.find(el=>{const r=el.getBoundingClientRect();return lastY<r.top+r.height/2;})||null;
+    const footer=zone.querySelector<HTMLElement>(':scope > .lms-footer-wrapper,:scope > .lms-page-footer');
+    const before=siblings.find(el=>{const r=el.getBoundingClientRect();return lastY<r.top+r.height/2;})||footer;
     const bounds=zone.getBoundingClientRect();
     const y=before?before.getBoundingClientRect().top:(siblings.at(-1)?.getBoundingClientRect().bottom??bounds.top+20);
-    return {zone,before,left:bounds.left+8,width:bounds.width-16,y};
+    return {zone,before,footer,left:bounds.left+8,width:bounds.width-16,y};
   };
   const updateDrag=()=>{
     const destination=slot();marker.hidden=!destination;
@@ -88,7 +89,7 @@ export function setupGroupSelection(){
     if(origin){origin=null;marquee.hidden=true;document.body.classList.remove('lms-group-selecting');if(cancelled)clear();else draw();}
     if(moving){
       const destination=cancelled?null:slot();
-      if(destination)selected.forEach(el=>destination.zone.insertBefore(el,destination.before));
+      if(destination){selected.forEach(el=>destination.zone.insertBefore(el,destination.before));if(destination.footer)destination.zone.append(destination.footer);}
       const handled=window.lmsEndWorkspaceDrag?.(!destination);
       moving=false;window.isLmsDragging=false;
       document.body.classList.remove('lms-group-moving');box.classList.remove('is-moving');marker.hidden=true;
@@ -104,7 +105,7 @@ export function setupGroupSelection(){
       if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)clear();
       else return;
     }
-    if(event.button!==0||target.closest('dialog,#rtf-toolbar,[contenteditable="true"],input,textarea,select'))return;
+    if(event.button!==0||target.closest('dialog,[role="dialog"],#rtf-toolbar,[contenteditable="true"],input,textarea,select'))return;
     if(target.closest('[data-group-copy]'))return;
     if(target.closest('[data-group-move]')&&selected.length){
       event.preventDefault();event.stopImmediatePropagation();window.saveHistoryState(true);

@@ -20,6 +20,9 @@ export function setupBoxControls(root:ParentNode=document){
     // Upgrade previously saved dialog controls.
     toolbar.querySelectorAll('[data-box-control]').forEach(button=>button.remove());
     const remove=toolbar.querySelector<HTMLButtonElement>(':scope > button[onclick*="deleteBlock"]');
+    const fillGroup=toolbar.querySelector<HTMLButtonElement>('button[title="Color de Fondo"]')?.parentElement;
+    const fillPalette=fillGroup?.querySelector<HTMLElement>('button[onclick*="changeCuadroColor"]')?.parentElement;
+    if(fillPalette&&!fillPalette.querySelector('[data-box-transparent]')){const clear=document.createElement('button');clear.type='button';clear.dataset.boxTransparent='true';clear.className='box-transparent-swatch';clear.title='Fondo totalmente transparente';clear.setAttribute('aria-label','Fondo totalmente transparente');clear.setAttribute('onclick',"changeCuadroColor(this, 'transparent')");fillPalette.append(clear);}
     let menu=toolbar.querySelector<HTMLElement>(':scope > .box-stroke-menu');
     if(!menu){
       menu=document.createElement('div');menu.className='box-stroke-menu';
@@ -27,10 +30,13 @@ export function setupBoxControls(root:ParentNode=document){
       toolbar.insertBefore(menu,remove);
     }
     if(remove&&toolbar.lastElementChild!==remove)toolbar.append(remove);
+    if(fillGroup&&fillGroup.nextElementSibling!==menu)fillGroup.after(menu);
     const trigger=menu.querySelector<HTMLButtonElement>('.box-stroke-trigger')!;
     const width=menu.querySelector<HTMLInputElement>('input')!;
+    width.type='range';width.min='0';width.max='20';width.step='1';
+    let widthOutput=menu.querySelector<HTMLOutputElement>('output');if(!widthOutput){widthOutput=document.createElement('output');width.after(widthOutput);}
     const sync=()=>{
-      const style=getComputedStyle(surface);width.value=String(parseFloat(style.borderTopWidth)||0);
+      const style=getComputedStyle(surface);width.value=String(parseFloat(style.borderTopWidth)||0);widthOutput!.value=width.value;
       const color=block.dataset.boxStrokeColor||style.borderTopColor;
       menu!.querySelectorAll<HTMLButtonElement>('[data-box-color]').forEach(b=>{
         const swatch=document.createElement('span');swatch.style.color=b.dataset.boxColor!;
@@ -51,6 +57,7 @@ export function setupBoxControls(root:ParentNode=document){
     trigger.onclick=event=>{event.preventDefault();event.stopPropagation();trigger.focus();sync();};
     menu.onkeydown=event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();menu!.classList.add('is-dismissed');(document.activeElement as HTMLElement)?.blur();trigger.setAttribute('aria-expanded','false');}};
     const ensureVisibleBorder=()=>{
+      if(block.dataset.boxStrokeWidth==='0')return;
       if(getComputedStyle(surface).borderTopStyle==='none')surface.style.borderStyle='solid';
       if(!parseFloat(getComputedStyle(surface).borderTopWidth))surface.style.borderWidth='1px';
     };
@@ -62,12 +69,15 @@ export function setupBoxControls(root:ParentNode=document){
     menu.querySelectorAll<HTMLButtonElement>('[data-box-line]').forEach(button=>button.onclick=event=>{
       event.preventDefault();event.stopPropagation();apply(()=>{
         surface.style.borderStyle=button.dataset.boxLine!;
-        if(button.dataset.boxLine!=='none'&&!parseFloat(getComputedStyle(surface).borderTopWidth))surface.style.borderWidth='1px';
+        if(button.dataset.boxLine!=='none'&&!parseFloat(getComputedStyle(surface).borderTopWidth)&&block.dataset.boxStrokeWidth!=='0')surface.style.borderWidth='1px';
       });
     });
-    width.onchange=()=>{
+    width.onpointerdown=()=>window.saveHistoryState(true);
+    width.onkeydown=()=>window.saveHistoryState(true);
+    width.oninput=()=>{
       if(!width.checkValidity()||width.value===''){sync();return;}
-      const value=Number(width.value);apply(()=>{surface.style.borderWidth=value+'px';if(value>0&&getComputedStyle(surface).borderTopStyle==='none')surface.style.borderStyle='solid';});
+      const value=Number(width.value);block.dataset.boxStrokeWidth=String(value);surface.style.borderWidth=value+'px';surface.style.borderStyle=value===0?'none':surface.style.borderStyle==='none'||!surface.style.borderStyle?'solid':surface.style.borderStyle;surface.style.borderColor=block.dataset.boxStrokeColor||surface.style.borderColor||'#5d428c';sync();block.dispatchEvent(new Event('input',{bubbles:true}));
     };
+    width.onchange=()=>window.saveHistoryState(true);
   });
 }

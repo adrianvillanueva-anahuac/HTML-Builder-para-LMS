@@ -62,6 +62,19 @@ export function inlineModularLayout(root:ParentNode) {
         const preview=info.querySelector<HTMLElement>('.mod-preview');
         if(preview)Object.assign(preview.style,{position:'absolute',right:'0',top:'100%',padding,width:'min(340px,65vw)',maxHeight:'340px',overflow:'auto',borderRadius:radius,backgroundColor:color,color:ink,border:'1px solid #cdd5dc',boxShadow:'0 5px 20px #0003',whiteSpace:'normal',overflowWrap:'anywhere'});
       });
+      const info=card.querySelector<HTMLElement>('.mod-overflow-info');
+      if(info){
+        const config=JSON.parse(card.dataset.textOverflow||'{}'),p=config.panel;
+        Object.assign(info.style,{display:config.enabled?'block':'none',position:'absolute',left:`calc(${config.button.x*100}% - 23px)`,top:`calc(${config.button.y*100}% - 11px)`,transform:'none',width:'max-content',height:'max-content',zIndex:'26'});
+        const summary=info.querySelector<HTMLElement>('summary')!;summary.title='Mostrar texto completo';Object.assign(summary.style,{listStyle:'none',cursor:'pointer',backgroundColor:variable(card,'--info-color','#5d428c'),color:'white',borderRadius:'12px',padding:'2px 7px',font:'12px Roboto,sans-serif',whiteSpace:'nowrap'});
+        const surface=info.querySelector<HTMLElement>('.mod-overflow-surface')!,background=info.querySelector<HTMLElement>('.mod-overflow-background')!,content=info.querySelector<HTMLElement>('.mod-overflow-content')!;
+        Object.assign(surface.style,{position:'fixed',zIndex:'4',left:`max(8px,min(calc(100vw - min(${p.width}px,90vw) - 8px),calc(${p.x*100}vw - min(${p.width/2}px,45vw))))`,top:`max(8px,min(${p.y*100}vh,calc(100vh - min(${p.height}px,80vh) - 8px)))`,width:`min(${p.width}px,90vw)`,height:`min(${p.height}px,80vh)`,padding:'22px',boxSizing:'border-box',isolation:'isolate',borderRadius:p.radius+'px',color:'#333',boxShadow:'0 8px 32px #0003'});
+        Object.assign(background.style,{position:'absolute',inset:'0',zIndex:'-1',backgroundColor:p.fill,opacity:String(p.opacity),borderRadius:'inherit',border:'1px solid #cdd5dc',pointerEvents:'none'});
+        Object.assign(content.style,{position:'relative',height:'100%',overflow:'auto',overflowWrap:'anywhere'});
+        // Populate selected text even before the runtime's first animation frame.
+        for(const id of config.boxIds||[]){const source=id==='primary'?card.querySelector<HTMLElement>('.mod-text'):card.querySelector<HTMLElement>(`.mod-text-box-frame[data-mod-text-id="${id}"] .mod-extra-text`);if(!source)continue;const copy=document.createElement('div');copy.className='mod-overflow-text';copy.innerHTML=source.innerHTML;for(const name of ['font-size','font-family','font-weight','font-style','text-decoration','text-align','color','line-height','align-content'])copy.style.setProperty(name,source.style.getPropertyValue(name));Object.assign(copy.style,{marginBottom:'12px',whiteSpace:'pre-wrap',overflowWrap:'anywhere'});const l=config.textLayouts?.[id];if(l)Object.assign(copy.style,{position:'absolute',left:l.x*100+'%',top:l.y*100+'%',width:l.width*100+'%',height:l.height*100+'%',margin:'0',overflow:'auto'});content.append(copy);}
+        if(config.enabled)for(const id of config.boxIds||[]){const source=id==='primary'?card.querySelector<HTMLElement>('.mod-text'):card.querySelector<HTMLElement>(`.mod-text-box-frame[data-mod-text-id="${id}"]`);if(source)source.style.display='none';}
+      }
     });
     apply('.mod-edge',{position:'absolute',transform:'translate(-50%,-50%)',zIndex:'65',pointerEvents:'none'});
     apply('.mod-edge svg',{overflow:'visible'});

@@ -4,8 +4,8 @@ import {alignBadges,badgeShapes,createBadge,normalizeBadge,perimeterPoint,projec
 type BadgeHost={model:(block:HTMLElement)=>ModularModel|undefined;sync:(block:HTMLElement)=>ModularModel;
   persist:(block:HTMLElement)=>void;render:(block:HTMLElement)=>void;save:()=>void};
 const icon=(name:string)=>`<span class="material-symbols-outlined" aria-hidden="true">${name}</span>`;
-const outlines={circle:'<circle cx="50" cy="50" r="49"/>',rounded:'<rect x="1" y="1" width="94" height="52" rx="12" ry="12"/>',hexagon:'<polygon points="25,1 75,1 99,50 75,99 25,99 1,50"/>'};
-const symbols={circle:'circle',rounded:'rounded_corner',hexagon:'hexagon'};
+const outlines={circle:'<circle cx="50" cy="50" r="49"/>',rounded:'<rect x="1" y="1" width="94" height="52" rx="12" ry="12"/>',hexagon:'<polygon points="25,1 75,1 99,50 75,99 25,99 1,50"/>',triangle:'<polygon points="50,2 98,96 2,96"/>'};
+const symbols={circle:'circle',rounded:'rounded_corner',hexagon:'hexagon',triangle:'change_history'};
 function ink(color:string) {
   if(modularPalette.some(entry=>entry.value===color.toLowerCase()))return modularTextColor(color);
   const channels=color.slice(1).match(/../g)!.map(v=>parseInt(v,16));
@@ -48,6 +48,7 @@ export function renderBadges(block:HTMLElement,model:ModularModel) {
     menu.innerHTML=`<summary title="Figura en el perímetro" aria-label="Figura en el perímetro">${icon('category')}</summary><div class="mod-badge-panel"><div class="mod-badge-shapes" role="group" aria-label="Forma de la figura">${Object.entries(badgeShapes).map(([shape,label])=>`<button type="button" data-badge-shape="${shape}" title="${label}" aria-label="${label}" aria-pressed="${shape===badge?.shape}">${icon(symbols[shape as keyof typeof symbols])}</button>`).join('')}${badge?`<button type="button" data-badge-delete title="Eliminar figura del perímetro" aria-label="Eliminar figura del perímetro">${icon('delete')}</button>`:''}</div>${badge?`<label>Escala <output>${Math.round(badge.scale*100)}%</output><input data-badge-scale aria-label="Escala de la figura" type="range" min="50" max="200" value="${Math.round(badge.scale*100)}"></label><label class="mod-badge-color">Color <input data-badge-color-input type="color" aria-label="Color de la figura" value="${badge.color}"></label><div class="mod-palette">${modularPalette.map(c=>`<button type="button" data-badge-color="${c.value}" title="${c.name}" aria-label="Figura: ${c.name}" style="background:${c.value};border:1px solid #aaa"></button>`).join('')}</div>`:''}</div>`;
     cell.querySelector('.mod-cell-tools')!.append(menu);
     if(badge){
+      const iconButton=document.createElement('button');iconButton.type='button';iconButton.dataset.badgeIcon='true';iconButton.title='Insertar icono del catálogo';iconButton.setAttribute('aria-label','Insertar icono del catálogo');iconButton.innerHTML=icon('add_reaction');menu.querySelector('.mod-badge-shapes')!.insertBefore(iconButton,menu.querySelector('[data-badge-delete]'));
       const node=document.createElement('div');node.className='mod-badge';node.tabIndex=0;
       node.setAttribute('role','group');node.setAttribute('aria-label','Figura del perímetro; arrastra para mover, doble clic para editar texto');
       node.innerHTML='<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg><div class="mod-badge-text editable-text" title="Doble clic para editar texto"></div>';
@@ -72,10 +73,20 @@ function refresh(block:HTMLElement,model:ModularModel) {
 }
 export function handleBadgeClick(event:MouseEvent,block:HTMLElement,host:BadgeHost) {
   const target=event.target as HTMLElement;
-  const control=target.closest<HTMLElement>('[data-badge-shape],[data-badge-color],[data-badge-delete]');
+  const control=target.closest<HTMLElement>('[data-badge-shape],[data-badge-color],[data-badge-delete],[data-badge-icon]');
   if(!control)return false;
   event.preventDefault();event.stopPropagation();
   const model=host.sync(block),cell=control.closest<HTMLElement>('.mod-cell')!,key=cell.dataset.cell!,value=model.cells[key];
+  if(control.hasAttribute('data-badge-icon')){
+    const modal=document.getElementById('icon-modal');if(!value.badge||!modal)return true;host.save();
+    const text=cell.querySelector<HTMLElement>('.mod-badge-text')!,previous=window.currentIconTarget;let chosen=text.querySelector<HTMLElement>('.editable-icon');
+    if(!chosen){chosen=document.createElement('span');chosen.className='material-symbols-outlined editable-icon';chosen.contentEditable='false';chosen.textContent='star';chosen.style.fontSize='1.8em';}
+    // Keep a new icon detached until the native catalog confirms a selection.
+    let selected=false;const select=(event:Event)=>{if((event.target as Element).closest('#icon-grid .material-symbols-outlined'))selected=true;};
+    modal.addEventListener('click',select,true);window.currentIconTarget=chosen;modal.classList.remove('hidden');
+    const observer=new MutationObserver(()=>{if(!modal.classList.contains('hidden'))return;observer.disconnect();modal.removeEventListener('click',select,true);window.currentIconTarget=previous;if(selected){if(!text.contains(chosen))text.replaceChildren(chosen);syncBadgeText(block,model);host.persist(block);host.save();}});observer.observe(modal,{attributes:true,attributeFilter:['class']});
+    return true;
+  }
   if(control.hasAttribute('data-badge-delete'))delete value.badge;
   else if(control.dataset.badgeShape){
     const shape=control.dataset.badgeShape as PerimeterBadge['shape'];

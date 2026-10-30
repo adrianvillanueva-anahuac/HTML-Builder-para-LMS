@@ -8,6 +8,7 @@ import {getInteractiveButtonHTML,setupInteractiveButtons,prepareInteractiveButto
 import interactiveButtonRuntime from './interactive-button-runtime.js?raw';
 import interactiveButtonStyles from './interactive-button.css?raw';
 import {setupBoxControls} from './box-controls';
+import {setupBuilderTextSessions} from './builder-text-session';
 import {setupMediaEmbeds} from './media-runtime.js';
 import mediaRuntime from './media-runtime.js?raw';
 import {insertCanvaEmbed,normalizeCanvaEmbeds} from './canva-embed';
@@ -158,6 +159,7 @@ export function upgradeTitleImageElements(root: ParentNode = document) {
 }
 
 export function setupVanillaGlobals() {
+    setupBuilderTextSessions();
     setupSpacingHandles();
     setupGroupSelection();
     setupModularTables();
@@ -736,6 +738,7 @@ export function setupVanillaGlobals() {
         const lmsElement = btn.closest('.lms-element');
         const el = lmsElement?.querySelector(':scope > div:not(.block-toolbar)') as HTMLElement;
         if(!el) return;
+        window.saveHistoryState(true);
         
         // Remove existing colors
         el.classList.remove('bg-anahuac-orange', 'bg-anahuac-purple', 'bg-gray-600', 'bg-gray-100', 'text-white', 'text-gray-800');
@@ -750,6 +753,9 @@ export function setupVanillaGlobals() {
         } else if (colorType === 'gray-light') {
             el.classList.add('bg-gray-100', 'text-gray-800');
         }
+        const fill:Record<string,string>={orange:'#ff5900',purple:'#5d428c','gray-dark':'#646464','gray-light':'#f3f4f6',transparent:'transparent'};
+        if(fill[colorType]){el.style.backgroundColor=fill[colorType];el.style.color=['gray-light','transparent'].includes(colorType)?'#374151':'#ffffff';}
+        el.dispatchEvent(new Event('input',{bubbles:true}));window.saveHistoryState(true);
     }
 
     window.changeCuadroRadius = function(btn: HTMLElement, radius: string) {

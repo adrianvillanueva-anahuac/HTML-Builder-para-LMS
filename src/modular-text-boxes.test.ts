@@ -1,11 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createModularCell,createModular} from './modular-model';
-import {addModularTextBox,normalizeModularTextBoxes,moveModularTextBox,modularTextStyle} from './modular-text-model';
+import {addModularTextBox,normalizeModularTextBoxes,moveModularTextBox,modularTextStyle,modularTextEntries,modularHasTextContent} from './modular-text-model';
 import {flowRichHTML} from './flow-rich-document';
 test('legacy cells retain their primary HTML and have no imposed geometry',()=>{
  const cell=createModularCell(createModular(1,1));cell.html='<h2>Original</h2>';addModularTextBox(cell);
  assert.equal(cell.html,'<h2>Original</h2>');assert.equal(cell.textLayout,undefined);assert.equal(cell.textBoxes?.length,1);
+});
+
+test('an empty rectangle has only an editor suggestion, not a mandatory primary box',()=>{
+ const cell=createModularCell(createModular(1,1));assert.deepEqual(modularTextEntries(cell),[]);assert.equal(cell.html,'');
+ for(const html of ['','<p><br></p>','<span>&nbsp;\u200b</span>'])assert.equal(modularHasTextContent(html),false);
+});
+
+test('all authored boxes are peers; existing HTML, images and styles keep their stable identity',()=>{
+ const cell=createModularCell(createModular(1,1));cell.html='<p>Texto existente</p>';const box=addModularTextBox(cell)!;
+ assert.deepEqual(modularTextEntries(cell),[{id:'primary',label:'Caja de texto 1'},{id:box.id,label:'Caja de texto 2'}]);
+ cell.html='';assert.deepEqual(modularTextEntries(cell),[{id:box.id,label:'Caja de texto 1'}]);
+ assert.ok(modularHasTextContent('<img src="https://example.com/image.png">'));assert.equal(box.document.children,undefined);
+ assert.ok(!JSON.stringify(box).includes('Nuevo texto'));
+});
+
+test('an explicitly added empty box is distinct from the initial suggestion',()=>{
+ const cell=createModularCell(createModular(1,1));cell.textLayout={x:.1,y:.35,width:.8,height:.3};assert.equal(modularTextEntries(cell).length,1);
+ delete cell.textLayout;assert.deepEqual(modularTextEntries(cell),[]);
 });
 test('independent boxes retain rich Builder content and relative geometry in a project round trip',()=>{
  const cell=createModularCell(createModular(1,1));addModularTextBox(cell);const b=addModularTextBox(cell)!,a=cell.textBoxes![0];

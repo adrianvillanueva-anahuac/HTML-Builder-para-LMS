@@ -1,8 +1,8 @@
 import {clamp,type ModularModel} from './modular-model';
 
 export type PerimeterPosition={edge:'top'|'right'|'bottom'|'left';offset:number};
-export type PerimeterBadge={shape:'circle'|'rounded'|'hexagon';color:string;scale:number;position:PerimeterPosition;text:string;html?:string;textStyle?:string};
-export const badgeShapes={circle:'Círculo',rounded:'Rectángulo redondeado',hexagon:'Hexágono'};
+export type PerimeterBadge={shape:'circle'|'rounded'|'hexagon'|'triangle';color:string;scale:number;position:PerimeterPosition;text:string;html?:string;textStyle?:string};
+export const badgeShapes={circle:'Círculo',rounded:'Rectángulo redondeado',hexagon:'Hexágono',triangle:'Triángulo'};
 export function normalizeBadge(value:unknown):PerimeterBadge|undefined {
   if(!value||typeof value!=='object')return;
   const badge=value as Partial<PerimeterBadge>;

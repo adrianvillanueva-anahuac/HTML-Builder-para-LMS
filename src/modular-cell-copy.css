@@ -1,0 +1,16 @@
+.mod-cell-copy-bar{position:absolute;top:-48px;right:0;z-index:1400;display:flex;align-items:center;gap:8px;max-width:min(520px,90vw);padding:6px 9px;background:#fff;color:#5d428c;border:1px solid #d6dbe4;border-radius:8px;box-shadow:0 3px 12px #0002;font:12px Roboto,sans-serif}
+.mod-cell-copy-bar button{display:grid;place-items:center;width:30px;height:30px;border-radius:5px;flex:none}
+.mod-cell-copy-choice{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1500;display:flex;flex-direction:column;gap:4px;width:224px;max-width:80vw;padding:8px;background:#fff;color:#5d428c;border:1px solid #d6dbe4;border-radius:8px;box-shadow:0 4px 16px #0003;font:12px Roboto,sans-serif}
+.mod-cell-copy-choice>span{padding:4px;color:#687386;font-size:11px}
+.mod-cell-copy-choice button{text-align:left;padding:8px;border-radius:5px}
+:is(.mod-cell-copy-choice,.mod-cell-copy-bar) button:hover{background:#f2eef8}
+.mod-cell-copying .mod-cell:has(>.mod-card){cursor:copy}
+.mod-cell-copying .mod-cell:has(>.mod-card):is(:hover,:focus-visible)>.mod-card{outline:2px dashed #ff5900;outline-offset:2px}
+.mod-cell-copying .mod-cell[data-transfer-source]>.mod-card{outline:3px solid #5d428c;outline-offset:2px}
+.mod-cell-copying .mod-cell:not(:has(>.mod-card)){cursor:not-allowed}
+body.mod-cell-copy-mode :is(.block-toolbar,.mod-cell-tools,.mod-row-tools,.mod-column-tools,.mod-center-tools,.mod-connector-popover,.flow-block-popover,.finish-tools,#element-spacing-handles,.mod-badge-picker){display:none!important;pointer-events:none!important}
+.mod-cell-copying :is(.mod-badge,.mod-edge,.mod-center-tools){pointer-events:none!important}
+body.mod-cell-copy-mode :is(.mod-edge>button,.mod-resize,#rtf-toolbar,#image-toolbar,#inline-icon-toolbar){visibility:hidden!important;pointer-events:none!important}
+.mod-cell-copying .mod-cell[data-transfer-source]{z-index:1501!important}
+.mod-cell-copying .mod-cell[data-transfer-source]>.mod-card{outline-color:#5d428c!important}
+body.mod-cell-copy-mode :is(.mod-overflow-hover-tools,.mod-preview-tools,.mod-center-trigger){display:none!important;pointer-events:none!important}

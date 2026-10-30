@@ -12,6 +12,8 @@ import type {CenterShape} from './modular-model';
 import {exposedCorners,sharedStrokeFactors,setAllCellColors,createModularCell,activateAllCells,clearAllCells} from './modular-model';
 import {renderBadges,syncBadgeText,handleBadgeClick,handleBadgeInput,setupBadgeDragging} from './modular-badges';
 import {renderModularTextBoxes,syncModularTextBoxes,setupModularTextBoxes,finishModularTextEditing} from './modular-text-boxes';
+import {renderModularOverflow,setupModularOverflow,closeModularOverflowEditor} from './modular-overflow';
+import {renderModularCellCopy,setupModularCellCopy} from './modular-cell-copy';
 
 const icon=(name:string)=>`<span class="material-symbols-outlined" aria-hidden="true">${name}</span>`;
 const button=(action:string,name:string,label:string)=>`<button type="button" data-mod-action="${action}" title="${label}" aria-label="${label}">${icon(name)}</button>`;
@@ -64,18 +66,17 @@ function layout(block:HTMLElement) {
   updateIndividualStrokes(block,m);
   const strokeRange=block.querySelector<HTMLInputElement>('[data-mod-stroke-width]');
   if(strokeRange){strokeRange.value=String(m.stroke?.width||0);strokeRange.closest('label')!.querySelector('output')!.textContent=(m.stroke?.width||0)+' px';}
-  const overflowButton=block.querySelector<HTMLElement>('[data-mod-action=overflow]');
-  if(overflowButton){overflowButton.setAttribute('aria-pressed',String(m.overflow));overflowButton.innerHTML=icon(m.overflow?'wrap_text':'more_horiz');}
   runtimes.get(block)?.update();
 }
 function render(block:HTMLElement) {
+  if(block.isConnected)closeModularOverflowEditor();
   finishModularTextEditing(block);
   if(connector?.block===block)closeConnector();
   runtimes.get(block)?.destroy();
   block.removeAttribute('data-pinned-cell');
   const m=models.get(block)!;
   block.classList.remove('mod-pending'); delete block.dataset.modPending;
-  block.innerHTML=`<div class="block-toolbar absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full z-50 mod-editor"><div class="mod-tools"><div class="drag-handle cursor-grab" title="Mover tabla modular">${icon('drag_indicator')}</div>${button('row','table_rows','Agregar fila')}${button('column','view_column','Agregar columna')}<details><summary title="Separación entre rectángulos" aria-label="Separación entre rectángulos">${icon('space_bar')}</summary><div><label>Separación <output>${m.gap} px</output><input aria-label="Separación" data-mod-range="gap" type="range" min="0" max="50" value="${m.gap}"></label></div></details><details><summary title="Márgenes laterales" aria-label="Márgenes laterales">${icon('format_indent_increase')}</summary><div><label>Margen por lado <output>${m.margin}%</output><input aria-label="Margen por lado" data-mod-range="margin" type="range" min="0" max="40" value="${m.margin}"></label></div></details><button type="button" data-mod-action="overflow" title="Permitir desbordamiento de texto" aria-label="Permitir desbordamiento de texto" aria-pressed="${m.overflow}">${icon(m.overflow?'wrap_text':'more_horiz')}</button>${button('delete','delete','Eliminar tabla modular')}</div></div><div class="mod-shell"><div class="mod-scroll"><div class="mod-grid"></div></div></div>`;
+  block.innerHTML=`<div class="block-toolbar absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full z-50 mod-editor"><div class="mod-tools"><div class="drag-handle cursor-grab" title="Mover tabla modular">${icon('drag_indicator')}</div>${button('row','table_rows','Agregar fila')}${button('column','view_column','Agregar columna')}<details><summary title="Separación entre rectángulos" aria-label="Separación entre rectángulos">${icon('space_bar')}</summary><div><label>Separación <output>${m.gap} px</output><input aria-label="Separación" data-mod-range="gap" type="range" min="0" max="50" value="${m.gap}"></label></div></details><details><summary title="Márgenes laterales" aria-label="Márgenes laterales">${icon('format_indent_increase')}</summary><div><label>Margen por lado <output>${m.margin}%</output><input aria-label="Margen por lado" data-mod-range="margin" type="range" min="0" max="40" value="${m.margin}"></label></div></details>${button('delete','delete','Eliminar tabla modular')}</div></div><div class="mod-shell"><div class="mod-scroll"><div class="mod-grid"></div></div></div>`;
   const grid=block.querySelector('.mod-grid')!;
   const globalMenu=(symbol:string,label:string,content:string)=>`<details><summary title="${label}" aria-label="${label}">${icon(symbol)}</summary><div>${content}</div></details>`;
   for(const [axis,symbol,label] of [['row','table_rows','Filas'],['column','view_column','Columnas']]) {
@@ -121,7 +122,7 @@ function render(block:HTMLElement) {
       const info=document.createElement('details');info.className='mod-info';info.innerHTML='<summary aria-label="Mostrar texto completo">+ info</summary><div class="mod-preview"><div class="mod-preview-content" tabindex="0" role="button" aria-label="Editar rectángulo"></div></div>';card.append(info);cell.append(card);
       const menu=(symbol:string,label:string,content:string)=>`<details><summary title="${label}" aria-label="${label}">${icon(symbol)}</summary><div>${content}</div></details>`;
       const choice=(field:string,v:string,label:string,symbol:string)=>`<button type="button" data-cell-field="${field}" data-value="${v}" title="${label}" aria-label="${label}">${icon(symbol)}</button>`;
-      cell.insertAdjacentHTML('beforeend',`<div class="mod-cell-tools mod-tools mod-editor">${menu('format_color_fill','Color del rectángulo',`<div class="mod-palette">${modularPalette.map(c=>`<button type="button" data-cell-field="color" data-value="${c.value}" title="${c.name}" aria-label="${c.name}" style="background:${c.value};border:1px solid #aaa"></button>`).join('')}</div>`)}${menu('rounded_corner','Redondeado',[0,6,12,20].map(n=>choice('radius',String(n),`Redondeado ${n} px`,'rounded_corner').replace('</button>',`<small>${n}</small></button>`)).join(''))}${menu('padding','Margen del texto',`<label>Margen <output>${value.padding} px</output><input aria-label="Margen del texto" data-cell-padding type="range" min="0" max="50" value="${value.padding}"></label>`)}${menu('vertical_align_center','Alineación vertical',choice('verticalAlign','start','Texto arriba','vertical_align_top')+choice('verticalAlign','center','Texto centrado verticalmente','vertical_align_center')+choice('verticalAlign','end','Texto abajo','vertical_align_bottom'))}${button('remove','delete','Eliminar rectángulo')}</div>`);
+      cell.insertAdjacentHTML('beforeend',`<div class="mod-cell-tools mod-tools mod-editor">${menu('format_color_fill','Color del rectángulo',`<div class="mod-palette">${modularPalette.map(c=>`<button type="button" data-cell-field="color" data-value="${c.value}" title="${c.name}" aria-label="${c.name}" style="background:${c.value};border:1px solid #aaa"></button>`).join('')}</div>`)}${menu('rounded_corner','Redondeado',[0,6,12,20].map(n=>choice('radius',String(n),`Redondeado ${n} px`,'rounded_corner').replace('</button>',`<small>${n}</small></button>`)).join(''))}${menu('padding','Margen del texto',`<label>Margen <output>${value.padding} px</output><input aria-label="Margen del texto" data-cell-padding type="range" min="0" max="50" value="${value.padding}"></label>`)}${button('remove','delete','Eliminar rectángulo')}</div>`);
       if(document.body.classList.contains('exercise-editor'))cell.querySelector('.mod-cell-tools')!.insertAdjacentHTML('afterbegin',`<button type="button" role="switch" aria-checked="${!!value.student}" data-mod-action="student" title="Texto para alumno" aria-label="Texto para alumno">${icon(value.student?'toggle_on':'toggle_off')}</button>`);
       if(value.student&&document.body.classList.contains('exercise-editor'))cell.querySelector('.mod-cell-tools')!.insertAdjacentHTML('afterbegin',`<button type="button" class="editor-icon-button" role="switch" aria-checked="${!!value.studentPromptEnabled}" data-mod-action="student-prompt" title="Texto superior para el alumno" aria-label="Texto superior para el alumno"><span class="mod-prompt-icon" aria-hidden="true"><span>A</span></span></button>`);
       if(value.student&&value.studentPromptEnabled&&document.body.classList.contains('exercise-editor')){
@@ -146,12 +147,10 @@ function render(block:HTMLElement) {
   block.querySelector<HTMLButtonElement>('[data-mod-action=column]')!.disabled=m.columns.length>=10;
   renderCenters(grid,m);
   addStrokeControls(block);
-  block.querySelectorAll<HTMLElement>('.mod-cell-tools summary[aria-label="Alineación vertical"]').forEach(summary=>{
-    summary.innerHTML=`<span class="mod-align-text-icon" aria-hidden="true">${icon('vertical_align_center')}<small>A</small></span>`;
-    summary.nextElementSibling!.classList.add('mod-align-actions');
-  });
   renderBadges(block,m);
   renderModularTextBoxes(block,m);
+  renderModularOverflow(block,m);
+  renderModularCellCopy(block);
   layout(block);persist(block);runtimes.set(block,mountModularRuntime(block));
 }
 function modal(title:string,content:string,onConfirm:(panel:HTMLElement)=>boolean|void,onCancel=()=>{}) {
@@ -239,9 +238,8 @@ function editCell(block:HTMLElement,key:string) {
   dialog.addEventListener('input',preview);preview();
   draft.focus();draft.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));
 }
-let connector:{block:HTMLElement;edge:HTMLElement;panel:HTMLElement;pinned:boolean}|null=null;
-let connectorTimer:ReturnType<typeof setTimeout>;
-function closeConnector(){clearTimeout(connectorTimer);connector?.panel.remove();connector?.edge.removeAttribute('data-menu-open');connector=null;}
+let connector:{block:HTMLElement;edge:HTMLElement;panel:HTMLElement}|null=null;
+function closeConnector(){connector?.panel.remove();connector?.edge.removeAttribute('data-menu-open');connector=null;}
 function positionConnector(){
   if(!connector)return;
   const {edge,panel}=connector;
@@ -250,15 +248,14 @@ function positionConnector(){
   panel.style.left=Math.max(8,Math.min(rect.left+rect.width/2-panel.offsetWidth/2,innerWidth-panel.offsetWidth-8))+'px';
   panel.style.top=(rect.top>190?rect.top-52:rect.bottom+6)+'px';
 }
-function editConnection(block:HTMLElement,edge:HTMLElement,pinned=true) {
-  if(connector?.edge===edge){connector.pinned ||= pinned;clearTimeout(connectorTimer);return;}
-  if(connector?.pinned&&!pinned)return;
+function editConnection(block:HTMLElement,edge:HTMLElement) {
+  if(connector?.edge===edge){closeConnector();return;}
   closeConnector();
   const from=edge.dataset.from!,to=edge.dataset.to!;
   const panel=document.createElement('div');panel.className='mod-connector-popover mod-tools mod-editor';panel.setAttribute('role','toolbar');panel.setAttribute('aria-label','Opciones de conexión');
   const swatches=(field:string)=>modularPalette.map(c=>`<button type="button" data-edge-field="${field}" data-value="${c.value}" title="${c.name}" aria-label="${field==='fill'?'Relleno':'Contorno'} ${c.name}" style="background:${c.value};border:1px solid #aaa"></button>`).join('');
   panel.innerHTML=`${[['forward','arrow_forward','Hacia derecha o abajo'],['backward','arrow_back','Hacia izquierda o arriba'],['both','swap_horiz','Bidireccional'],['none','horizontal_rule','Sin dirección']].map(([v,i,label])=>`<button type="button" data-edge-field="direction" data-value="${v}" title="${label}" aria-label="${label}">${icon(i)}</button>`).join('')}<details><summary title="Trazo" aria-label="Trazo">${icon('line_style')}</summary><div>${[['false','horizontal_rule','Continuo'],['true','more_horiz','Punteado']].map(([v,i,l])=>`<button type="button" data-edge-field="dotted" data-value="${v}" title="${l}" aria-label="${l}">${icon(i)}</button>`).join('')}</div></details><details><summary title="Relleno de flecha" aria-label="Relleno de flecha">${icon('format_color_fill')}</summary><div class="mod-palette">${swatches('fill')}</div></details><details><summary title="Contorno de flecha" aria-label="Contorno de flecha">${icon('border_color')}</summary><div class="mod-palette">${swatches('stroke')}</div></details><button type="button" data-edge-field="remove" title="Eliminar conexión" aria-label="Eliminar conexión">${icon('delete')}</button>`;
-  connector={block,edge,panel,pinned};edge.dataset.menuOpen='true';document.body.append(panel);positionConnector();
+  connector={block,edge,panel};edge.dataset.menuOpen='true';document.body.append(panel);positionConnector();
   for(const field of ['fill','stroke'])panel.querySelector(`[data-edge-field=${field}]`)!.parentElement!.insertAdjacentHTML('afterbegin',`<button type="button" data-edge-field="${field}" data-value="none" title="${field==='fill'?'Sin relleno':'Sin contorno'}" aria-label="${field==='fill'?'Sin relleno':'Sin contorno'}">${icon('block')}</button>`);
   const current=models.get(block)!.connections.find(e=>e.from===from&&e.to===to);
   const vertical=from.split(':')[0]!==to.split(':')[0];
@@ -295,10 +292,8 @@ function editConnection(block:HTMLElement,edge:HTMLElement,pinned=true) {
     persist(block);runtimes.get(block)?.update();
   });
   panel.addEventListener('change',()=>save());
-  panel.addEventListener('pointerenter',()=>clearTimeout(connectorTimer));panel.addEventListener('pointerleave',deferConnectorClose);
   panel.addEventListener('click',event=>{
     const target=event.target as HTMLElement;
-    if(connector)connector.pinned=true;
     panel.querySelectorAll('details[open]').forEach(menu=>{if(!menu.contains(target))menu.removeAttribute('open');});
     const choice=target.closest<HTMLElement>('[data-edge-field]');if(!choice)return;
     const m=sync(block);let value=m.connections.find(e=>e.from===from&&e.to===to);
@@ -319,7 +314,6 @@ function editConnection(block:HTMLElement,edge:HTMLElement,pinned=true) {
     persist(block);runtimes.get(block)?.update();save();
   });
 }
-function deferConnectorClose(){clearTimeout(connectorTimer);connectorTimer=setTimeout(()=>{if(connector&&!connector.pinned&&!connector.panel.matches(':hover')&&!connector.edge.matches(':hover'))closeConnector();},160);}
 export function initModularTables() {
   runtimes.forEach((runtime,block)=>{if(!block.isConnected){runtime.destroy();runtimes.delete(block);}});
   document.querySelectorAll<HTMLElement>('#canvas-container-outer .modular-table').forEach(block=>{
@@ -373,6 +367,8 @@ export function setupModularTables() {
   const badgeHost={model:(block:HTMLElement)=>models.get(block),sync,persist,render,save};
   setupBadgeDragging(badgeHost);
   setupModularTextBoxes({...badgeHost,update:block=>runtimes.get(block)?.update()});
+  setupModularOverflow({...badgeHost,update:block=>runtimes.get(block)?.update()});
+  setupModularCellCopy({...badgeHost,prepare:()=>{closeModularOverflowEditor();finishModularTextEditing();closeConnector();}});
   const hoverTimers=new WeakMap<Element,ReturnType<typeof setTimeout>>();
   const tableHoverTimers=new WeakMap<Element,ReturnType<typeof setTimeout>>();
   const cancelHoverClose=(el:Element)=>{clearTimeout(hoverTimers.get(el));hoverTimers.delete(el);};
@@ -380,10 +376,9 @@ export function setupModularTables() {
   window.addEventListener('scroll',positionCellMenus,true);window.addEventListener('resize',positionCellMenus);
   document.addEventListener('toggle',event=>{if((event.target as HTMLElement).matches?.('.mod-cell-tools details,.mod-row-tools details,.mod-column-tools details,.mod-preview-tools details,.mod-badge-align-menu'))positionCellMenus();},true);
   document.addEventListener('pointerover',event=>{
-    const target=event.target as HTMLElement,trigger=target.closest?.<HTMLElement>('[data-mod-action=connect]');
+    const target=event.target as HTMLElement;
     const hoveredTable=target.closest?.<HTMLElement>('.modular-table');
     if(hoveredTable){clearTimeout(tableHoverTimers.get(hoveredTable));hoveredTable.classList.add('mod-toolbar-retained');}
-    if(target.closest?.('.mod-info,.mod-badge'))closeConnector();
     const menu=target.closest?.<HTMLDetailsElement>('.modular-table .mod-tools details');
     if(menu){
       cancelHoverClose(menu);
@@ -396,11 +391,9 @@ export function setupModularTables() {
     const cell=target.closest?.<HTMLElement>('.mod-cell');
     if(cell){cancelHoverClose(cell);cell.classList.add('mod-cell-hover-active');}
     if(cell)cell.closest('.modular-table')!.querySelectorAll<HTMLElement>('[data-row-tools]').forEach(tool=>tool.classList.toggle('is-row-hovered',tool.dataset.rowTools===cell.dataset.row));
-    if(trigger){const block=trigger.closest<HTMLElement>('.modular-table')!;if(models.has(block))editConnection(block,trigger.closest<HTMLElement>('.mod-edge')!,false);}
   });
   document.addEventListener('pointerout',event=>{
     const target=event.target as HTMLElement;
-    if(target.closest?.('.mod-edge'))deferConnectorClose();
     const menu=target.closest?.<HTMLDetailsElement>('.modular-table .mod-tools details');
     if(menu&&!menu.contains(event.relatedTarget as Node)){
       cancelHoverClose(menu);
@@ -546,7 +539,6 @@ export function setupModularTables() {
     if(action==='remove')removeCell(m,key!);
     if(action==='row'&&m.rows.length<10)m.rows.push(120);
     if(action==='column'&&m.columns.length<10)m.columns.push(m.columns.reduce((a,b)=>a+b,0)/m.columns.length);
-    if(action==='overflow')m.overflow=!m.overflow;
     render(block);
     if(key&&(action==='student'||action==='student-prompt')){
       block.dataset.pinnedCell=key;
@@ -661,6 +653,9 @@ export function prepareModularExport(root:HTMLElement) {
 }
 // Persist authored data only, not hover panels, measured paths or transient previews.
 export function compactModularState(root:HTMLElement) {
+  // Focus isolation is live editor chrome, never project data or undo state.
+  for(const page of [root,...root.querySelectorAll<HTMLElement>('.mod-overflow-page-locked')])if(page.classList.contains('mod-overflow-page-locked')){if(page.dataset.modOverflowWasInert!=='true')page.removeAttribute('inert');delete page.dataset.modOverflowWasInert;page.classList.remove('mod-overflow-page-locked');}
+  root.querySelectorAll('.mod-overflow-editor').forEach(editor=>editor.remove());
   root.querySelectorAll<HTMLElement>('.modular-table').forEach(block=>{
     if(block.dataset.modPending){block.remove();return;}
     try {
@@ -674,7 +669,7 @@ export function compactModularState(root:HTMLElement) {
         const text=cell.querySelector('.mod-text');
         if(text&&model.cells[cell.dataset.cell!]&&!model.cells[cell.dataset.cell!].student)model.cells[cell.dataset.cell!].html=text.innerHTML;
       });
-      block.dataset.modular=JSON.stringify(model);block.innerHTML='';block.removeAttribute('data-pinned-cell');block.classList.remove('mod-toolbar-retained');
+      block.dataset.modular=JSON.stringify(model);block.innerHTML='';block.removeAttribute('data-pinned-cell');block.classList.remove('mod-toolbar-retained','mod-cell-copying');
     }catch { /* Preserve unknown imported content. */ }
   });
 }

@@ -1,5 +1,6 @@
 // Self-contained: the same layout logic runs in the Builder and published HTML.
 export function mountModularRuntime(block) {
+  const hasText=text=>!!text&&(!!text.textContent.replace(/\u200b/g,'').trim()||!!text.querySelector('img,svg,video,audio,iframe'));
   let frame=0;
   let heldLift=0,liftUntil=0,liftTimer=0;
   const set=(el,name,value)=>{
@@ -23,7 +24,58 @@ export function mountModularRuntime(block) {
     const auto=block.dataset.overflow==='true';
     const rows=JSON.parse(block.dataset.rowHeights||'[]');
     const heights=[...rows];
+    block.querySelectorAll('.mod-card[data-text-overflow]').forEach(card=>{
+      const config=JSON.parse(card.dataset.textOverflow),row=Number(card.closest('.mod-cell').dataset.cell.split(':')[0]),baseHeight=rows[row]||120;
+      card.dataset.textBaseHeight=String(baseHeight);card.dataset.clipped='false';
+      const padding=parseFloat(getComputedStyle(card).paddingTop)||0,width=card.clientWidth;
+      const items=[];
+      const primary=card.querySelector('.mod-text');
+      if(primary&&!primary.closest('.mod-text-box-frame')){
+        const hidden=(primary.dataset.textSuggestion==='true'&&!!card.querySelector('.mod-text-box-frame'))||(config.enabled&&config.boxIds.includes('primary')&&!primary.isContentEditable&&hasText(primary));primary.style.display=hidden?'none':'';
+        primary.style.maxHeight='none';primary.style.overflow='visible';primary.style.visibility='visible';
+        if(!hidden){primary.style.alignSelf='flex-start';items.push({left:padding,right:width-padding,top:padding,height:Math.max(24,primary.scrollHeight),text:primary});}
+      }
+      card.querySelectorAll('.mod-text-box-frame').forEach(frame=>{
+        const text=frame.querySelector('.mod-text,.mod-extra-text');if(!text)return;
+        const hidden=config.enabled&&config.boxIds.includes(frame.dataset.modTextId)&&!text.isContentEditable&&hasText(text),layout=JSON.parse(frame.dataset.textLayout||'{"x":0.1,"y":0.1,"width":0.8,"height":0.4}');
+        frame.dataset.clipped='false';frame.style.display=hidden?'none':'flex';if(hidden)return;
+        frame.style.left=layout.x*100+'%';frame.style.width=layout.width*100+'%';
+        text.style.maxHeight='none';text.style.overflow='visible';text.style.visibility='visible';text.style.height='auto';
+        const height=Math.max(layout.height*baseHeight,text.scrollHeight,24);
+        items.push({left:layout.x*width,right:(layout.x+layout.width)*width,top:layout.y*baseHeight,height,frame,text});
+      });
+      // Absolute authored anchors refer to the BASE row, not its growing size.
+      // Push intersecting lower boxes down; never scale typography or feed the
+      // enlarged row back into percentage heights (which would grow forever).
+      items.sort((a,b)=>a.top-b.top);const placed=[];
+      for(const item of items){for(const previous of placed)if(item.left<previous.right&&item.right>previous.left&&item.top<previous.top+previous.height+8)item.top=previous.top+previous.height+8;
+        if(item.frame){item.frame.style.top=item.top+'px';item.frame.style.height=item.height+'px';}
+        else if(items.length>1){item.text.style.position='absolute';item.text.style.top=item.top+'px';item.text.style.left=padding+'px';item.text.style.width=Math.max(0,width-2*padding)+'px';}
+        else{item.text.style.position='';item.text.style.top='';item.text.style.left='';item.text.style.width='100%';}
+        heights[row]=Math.max(heights[row],Math.ceil(item.top+item.height+padding+2));placed.push(item);
+      }
+      const info=card.querySelector('.mod-overflow-info');if(!info)return;
+      info.dataset.enabled=String(config.enabled);const summary=info.querySelector('summary');
+      const panel=info.querySelector('.mod-overflow-panel'),content=info.querySelector('.mod-overflow-content'),p=config.panel;
+      const parts=config.enabled?config.boxIds.map(id=>{const text=id==='primary'?primary:card.querySelector(`.mod-text-box-frame[data-mod-text-id="${id}"] .mod-extra-text`);return hasText(text)?{id,html:text.innerHTML,layout:config.textLayouts?.[id],style:['font-size','font-family','font-weight','font-style','text-decoration','text-align','color','line-height','align-content'].map(key=>key+':'+text.style.getPropertyValue(key)).join(';')}:null;}).filter(Boolean):[];
+      info.dataset.hasContent=String(parts.length>0);info.style.display=config.enabled&&parts.length?'block':'none';
+      const signature=JSON.stringify(parts);if(content.dataset.signature!==signature){content.replaceChildren(...parts.map(part=>{const el=document.createElement('div');el.className='mod-overflow-text';el.dataset.overflowSource=part.id;el.innerHTML=part.html;el.style.cssText=part.style;if(part.layout){const l=part.layout;el.dataset.textLayout=JSON.stringify(l);Object.assign(el.style,{position:'absolute',left:l.x*100+'%',top:l.y*100+'%',width:l.width*100+'%',height:l.height*100+'%',margin:'0',overflow:'auto'});}el.querySelectorAll('[contenteditable]').forEach(node=>node.removeAttribute('contenteditable'));return el;}));content.dataset.signature=signature;}
+      const bw=summary.offsetWidth||46,bh=summary.offsetHeight||22;
+      const x=Math.max(bw/2,Math.min(card.clientWidth-bw/2,config.button.x*card.clientWidth)),y=Math.max(bh/2,Math.min(card.clientHeight-bh/2,config.button.y*card.clientHeight));
+      Object.assign(info.style,{left:(x-bw/2)+'px',top:(y-bh/2)+'px',transform:'none'});
+      const surface=info.querySelector('.mod-overflow-surface');surface.dataset.panelStyle=p.style;surface.style.setProperty('--overflow-radius',p.radius+'px');surface.style.setProperty('--overflow-fill',p.fill);surface.style.setProperty('--overflow-opacity',String(p.opacity));
+      const backdrop=info.querySelector('.mod-overflow-backdrop');Object.assign(backdrop.style,{background:`rgb(0 0 0 / ${p.dim})`,backdropFilter:`blur(${p.blur}px)`});
+      if(info.open||(block.classList.contains('mod-published')&&info.matches(':hover,:focus-within'))){
+        const anchor=summary.getBoundingClientRect(),area=block.closest('#scroll-container')?.getBoundingClientRect(),limit=Math.max(8,(area?.left||0)+8),right=Math.min(innerWidth-8,(area?.right||innerWidth)-8),w=Math.min(p.width,right-limit),h=Math.min(p.height,Math.max(1,innerHeight-100));
+        const left=Math.max(limit,Math.min(right-w,p.x*innerWidth-w/2)),top=Math.max(8,Math.min(innerHeight-h-8,p.y*innerHeight));
+        Object.assign(surface.style,{position:'fixed',left:left+'px',top:top+'px',width:w+'px',height:h+'px'});
+        // A bridge follows the button, keeping hover reachable if the authored
+        // panel has been moved away from it. Click/touch pins it open as well.
+        panel.style.setProperty('--anchor-y',anchor.bottom+'px');
+      }
+    });
     block.querySelectorAll('.mod-card').forEach(card=>{
+      if(card.hasAttribute('data-text-overflow'))return;
       const text=card.querySelector('.mod-text');if(!text)return;
       if(text.closest('.mod-primary-text-frame')&&card.dataset.student!=='true')return;
       if(!auto&&!text.classList.contains('student-rich-answer')&&card.dataset.studentPrompt!=='true')return;
@@ -131,6 +183,7 @@ export function mountModularRuntime(block) {
       positionPreview(info,panel);
     });
     block.querySelectorAll('.mod-text-box-frame').forEach(frame=>{
+      if(frame.closest('.mod-card[data-text-overflow]'))return;
       const text=frame.querySelector('.mod-extra-text,.mod-text');if(!text)return;
       const clipped=text.scrollHeight>text.clientHeight+1||text.scrollWidth>text.clientWidth+1;
       set(frame,'data-clipped',String(clipped));
@@ -214,7 +267,11 @@ export function mountModularRuntime(block) {
     });
   };
   const schedule=()=>{if(!frame)frame=requestAnimationFrame(update);};
-  const closeOutside=event=>block.querySelectorAll('.mod-info[open],.mod-text-box-info[open]').forEach(info=>{if(info.dataset.editing!=='true'&&!info.contains(event.target))info.open=false;});
+  const hoverTimers=new Map();
+  const overflowHover=event=>{const info=event.target.closest?.('.mod-overflow-info');if(!info||!block.contains(info))return;clearTimeout(hoverTimers.get(info));if(block.classList.contains('mod-published'))info.open=true;schedule();};
+  const overflowLeave=event=>{const info=event.target.closest?.('.mod-overflow-info');if(!info||info.contains(event.relatedTarget))return;clearTimeout(hoverTimers.get(info));hoverTimers.set(info,setTimeout(()=>{if(info.dataset.pinned!=='true'&&!info.matches(':hover,:focus-within'))info.open=false;},650));};
+  const overflowClick=event=>{const summary=event.target.closest?.('.mod-overflow-info>summary');if(!summary)return;event.preventDefault();if(!block.classList.contains('mod-published'))return;const info=summary.parentElement;info.dataset.pinned=String(info.dataset.pinned!=='true');info.open=info.dataset.pinned==='true';schedule();};
+  const closeOutside=event=>block.querySelectorAll('.mod-info[open],.mod-text-box-info[open],.mod-overflow-info[open]').forEach(info=>{if(info.dataset.editing!=='true'&&!info.contains(event.target)){info.open=false;delete info.dataset.pinned;}});
   const resize=new ResizeObserver(schedule); resize.observe(block);
   block.querySelectorAll('.mod-text,.mod-extra-text,.mod-text-box-frame,.mod-grid').forEach(el=>resize.observe(el));
   const observer=new MutationObserver(schedule);
@@ -224,9 +281,12 @@ export function mountModularRuntime(block) {
   block.addEventListener('pointerout',schedule);
   block.addEventListener('focusin',schedule);
   block.addEventListener('toggle',schedule,true);
+  block.addEventListener('pointerover',overflowHover);
+  block.addEventListener('pointerout',overflowLeave);
+  block.addEventListener('click',overflowClick);
   window.addEventListener('scroll',schedule,true);
   document.addEventListener('click',closeOutside);
   document.fonts?.ready.then(schedule);
   schedule();
-  return {update:schedule,destroy:()=>{clearTimeout(liftTimer);resize.disconnect();observer.disconnect();cancelAnimationFrame(frame);block.removeEventListener('input',schedule);block.removeEventListener('pointerover',schedule);block.removeEventListener('pointerout',schedule);block.removeEventListener('focusin',schedule);block.removeEventListener('toggle',schedule,true);window.removeEventListener('scroll',schedule,true);document.removeEventListener('click',closeOutside);}};
+  return {update:schedule,destroy:()=>{clearTimeout(liftTimer);hoverTimers.forEach(clearTimeout);resize.disconnect();observer.disconnect();cancelAnimationFrame(frame);block.removeEventListener('input',schedule);block.removeEventListener('pointerover',schedule);block.removeEventListener('pointerout',schedule);block.removeEventListener('focusin',schedule);block.removeEventListener('toggle',schedule,true);block.removeEventListener('pointerover',overflowHover);block.removeEventListener('pointerout',overflowLeave);block.removeEventListener('click',overflowClick);window.removeEventListener('scroll',schedule,true);document.removeEventListener('click',closeOutside);}};
 }

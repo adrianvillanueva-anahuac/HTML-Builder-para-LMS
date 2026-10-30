@@ -4,8 +4,16 @@ import {normalizeFlowRichDocument,type FlowRichNode} from './flow-rich-document'
 import type {ModularCell} from './modular-model';
 export type ModularTextBox={id:string;layout:FlowTextLayout;document:FlowRichNode};
 export type ModularTextStyle=Record<string,string>;
+/** Empty editor hints are not authored content and never become + info items. */
+export function modularHasTextContent(html:string){
+ return /<(?:img|svg|video|audio|iframe)\b/i.test(html)||!!html.replace(/<[^>]*>/g,'').replace(/&(?:nbsp|#160|#xA0);/gi,' ').replace(/\u200b/g,'').trim();
+}
+export function modularTextEntries(cell:ModularCell):{id:string;label:string}[]{
+ const ids=[...(cell.textLayout||modularHasTextContent(cell.html)?['primary']:[]),...(cell.textBoxes||[]).map(box=>box.id)];
+ return ids.map((id,index)=>({id,label:`Caja de texto ${index+1}`}));
+}
 const obj=(v:unknown):Record<string,unknown>=>v&&typeof v==='object'&&!Array.isArray(v)?v as Record<string,unknown>:{};
-const keys=new Set(['font-size','font-family','font-weight','font-style','text-decoration','text-align','color','line-height']);
+const keys=new Set(['font-size','font-family','font-weight','font-style','text-decoration','text-align','color','line-height','align-content']);
 export function modularTextStyle(raw:unknown):ModularTextStyle{
  const safe=normalizeFlowRichDocument({tag:'div',style:obj(raw)})?.style||{};
  return Object.fromEntries(Object.entries(safe).filter(([key])=>keys.has(key)));
@@ -30,6 +38,6 @@ export function moveModularTextBox(start:{x:number;y:number;width:number;height:
 export function addModularTextBox(cell:ModularCell):ModularTextBox|undefined{
  const boxes=normalizeModularTextBoxes(cell.textBoxes);if(boxes.length>=19)return;
  const used=new Set(boxes.map(b=>b.id));let n=1;while(used.has(`text-${n}`))n++;
- const box:ModularTextBox={id:`text-${n}`,layout:{x:.2,y:.16+((n-1)%3)*.2,width:.6,height:.3},document:{tag:'div',style:{'text-align':'center'},children:[{tag:'#text',text:'Nuevo texto'}]}};
+ const box:ModularTextBox={id:`text-${n}`,layout:{x:.2,y:.16+((n-1)%3)*.2,width:.6,height:.3},document:{tag:'div',style:{'text-align':'center'}}};
  cell.textBoxes=[...boxes,box];return box;
 }

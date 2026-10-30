@@ -17,7 +17,7 @@ document.querySelector('#run').onclick=()=>{
  check('Solo cinco colores institucionales',toolbar.querySelectorAll('[data-box-color]').length===5&&!toolbar.querySelector('input[type=color]'));
  toolbar.querySelector('.box-stroke-trigger').focus();
  toolbar.querySelector('[data-box-color="#5d428c"]').click();
- const width=toolbar.querySelector('.box-stroke-width input');width.value='4';width.dispatchEvent(new Event('change'));
+ const width=toolbar.querySelector('.box-stroke-width input');width.value='4';width.dispatchEvent(new Event('input'));width.dispatchEvent(new Event('change'));
  toolbar.querySelector('[data-box-line=dashed]').click();
  check('Color, grosor y línea aplicados',surface.style.borderColor==='rgb(93, 66, 140)'&&surface.style.borderWidth==='4px'&&surface.style.borderStyle==='dashed');
  check('Sin ventanas emergentes',!document.querySelector('dialog'));

@@ -20,11 +20,13 @@
 .block-toolbar .mod-tools .mod-palette{display:grid;grid-template-columns:repeat(4,30px);gap:6px}
 .block-toolbar .mod-tools .mod-palette button{border-radius:50%}
 .mod-text{max-height:100%;flex-shrink:0;width:100%;min-width:0;overflow:hidden;overflow-wrap:anywhere;box-sizing:border-box;outline:none}
-.mod-text:empty::before{content:'txt';color:#8a8195}
+.mod-text:empty::before{content:'Escribe tu texto';color:#8a8195}
+.mod-text[contenteditable=true]:empty::before{content:'Escribe tu texto';pointer-events:none}
 .mod-text-box-frame{position:absolute;display:flex;align-items:var(--card-align,center);box-sizing:border-box;min-width:0;min-height:0;z-index:10}
 .mod-text-box-frame>.mod-text,.mod-extra-text{width:100%;min-width:0;min-height:0;max-height:100%;box-sizing:border-box;flex-shrink:0;overflow:hidden;overflow-wrap:anywhere;text-align:center;outline:none}
+.mod-text-box-frame>:is(.mod-text,.mod-extra-text)[style*="align-content"]{height:100%!important}
 .mod-extra-text{white-space:pre-wrap;line-height:1.25}
-.mod-extra-text:empty::before{content:'txt';color:#8a8195}
+.mod-extra-text:empty::before{content:'Escribe tu texto';color:#8a8195;pointer-events:none}
 .mod-text-box-frame[data-clipped=true]:not(.mod-text-box-active)>.mod-text,.mod-text-box-frame[data-clipped=true]:not(.mod-text-box-active)>.mod-extra-text{visibility:hidden}
 .mod-text-box-active{z-index:30}
 .mod-text-box-active>:is(.mod-text,.mod-extra-text){visibility:visible;overflow:auto}
@@ -48,7 +50,76 @@
 .mod-cell-tools details>.mod-text-box-menu-panel{width:220px;min-width:0;white-space:normal}
 .mod-text-box-menu-panel>div{display:flex;gap:4px;margin-top:4px}
 .mod-text-box-menu-panel button,.mod-cell-tools details>.mod-text-box-menu-panel>button{display:flex;align-items:center;gap:6px;width:auto;height:auto;min-height:30px;margin:0;padding:4px 7px;font-size:12px}
-.mod-text-box-menu-panel>div>button:first-child{flex:1;text-align:left}
+.mod-text-box-menu-panel>div>[data-mod-text-action=edit]{flex:1;text-align:left}
+.mod-text-box-menu-panel>div{align-items:center}
+.mod-text-box-menu-panel input[type=checkbox]{flex:0 0 auto;accent-color:#5d428c;width:15px;height:15px;margin:0 4px 0 0}
+.mod-text-box-menu-panel .mod-text-overflow-toggle{display:flex;align-items:center;gap:5px;white-space:normal;padding:0 0 9px;margin:0 0 8px;border-bottom:1px solid #e4deec;font-size:12px}
+/* One overflow container per rectangle. Its background is a separate layer:
+   opacity never fades the text or the Builder's editing controls. */
+.mod-overflow-info{position:absolute;z-index:26;width:max-content;height:max-content;margin:0}
+.mod-overflow-info>summary{position:relative;z-index:3;list-style:none;cursor:grab;touch-action:none;border-radius:12px;padding:2px 7px;background:var(--info-color,#5d428c);color:white;font:12px Roboto,sans-serif;white-space:nowrap}
+.mod-overflow-info>summary::-webkit-details-marker{display:none}
+.mod-overflow-info[data-enabled=false],.mod-overflow-info[data-has-content=false]{display:none!important}
+.mod-overflow-info:is(:hover,[open],:focus-within){opacity:1;z-index:1100}
+.mod-overflow-panel{display:none}
+.mod-overflow-info[open]>summary~*,.mod-overflow-design-menu[open]>summary~*{animation:none!important}
+.mod-overflow-info[open]>.mod-overflow-panel,.mod-published .mod-overflow-info:is(:hover,:focus-within)>.mod-overflow-panel{display:block}
+.mod-overflow-hover-tools{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);padding:4px;background:white;color:#687384;border:1px solid #cdd5dc;border-radius:7px;box-shadow:0 3px 10px #0002}
+.mod-overflow-hover-tools::after{content:'';position:absolute;left:-6px;right:-6px;top:100%;height:10px}
+.mod-overflow-info:is(:hover,:focus-within) .mod-overflow-hover-tools{display:flex}
+.mod-overflow-hover-tools button{display:flex;align-items:center;justify-content:center;width:28px;height:28px;cursor:pointer;border-radius:4px}
+.mod-overflow-hover-tools button:hover{background:#f3eef9;color:#5d428c}
+.mod-overflow-hover-tools .material-symbols-outlined{font-size:19px}
+.mod-overflow-surface,.mod-overflow-edit-surface{position:fixed;isolation:isolate;box-sizing:border-box;padding:22px;color:#333;box-shadow:0 8px 32px #0003;border-radius:var(--overflow-radius,16px);white-space:normal;overflow:visible}
+.mod-overflow-surface{z-index:4}
+.mod-overflow-background{position:absolute;inset:0;border-radius:inherit;background:var(--overflow-fill,#fff);opacity:var(--overflow-opacity,1);z-index:-1;pointer-events:none;border:1px solid #cdd5dc}
+.mod-overflow-content,.mod-overflow-drafts{position:relative;height:100%;min-height:0;overflow:auto;overflow-wrap:anywhere;box-sizing:border-box}
+.mod-overflow-text-frame{position:relative;min-height:24px;margin:0 0 12px}
+.mod-overflow-text-frame .mod-overflow-draft-text{margin:0}
+.mod-overflow-text-frame[data-text-layout]{margin:0;min-height:0}
+.mod-overflow-text-frame[data-text-layout] .mod-overflow-draft-text{width:100%;height:100%;overflow:auto;box-sizing:border-box}
+.mod-overflow-drafts:has(.mod-text-box-active){overflow:visible}
+.mod-overflow-text-frame .mod-text-geometry{z-index:3}
+.mod-overflow-text,.mod-overflow-draft-text{min-height:24px;text-align:center;overflow-wrap:anywhere;white-space:pre-wrap;outline:none;margin:0 0 12px;line-height:1.4}
+.mod-overflow-draft-text{cursor:grab}
+.mod-overflow-draft-text[contenteditable=true]{border-color:#5d428c;background:transparent!important}
+.mod-overflow-backdrop{position:fixed;inset:0;z-index:-2;pointer-events:none}
+.modular-table:has(.mod-overflow-info:is(:hover,[open],:focus-within)){z-index:1100!important}
+.mod-overflow-editor.mod-modal{background:transparent;display:block;z-index:10010;pointer-events:none}
+.mod-overflow-editor .mod-overflow-backdrop{z-index:0;pointer-events:auto}
+.mod-overflow-edit-surface{z-index:1;pointer-events:auto}
+.mod-overflow-editor :is(#rtf-toolbar,#image-toolbar,#inline-icon-toolbar,#text-link-tools,#icon-modal,.text-link-dialog){pointer-events:auto}
+.mod-overflow-editor[data-editing-text=true] :is(.mod-overflow-editor-bar,[data-panel-resize]){display:none}
+.mod-overflow-editor[data-editing-text=true] .mod-overflow-draft-text{cursor:text}
+.mod-overflow-editor[data-editing-text=true] .mod-overflow-draft-text[contenteditable=true]{outline:1px dashed #5d428c;outline-offset:4px}
+.mod-overflow-edit-surface[data-dragging=true]{cursor:grabbing;user-select:none;touch-action:none}
+.mod-overflow-page-locked :is(.mod-tools,.block-toolbar,.mod-row-tools,.mod-column-tools,.mod-center-tools,.mod-badge-tools,.mod-overflow-hover-tools){display:none!important;visibility:hidden!important;pointer-events:none!important}
+.mod-overflow-editor-bar{position:absolute;bottom:calc(100% + 8px);left:0;display:flex;align-items:center;flex-wrap:wrap;gap:6px;width:max-content;max-width:min(800px,calc(100vw - 24px));padding:8px;background:white;color:#5d428c;border:1px solid #cdd5dc;border-radius:8px;box-shadow:0 3px 12px #0002;font:11px Roboto,sans-serif}
+.mod-overflow-editor-bar label{display:flex;flex-direction:column;gap:3px}
+.mod-overflow-editor-bar input{width:68px;padding:3px;border:1px solid #cdd5dc;border-radius:4px}
+.mod-overflow-editor-bar input[type=color]{height:26px;width:42px;padding:1px}
+.mod-overflow-editor-bar input[type=range]{display:block;width:170px;max-width:100%;padding:0;margin:6px 0 0;accent-color:#5d428c}
+.mod-overflow-editor-bar .mod-overflow-design-menu>div{position:fixed;left:8px;top:8px;bottom:auto;min-width:210px;padding:12px;white-space:normal;max-height:calc(100vh - 24px);overflow:auto}
+.mod-overflow-editor-bar .mod-overflow-design-menu label{display:block;margin:4px 0}
+.mod-overflow-editor-bar output{float:right;font-variant-numeric:tabular-nums;margin-left:12px}
+.mod-overflow-editor-bar .mod-palette{display:grid;grid-template-columns:repeat(4,30px);gap:6px;margin-bottom:8px}
+.mod-overflow-editor-bar .mod-palette button{width:30px;height:30px;border:1px solid #cdd5dc;border-radius:50%}
+.dark .mod-overflow-editor-bar,.dark .mod-overflow-hover-tools{background:#252a35;color:#eee}
+.mod-overflow-editor-bar select{max-width:155px;padding:3px;border:1px solid #cdd5dc;border-radius:4px}
+.mod-overflow-editor-bar button{padding:5px;border-radius:5px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.mod-overflow-editor-bar button:hover{background:#f3eef9}
+.mod-overflow-editor-bar [data-panel-accept]{background:#5d428c;color:white}
+.mod-overflow-editor-bar :is([data-panel-cancel],[data-panel-accept]){width:auto;min-width:64px;padding:5px 10px;font:12px Roboto,sans-serif}
+.mod-overflow-editor-bar [data-panel-move]{cursor:move;touch-action:none;align-self:flex-start}
+[data-panel-resize]{position:absolute;bottom:2px;right:2px;cursor:nwse-resize;touch-action:none;color:#5d428c}
+[data-panel-resize] .material-symbols-outlined{font-size:18px}
+[data-panel-style=dialogue]>.mod-overflow-background::after{content:'';position:absolute;left:24px;top:calc(100% - 8px);width:24px;height:24px;transform:skewY(-25deg) rotate(20deg);background:inherit;border-bottom:1px solid #cdd5dc;border-right:1px solid #cdd5dc}
+[data-panel-style=thought]>.mod-overflow-background{border-radius:46% 38% 42% 35% / 25% 32% 28% 35%}
+[data-panel-style=thought]>.mod-overflow-background::after{content:'';position:absolute;left:30px;top:calc(100% - 4px);width:18px;height:18px;border-radius:50%;background:inherit;box-shadow:-12px 18px 0 -4px var(--overflow-fill,#fff)}
+[data-panel-style=hologram]>.mod-overflow-background{border:2px solid #30bce5;box-shadow:inset 0 0 24px #30bce555,0 0 14px #30bce566;background-image:repeating-linear-gradient(transparent 0 4px,#30bce514 4px 5px);clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)}
+body:has(.mod-overflow-editor) :is(#rtf-toolbar,#image-toolbar,#inline-icon-toolbar,#text-link-tools,#icon-modal,.text-link-dialog){z-index:10030!important}
+.mod-published .mod-overflow-info[data-enabled=false]{display:none!important}
+@media(max-width:600px){.mod-overflow-editor-bar{gap:3px}.mod-overflow-editor-bar label{font-size:10px}.mod-overflow-surface,.mod-overflow-edit-surface{padding:16px}}
 .mod-text-box-info{position:absolute;inset:0;margin:auto;width:max-content;height:max-content;display:none;z-index:25}
 .mod-text-box-info[data-needed=true]{display:block}
 .mod-text-box-info>summary{list-style:none;cursor:pointer;background:var(--info-color,#5d428c);color:#fff;border-radius:12px;padding:2px 7px;font:12px Roboto,sans-serif;white-space:nowrap}

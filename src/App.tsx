@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, memo } from 'react';
 import {createPortal,flushSync} from 'react-dom';
 import {builderTextHostEvent} from './builder-text-tools';
+import {applyBuilderVerticalAlignment} from './builder-text-session';
 import Sortable from 'sortablejs';
 import { setupVanillaGlobals, upgradeTitleImageElements } from './vanilla-setup';
 import { TUTORIAL_TOPICS, startTutorial, type TutorialTopicId } from './tutorial';
@@ -467,7 +468,7 @@ export default function App() {
                         // A second text box can already own the shared toolbar.
                         if(window.currentEditableText !== textTarget) { textTarget.contentEditable = "false"; return; }
                         if(document.activeElement === textTarget) { textTarget.addEventListener('blur',blurHandler,{once:true}); return; }
-                        if(!rtfToolbar.contains(document.activeElement) && document.activeElement?.id !== "rtf-image-input" && !document.activeElement?.closest('.text-link-dialog,#text-link-tools,#image-toolbar,#inline-icon-toolbar,#icon-modal')) {
+                        if(!rtfToolbar.contains(document.activeElement) && document.activeElement?.id !== "rtf-image-input" && !document.activeElement?.closest('.text-link-dialog,#text-link-tools,#image-toolbar,#inline-icon-toolbar,#icon-modal,.mod-text-geometry')) {
                             textTarget.contentEditable = "false"; 
                             rtfToolbar.classList.add('hidden'); 
                             textTarget.removeEventListener('blur', blurHandler); 
@@ -603,7 +604,8 @@ export default function App() {
           <div className="w-px h-6 bg-gray-300 my-auto mx-1"></div>
           <button onClick={() => document.execCommand('justifyLeft', false, undefined)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded text-gray-700"><span className="material-symbols-outlined text-[18px]">format_align_left</span></button>
           <button onClick={() => document.execCommand('justifyCenter', false, undefined)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded text-gray-700"><span className="material-symbols-outlined text-[18px]">format_align_center</span></button>
-          <button onClick={() => document.execCommand('justifyRight', false, undefined)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded text-gray-700"><span className="material-symbols-outlined text-[18px]">format_align_right</span></button>
+          <button title="Alinear a la derecha" aria-label="Alinear a la derecha" onClick={() => document.execCommand('justifyRight', false, undefined)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded text-gray-700"><span className="material-symbols-outlined text-[18px]">format_align_right</span></button>
+          <details className="rtf-vertical-menu"><summary aria-label="Alineación vertical del texto" title="Alineación vertical del texto"><span className="material-symbols-outlined text-[18px]">vertical_align_center</span><small>A</small></summary><div role="group" aria-label="Posición vertical del texto">{(['start','center','end'] as const).map((value,index)=><button key={value} type="button" title={['Texto arriba','Texto centrado verticalmente','Texto abajo'][index]} aria-label={['Texto arriba','Texto centrado verticalmente','Texto abajo'][index]} onClick={()=>applyBuilderVerticalAlignment(value)}><span className="material-symbols-outlined text-[18px]">{['vertical_align_top','vertical_align_center','vertical_align_bottom'][index]}</span></button>)}</div></details>
           <div className="w-px h-6 bg-gray-300 my-auto mx-1"></div>
           <div className="flex gap-1.5 items-center px-2">
               <button onClick={() => document.execCommand('foreColor', false, '#ff5900')} className="w-5 h-5 rounded-full bg-[#ff5900] border border-transparent hover:ring-2 ring-offset-1 ring-[#ff5900]" title="Naranja Anáhuac"></button>
