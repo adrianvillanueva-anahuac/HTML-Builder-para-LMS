@@ -84,7 +84,7 @@ export function inlineModularLayout(root:ParentNode) {
     block.querySelectorAll<HTMLElement>('.mod-center-text').forEach(el=>Object.assign(el.style,{position:'relative',width:'58%',maxHeight:'65%',overflow:'auto',textAlign:'center',overflowWrap:'anywhere',fontSize:'12px',lineHeight:el.style.lineHeight||'1.2',whiteSpace:'pre-wrap'}));
     // Percent anchors and translate keep each badge's center on the perimeter
     // even when a published table is resized, without requiring JavaScript.
-    apply('.mod-badge',{position:'absolute',transform:'translate(-50%,-50%)',zIndex:'70',display:'grid',placeItems:'center',cursor:'default'});
+    apply('.mod-badge',{position:'absolute',transform:'translate(-50%,-50%)',zIndex:'70',display:'grid',placeItems:'center',cursor:'default',overflow:'visible'});
     apply('.mod-badge>svg',{position:'absolute',inset:'0',width:'100%',height:'100%',overflow:'visible',pointerEvents:'none'});
     block.querySelectorAll<HTMLElement>('.mod-badge-text').forEach(el=>Object.assign(el.style,{position:'relative',width:'70%',maxHeight:'none',minHeight:'0',overflow:'visible',overflowWrap:'anywhere',textAlign:'center',lineHeight:el.style.lineHeight||'1.2',whiteSpace:'pre-wrap',padding:'0',margin:'0'}));
     apply('.mod-badge-text :is(p,div,h1,h2,h3)',{margin:'0',textAlign:'center'});

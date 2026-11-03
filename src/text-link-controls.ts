@@ -109,7 +109,8 @@ export function setupTextLinkControls(){
   let active:HTMLAnchorElement|null=null;let timer:ReturnType<typeof setTimeout>|undefined;
   const hide=()=>{clearTimeout(timer);tools.hidden=true;active=null;};
   const position=()=>{
-    if(!active?.isConnected||(!canvas.contains(active)&&!active.closest('.fde-rich-edit'))){hide();return;}
+    if(!active||tools.hidden)return;
+    if(!active.isConnected||(!canvas.contains(active)&&!active.closest('.fde-rich-edit'))){hide();return;}
     const r=active.getBoundingClientRect();
     if(r.bottom<0||r.top>innerHeight){hide();return;}
     const width=tools.offsetWidth,height=tools.offsetHeight;
@@ -153,6 +154,7 @@ export function setupTextLinkControls(){
   const observer=new MutationObserver(()=>{if(active&&!active.isConnected)hide();});observer.observe(canvas,{childList:true,subtree:true});
   document.addEventListener('pointerover',over,true);document.addEventListener('pointerout',out,true);document.addEventListener('focusin',focus,true);
   document.addEventListener('click',click,true);document.addEventListener('keydown',key);
-  window.addEventListener('scroll',position,true);window.addEventListener('resize',position);
-  return ()=>{hide();tools.remove();observer.disconnect();document.removeEventListener('pointerover',over,true);document.removeEventListener('pointerout',out,true);document.removeEventListener('focusin',focus,true);document.removeEventListener('click',click,true);document.removeEventListener('keydown',key);window.removeEventListener('scroll',position,true);window.removeEventListener('resize',position);};
+  const onScrollOrResize=()=>{if(active&&!tools.hidden)position();};
+  window.addEventListener('scroll',onScrollOrResize,{capture:true,passive:true});window.addEventListener('resize',onScrollOrResize);
+  return ()=>{hide();tools.remove();observer.disconnect();document.removeEventListener('pointerover',over,true);document.removeEventListener('pointerout',out,true);document.removeEventListener('focusin',focus,true);document.removeEventListener('click',click,true);document.removeEventListener('keydown',key);window.removeEventListener('scroll',onScrollOrResize,true);window.removeEventListener('resize',onScrollOrResize);};
 }

@@ -126,6 +126,6 @@ export function setupSpacingHandles(){
   const end=()=>{if(!drag)return;drag=null;window.modularResizing=false;window.saveHistoryState?.(true);};
   document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&drag&&pair){setElementSpacing(pair.upper,value(pair.upper,'top'),drag.up);setElementSpacing(pair.lower,drag.down,value(pair.lower,'bottom'));end();overlay.hidden=true;}});
-  window.addEventListener('scroll',()=>{if(!drag)overlay.hidden=true;},true);
+  window.addEventListener('scroll',()=>{if(!drag&&!overlay.hidden)overlay.hidden=true;},{capture:true,passive:true});
   window.addEventListener('resize',()=>{overlay.hidden=true;});
 }

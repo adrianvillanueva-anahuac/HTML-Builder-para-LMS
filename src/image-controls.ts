@@ -177,10 +177,15 @@ export function setupImageControls(root:ParentNode=document){
 function installEvents(){
   const popup=document.createElement('div');popup.id='image-controls-popover';popup.hidden=true;popup.setAttribute('role','group');document.body.append(popup);
   const pin=document.createElement('style');document.head.append(pin);
-  let active:HTMLElement|null=null,anchor:HTMLElement|null=null,kind='',timer=0,sliderDrag=false;
-  const hide=()=>{popup.hidden=true;active=null;anchor=null;pin.textContent='';};
+  let active:HTMLElement|null=null,anchor:HTMLElement|null=null,kind='',timer=0,sliderDrag=false,locateRaf=0;
+  const hide=()=>{if(locateRaf){cancelAnimationFrame(locateRaf);locateRaf=0;}popup.hidden=true;active=null;anchor=null;pin.textContent='';};
   const later=()=>{clearTimeout(timer);timer=window.setTimeout(()=>{if(!sliderDrag)hide();},400);};
   const stay=()=>clearTimeout(timer);
+  const scheduleLocate=()=>{
+    if(popup.hidden)return;
+    if(locateRaf)return;
+    locateRaf=requestAnimationFrame(()=>{locateRaf=0;locate();});
+  };
   const locate=()=>{
     if(!anchor?.isConnected||!active?.isConnected){hide();return;}
     const a=anchor.getBoundingClientRect();
@@ -240,7 +245,7 @@ function installEvents(){
     if(target.closest('[data-image-text-activate]')){const block=active,button=anchor!;addText(block);hide();show(button);}
     if(target.closest('[data-image-text-remove]')){const block=active;change(block,()=>{frameOf(block)?.querySelector('.image-text-layer')?.remove();});hide();}
   });
-  document.addEventListener('keydown',event=>{if(event.key==='Escape')hide();});window.addEventListener('resize',locate);window.addEventListener('scroll',()=>{if(!popup.hidden)locate();},true);
+  document.addEventListener('keydown',event=>{if(event.key==='Escape')hide();});window.addEventListener('resize',scheduleLocate);window.addEventListener('scroll',()=>{if(!popup.hidden)scheduleLocate();},{capture:true,passive:true});
   installTextManipulation();
 }
 

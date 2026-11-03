@@ -183,14 +183,19 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     publish({...p,autoChecklist:p.autoChecklist===false});
   }
   function restore(s: Workspace) {
-    window.currentEditableText = null;
-    document.getElementById('rtf-toolbar')?.classList.add('hidden');
-    outer().innerHTML=s.html; restoreBackgroundMetadata(outer(),s); outer().style.cssText=s.style;
-    if(ensureMediaChecklistIds(outer()))s.html=outer().innerHTML;
-    outer().querySelectorAll('[data-sortable-active]').forEach(n => n.removeAttribute('data-sortable-active'));
-    window.initNestedDropzones(); upgradeTitleImageElements(); window.checkEmptyState();
-    loadWorkspaceHistory(histories.current.get(s.id));
-    clearPendingInspect.current();
+    (window as any).lmsSwitchingWorkspace = true;
+    try {
+      window.currentEditableText = null;
+      document.getElementById('rtf-toolbar')?.classList.add('hidden');
+      outer().innerHTML=s.html; restoreBackgroundMetadata(outer(),s); outer().style.cssText=s.style;
+      if(ensureMediaChecklistIds(outer()))s.html=outer().innerHTML;
+      outer().querySelectorAll('[data-sortable-active]').forEach(n => n.removeAttribute('data-sortable-active'));
+      window.initNestedDropzones(); upgradeTitleImageElements(); window.checkEmptyState();
+      loadWorkspaceHistory(histories.current.get(s.id));
+      clearPendingInspect.current();
+    } finally {
+      (window as any).lmsSwitchingWorkspace = false;
+    }
   }
   async function canReplace(mode:'new'|'open'='open') {
     if (busy) { setMessage('Espera a que termine el guardado del proyecto.'); return false; }
@@ -485,6 +490,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
       return !!el?.closest('.mod-cell-tools,.mod-row-tools,.mod-column-tools,.mod-center-tools,.mod-preview,.mod-text-box-preview,.mod-overflow-surface,.sortable-ghost,.layout-intent-indicator,.lms-drag-origin');
     };
     const observer=new MutationObserver(records=>{
+      if((window as any).lmsSwitchingWorkspace)return;
       if(records.every(isTransientMutation))return;
       schedule();
     });

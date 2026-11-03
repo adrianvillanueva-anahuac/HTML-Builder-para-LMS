@@ -457,6 +457,7 @@ export function setupVanillaGlobals() {
     };
 
     const canvasObserver = new MutationObserver((records) => {
+        if ((window as any).lmsSwitchingWorkspace) return;
         const meaningful = records.filter(r => !isTransientEditorTarget(r.target));
         if (meaningful.length === 0) return;
         const needsControlInit = meaningful.some(r =>

@@ -112,7 +112,7 @@ export function setupToolbarSelection() {
   const key = (event: KeyboardEvent) => { if (event.key === 'Escape') {clear();const focused=document.activeElement;if(focused instanceof HTMLElement&&focused.closest('.flow-block > .block-toolbar')){dismissedFlow=focused.closest<HTMLElement>('.flow-block');focused.blur();renderDismissed();}} };
   const dragStart = () => { ignoreClickUntil = Infinity; clear(); };
   const dragEnd = () => { ignoreClickUntil = performance.now() + 150; };
-  const observer = new MutationObserver(()=>{render();renderDismissed();});
+  const observer = new MutationObserver(()=>{if((window as any).lmsSwitchingWorkspace)return;render();renderDismissed();});
   observer.observe(canvas, {childList:true,subtree:true});
   const bodyObserver = new MutationObserver(() => {
     if (dragging()) dragStart();

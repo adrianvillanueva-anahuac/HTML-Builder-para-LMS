@@ -112,6 +112,7 @@ export function setupExercises() {
   window.getExerciseBlock = getExerciseBlock;
   const canvas = document.getElementById('canvas-container-outer');
   const upgradeDownloads = () => {
+    if ((window as any).lmsSwitchingWorkspace) return;
     canvas?.querySelectorAll<HTMLElement>('[data-type="ejercicio_descargable"]').forEach(normalizeDownload);
     canvas?.querySelectorAll<HTMLElement>('[data-type="texto_alumno"]').forEach(normalizeStudentControls);
     canvas?.querySelectorAll<HTMLElement>('[data-type="enviar_ejercicio"]').forEach(normalizeFinish);

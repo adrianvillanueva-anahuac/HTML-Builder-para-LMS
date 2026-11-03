@@ -37,7 +37,7 @@ export function setupEditingContrast() {
     style.textContent = selectors.length ? `${selectors.join(',')} {background-color:#f3a077!important}` : '';
   };
   const schedule = (records?: MutationRecord[]) => {
-    if (frame) return;
+    if (frame || (window as any).lmsSwitchingWorkspace) return;
     if (records && !activeSelectors && !window.currentEditableText) {
       const hasEditableChange = records.some(
         r => r.type === 'childList' || r.attributeName === 'contenteditable',

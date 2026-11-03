@@ -170,7 +170,7 @@ function modal(title:string,content:string,onConfirm:(panel:HTMLElement)=>boolea
   const previous=document.activeElement as HTMLElement;
   const overlay=document.createElement('div');overlay.className='mod-modal';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-label',title);
   overlay.innerHTML=`<section><h2>${title}</h2>${content}<footer><button type="button" data-cancel>Cancelar</button><button type="button" data-confirm>Confirmar</button></footer></section>`;
-  const close=()=>{document.getElementById('rtf-toolbar')?.classList.add('hidden');window.currentEditableText=null;overlay.remove();activeModal=null;previous?.focus();};
+  const close=()=>{document.getElementById('rtf-toolbar')?.classList.add('hidden');window.currentEditableText=null;overlay.remove();activeModal=null;document.body.classList.remove('has-mod-modal');previous?.focus();};
   overlay.querySelector('[data-cancel]')!.addEventListener('click',()=>{close();onCancel();});
   overlay.querySelector('[data-confirm]')!.addEventListener('click',()=>{if(onConfirm(overlay)!==false)close();});
   overlay.addEventListener('keydown',e=>{
@@ -181,7 +181,7 @@ function modal(title:string,content:string,onConfirm:(panel:HTMLElement)=>boolea
       if(!e.shiftKey&&document.activeElement===nodes.at(-1)){e.preventDefault();nodes[0]?.focus();}
     }
   });
-  (document.getElementById('scroll-container')||document.body).append(overlay);activeModal=overlay;
+  (document.getElementById('scroll-container')||document.body).append(overlay);activeModal=overlay;document.body.classList.add('has-mod-modal');
   overlay.querySelector<HTMLElement>('input,button')?.focus();return overlay;
 }
 function chooseGrid(block:HTMLElement) {
@@ -211,7 +211,7 @@ function editPreview(block:HTMLElement,preview:HTMLElement) {
   if(primary&&!models.get(block)?.cells[info.closest<HTMLElement>('.mod-cell')!.dataset.cell!]?.student){
     closeConnector();info.open=false;primary.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));return;
   }
-  closeConnector();info.open=true;info.dataset.editing='true';
+  closeConnector();info.open=true;info.dataset.editing='true';document.body.classList.add('has-mod-info-editing');
   const cell=preview.closest<HTMLElement>('.mod-cell')!;
   const tools=cell.querySelector<HTMLElement>(':scope > .mod-cell-tools')!.cloneNode(true) as HTMLElement;
   tools.className='mod-preview-tools mod-tools mod-editor';
@@ -415,8 +415,11 @@ export function setupModularTables() {
   const tableHoverTimers=new WeakMap<Element,ReturnType<typeof setTimeout>>();
   const cancelHoverClose=(el:Element)=>{clearTimeout(hoverTimers.get(el));hoverTimers.delete(el);};
   let scrollFrame=0;
-  const onScroll=()=>{if(!scrollFrame)scrollFrame=requestAnimationFrame(()=>{scrollFrame=0;positionConnector();positionCellMenus(false);});};
-  window.addEventListener('scroll',onScroll,true);window.addEventListener('resize',()=>{positionConnector();positionCellMenus(true);});
+  const onScroll=()=>{
+    if(!connector&&!document.querySelector('.mod-cell-tools details[open],.mod-row-tools details[open],.mod-column-tools details[open],.mod-preview-tools details[open],.mod-badge-align-menu[open]'))return;
+    if(!scrollFrame)scrollFrame=requestAnimationFrame(()=>{scrollFrame=0;positionConnector();positionCellMenus(false);});
+  };
+  window.addEventListener('scroll',onScroll,{capture:true,passive:true});window.addEventListener('resize',()=>{positionConnector();positionCellMenus(true);});
   document.addEventListener('toggle',event=>{const menu=event.target as HTMLDetailsElement;if(menu.matches?.('.mod-cell-tools details,.mod-row-tools details,.mod-column-tools details,.mod-preview-tools details,.mod-badge-align-menu')){if(!menu.open)menuPositions.delete(menu);positionCellMenus();}},true);
   document.addEventListener('pointerover',event=>{
     const target=event.target as HTMLElement;
@@ -555,7 +558,7 @@ export function setupModularTables() {
     const m=sync(block),key=target.closest<HTMLElement>('.mod-cell')?.dataset.cell;
     if(action==='confirm-preview'){
       const info=target.closest<HTMLDetailsElement>('.mod-info')!,preview=info.querySelector<HTMLElement>('.mod-preview-content')!;
-      delete info.dataset.editing;preview.contentEditable='false';preview.classList.remove('editable-text');info.querySelector('.mod-preview-tools')?.remove();info.open=false;
+      delete info.dataset.editing;document.body.classList.remove('has-mod-info-editing');preview.contentEditable='false';preview.classList.remove('editable-text');info.querySelector('.mod-preview-tools')?.remove();info.open=false;
       document.getElementById('rtf-toolbar')?.classList.add('hidden');window.currentEditableText=null;
       persist(block);runtimes.get(block)?.update();save();return;
     }
@@ -688,6 +691,7 @@ export function prepareModularExport(root:HTMLElement) {
     });
     block.querySelectorAll('.mod-editor').forEach(el=>el.remove());
     block.querySelectorAll<HTMLElement>('.mod-info').forEach(el=>delete el.dataset.editing);
+    document.body.classList.remove('has-mod-info-editing');
     block.querySelectorAll<HTMLElement>('.mod-preview-content').forEach(el=>{el.removeAttribute('contenteditable');el.classList.remove('editable-text');});
     block.querySelectorAll('.mod-preview-content').forEach(el=>{el.removeAttribute('role');el.removeAttribute('tabindex');el.removeAttribute('aria-label');});
     block.querySelectorAll('details[open]').forEach(el=>el.removeAttribute('open'));

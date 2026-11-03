@@ -16,7 +16,13 @@ export function setupFlowBlockControls(hooks:Hooks){
  const keep=()=>{clearTimeout(hideTimer);hideTimer=undefined;};
  const schedule=()=>{keep();hideTimer=setTimeout(()=>{if(changing)return;close();},300);};
  const finish=()=>{if(!changing)return;changing=false;window.modularResizing=false;if(active?.block.isConnected)window.saveHistoryState?.(true);};
- function close(focus=false){keep();finish();const trigger=active?.trigger;active?.trigger.setAttribute('aria-expanded','false');active=null;panel?.remove();panel=null;if(focus&&trigger?.isConnected){restoringFocus=true;try{trigger.focus();}finally{restoringFocus=false;}}}
+ let positionRaf=0;
+ const schedulePosition=()=>{
+  if(!active||!panel)return;
+  if(positionRaf)return;
+  positionRaf=requestAnimationFrame(()=>{positionRaf=0;position();});
+ };
+ function close(focus=false){if(positionRaf){cancelAnimationFrame(positionRaf);positionRaf=0;}keep();finish();const trigger=active?.trigger;active?.trigger.setAttribute('aria-expanded','false');active=null;panel?.remove();panel=null;if(focus&&trigger?.isConnected){restoringFocus=true;try{trigger.focus();}finally{restoringFocus=false;}}}
  function position(){
   if(!active||!panel)return;
   if(!active.block.isConnected||!active.trigger.isConnected){close();return;}
@@ -77,7 +83,7 @@ export function setupFlowBlockControls(hooks:Hooks){
  const outside=(event:Event)=>{if(active&&!panel?.contains(event.target as Node)&&!active.trigger.contains(event.target as Node))close();};
  document.addEventListener('pointerdown',outside,true);document.addEventListener('click',outside,true);
  document.addEventListener('keydown',event=>{if(active&&event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();close(true);}},true);
- document.addEventListener('scroll',position,true);window.addEventListener('resize',position);window.addEventListener('blur',()=>close());
+ document.addEventListener('scroll',()=>{if(active&&panel)schedulePosition();},{capture:true,passive:true});window.addEventListener('resize',schedulePosition);window.addEventListener('blur',()=>close());
  const observer=new MutationObserver(()=>{if(active&&!active.block.isConnected)close();});observer.observe(document.getElementById('canvas-container-outer')||document.body,{childList:true,subtree:true});
  return {close,sync};
 }

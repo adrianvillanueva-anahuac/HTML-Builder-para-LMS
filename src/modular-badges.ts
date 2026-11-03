@@ -27,7 +27,7 @@ export function updateBadge(cell:HTMLElement,badge:PerimeterBadge) {
   // remain circular with independent dimensions, including published HTML.
   const svg=node.querySelector('svg')!;
   svg.innerHTML=badge.shape==='rounded'?`<rect width="100%" height="100%" rx="${12*badge.scale}" ry="${12*badge.scale}" vector-effect="non-scaling-stroke"/>`:outlines[badge.shape];
-  if(badge.shape==='rounded')svg.removeAttribute('viewBox');else svg.setAttribute('viewBox','0 0 100 100');
+  if(badge.shape==='rounded')svg.removeAttribute('viewBox');else svg.setAttribute('viewBox','-4 -4 108 108');
   svg.style.fill=badge.color;
   const strokeWidth=badge.strokeWidth&&badge.strokeWidth>0?badge.strokeWidth:0;
   const strokeColor=badge.strokeColor||'#5d428c';
@@ -83,7 +83,7 @@ export function renderBadges(block:HTMLElement,model:ModularModel) {
       const iconButton=document.createElement('button');iconButton.type='button';iconButton.dataset.badgeIcon='true';iconButton.title='Insertar icono del catálogo';iconButton.setAttribute('aria-label','Insertar icono del catálogo');iconButton.innerHTML=icon('add_reaction');menu.querySelector('.mod-badge-shapes')!.insertBefore(iconButton,menu.querySelector('[data-badge-delete]'));
       const node=document.createElement('div');node.className='mod-badge';node.tabIndex=0;
       node.setAttribute('role','group');node.setAttribute('aria-label','Figura del perímetro; arrastra para mover, doble clic para editar texto');
-      node.innerHTML='<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg><div class="mod-badge-text editable-text" title="Doble clic para editar texto"></div>';
+      node.innerHTML='<svg viewBox="-4 -4 108 108" preserveAspectRatio="none" aria-hidden="true"></svg><div class="mod-badge-text editable-text" title="Doble clic para editar texto"></div>';
       cell.append(node);updateBadge(cell,badge);
     }
   }

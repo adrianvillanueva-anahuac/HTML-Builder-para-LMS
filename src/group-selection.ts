@@ -24,9 +24,16 @@ export function setupGroupSelection(){
   const setRect=(el:HTMLElement,left:number,top:number,width:number,height:number)=>{
     Object.assign(el.style,{left:left+'px',top:top+'px',width:width+'px',height:height+'px'});
   };
-  const clear=()=>{selected=[];box.hidden=true;};
+  let drawRaf=0;
+  const scheduleDraw=()=>{
+    if(moving||(!selected.length&&box.hidden))return;
+    if(drawRaf)return;
+    drawRaf=requestAnimationFrame(()=>{drawRaf=0;draw();});
+  };
+  const clear=()=>{if(drawRaf){cancelAnimationFrame(drawRaf);drawRaf=0;}selected=[];box.hidden=true;};
   const draw=()=>{
     if(moving)return;
+    if(!selected.length){box.hidden=true;return;}
     selected=selected.filter(el=>el.isConnected&&canvas()?.contains(el));
     if(!selected.length){box.hidden=true;return;}
     const rects=selected.map(el=>el.getBoundingClientRect());
@@ -128,10 +135,10 @@ export function setupGroupSelection(){
   document.addEventListener('pointercancel',()=>finish(true));
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&(origin||moving||selected.length)){event.preventDefault();event.stopImmediatePropagation();finish(true);clear();}},true);
   window.addEventListener('blur',()=>finish(true));
-  window.addEventListener('scroll',()=>{if(!moving&&!origin)draw();},true);
-  window.addEventListener('resize',draw);
-  window.addEventListener('lms-drag-ended',draw);
-  new MutationObserver(()=>{if(!moving&&!origin)draw();}).observe(document.getElementById('canvas-container-outer')!,{childList:true,subtree:true});
+  window.addEventListener('scroll',()=>{if(!moving&&!origin&&selected.length)scheduleDraw();},{capture:true,passive:true});
+  window.addEventListener('resize',scheduleDraw);
+  window.addEventListener('lms-drag-ended',scheduleDraw);
+  new MutationObserver(()=>{if(!moving&&!origin&&(selected.length||!box.hidden))scheduleDraw();}).observe(document.getElementById('canvas-container-outer')!,{childList:true,subtree:true});
   tools.querySelector('[data-group-copy]')!.addEventListener('click',event=>{
     event.stopPropagation();if(!selected.length)return;window.saveHistoryState(true);
     const clones=selected.map(cloneElement),fragment=document.createDocumentFragment();clones.forEach(el=>fragment.append(el));

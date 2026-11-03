@@ -1,12 +1,13 @@
-.modular-table{position:relative;width:100%;margin:24px 0;clear:both}
-.mod-shell{padding:var(--mod-margin,0%);box-sizing:border-box}
+.modular-table{position:relative;width:100%;margin:24px 0;clear:both;overflow:visible}
+.mod-shell{padding:var(--mod-margin,0%);box-sizing:border-box;overflow:visible}
 .mod-scroll{overflow-x:auto;padding:0;margin:0}
 .modular-table:not(.mod-published) .mod-scroll{overflow:visible}
-.mod-grid{position:relative;display:grid;gap:var(--mod-gap,20px);box-sizing:border-box}
+.mod-grid{position:relative;display:grid;gap:var(--mod-gap,20px);box-sizing:border-box;overflow:visible}
 /* Extra hover bridge, without adding space or changing the grid dimensions. */
 .modular-table:not(.mod-published){padding-top:20px}
+.modular-table:has(.mod-badge):not(.mod-published){padding:20px 24px 24px}
 .modular-table:not(.mod-published) .mod-grid::before{content:'';position:absolute;left:0;right:0;top:-20px;height:20px}
-.mod-cell{position:relative;min-width:0;min-height:0;border:1px dashed #cdd5dc;box-sizing:border-box}
+.mod-cell{position:relative;min-width:0;min-height:0;border:1px dashed #cdd5dc;box-sizing:border-box;overflow:visible}
 .modular-table[data-joined=true] .mod-cell:has(>.mod-card){border:0}
 .modular-table[data-joined=true] .mod-card{border-radius:var(--joined-corner-0,0px) var(--joined-corner-1,0px) var(--joined-corner-2,0px) var(--joined-corner-3,0px)}
 .mod-card{position:relative;width:100%;height:100%;box-sizing:border-box;background:var(--card-color,#f3eef9);color:var(--card-text,#333);border-radius:var(--card-radius,6px);padding:var(--card-padding,12px)}
@@ -118,7 +119,7 @@
 [data-panel-style=thought]>.mod-overflow-background{border-radius:46% 38% 42% 35% / 25% 32% 28% 35%}
 [data-panel-style=thought]>.mod-overflow-background::after{content:'';position:absolute;left:30px;top:calc(100% - 4px);width:18px;height:18px;border-radius:50%;background:inherit;box-shadow:-12px 18px 0 -4px var(--overflow-fill,#fff)}
 [data-panel-style=hologram]>.mod-overflow-background{border:2px solid #30bce5;box-shadow:inset 0 0 24px #30bce555,0 0 14px #30bce566;background-image:repeating-linear-gradient(transparent 0 4px,#30bce514 4px 5px);clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)}
-body:has(.mod-overflow-editor) :is(#rtf-toolbar,#image-toolbar,#inline-icon-toolbar,#text-link-tools,#icon-modal,.text-link-dialog){z-index:10030!important}
+body.has-mod-overflow-editor :is(#rtf-toolbar,#image-toolbar,#inline-icon-toolbar,#text-link-tools,#icon-modal,.text-link-dialog),body:has(.mod-overflow-editor) :is(#rtf-toolbar,#image-toolbar,#inline-icon-toolbar,#text-link-tools,#icon-modal,.text-link-dialog){z-index:10030!important}
 .mod-published .mod-overflow-info[data-enabled=false]{display:none!important}
 @media(max-width:600px){.mod-overflow-editor-bar{gap:3px}.mod-overflow-editor-bar label{font-size:10px}.mod-overflow-surface,.mod-overflow-edit-surface{padding:16px}}
 .mod-text-box-info{position:absolute;inset:0;margin:auto;width:max-content;height:max-content;display:none;z-index:25}
@@ -189,11 +190,12 @@ body:has(.mod-overflow-editor) :is(#rtf-toolbar,#image-toolbar,#inline-icon-tool
 .dark .mod-align-text-icon{--editor-prompt-icon-bg:#252a35}
 .mod-cell-tools details>.mod-align-actions{display:flex;gap:4px;min-width:0;width:max-content;padding:6px}
 .mod-cell-tools details>.mod-align-actions>button{display:grid;flex:0 0 30px;height:30px;margin:0}
-.mod-badge{position:absolute;transform:translate(-50%,-50%);z-index:70;display:grid;place-items:center;touch-action:none;cursor:grab;user-select:none}
-.mod-cell:has(>.mod-badge:hover),.mod-cell:has(>.mod-badge:focus-within),.mod-cell:has(>.mod-badge[data-dragging]){z-index:72}
+.mod-badge{position:absolute;transform:translate(-50%,-50%);z-index:70;display:grid;place-items:center;touch-action:none;cursor:grab;user-select:none;overflow:visible}
+.mod-cell:has(>.mod-badge){z-index:60}
+.mod-cell:has(>.mod-badge:hover),.mod-cell:has(>.mod-badge:focus-within),.mod-cell:has(>.mod-badge[data-dragging]){z-index:75}
 .mod-badge[data-dragging]{cursor:grabbing;filter:drop-shadow(0 3px 4px #0003)}
 .mod-badge:focus-visible{outline:2px solid #ff5900;outline-offset:4px;border-radius:8px}
-.mod-badge>svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;filter:drop-shadow(0 1px 2px #0002)}
+.mod-badge>svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible!important;pointer-events:none;filter:drop-shadow(0 1px 2px #0002)}
 .mod-badge-text.editable-text{position:relative;width:70%;max-height:none;min-height:0;overflow:visible;overflow-wrap:anywhere;text-align:center!important;line-height:1.2;white-space:pre-wrap;padding:0;margin:0}
 .mod-badge-text :is(p,div,h1,h2,h3){margin:0;text-align:center!important}
 .mod-badge-text:empty::before{content:'txt';opacity:.65}
@@ -275,10 +277,10 @@ body:has(.mod-overflow-editor) :is(#rtf-toolbar,#image-toolbar,#inline-icon-tool
 .mod-preview-tools details>div>button{display:inline-flex;flex-direction:column;height:42px;margin:2px}
 .mod-preview-tools small{font-size:10px}
 .mod-preview-tools input[type=range]{display:block;width:150px}
-body:has(.mod-info[data-editing=true]) #rtf-toolbar{z-index:10001!important}
+body.has-mod-info-editing #rtf-toolbar,body:has(.mod-info[data-editing=true]) #rtf-toolbar{z-index:10001!important}
 .mod-info[open] summary~*{animation:none!important}
 .mod-modal{position:fixed;inset:0;z-index:9000;background:#0008;display:grid;place-items:center;padding:30px}
-body:has(.mod-modal) #rtf-toolbar{z-index:10001!important}
+body.has-mod-modal #rtf-toolbar,body:has(.mod-modal) #rtf-toolbar{z-index:10001!important}
 .mod-modal section{width:min(620px,90vw);max-height:85vh;overflow:auto;background:white;color:#333;border-radius:16px;padding:24px;box-shadow:0 12px 40px #0004}
 .mod-modal h2{font-size:22px;color:#5d428c;margin-bottom:16px}
 .mod-modal label{display:block;margin:12px 0}

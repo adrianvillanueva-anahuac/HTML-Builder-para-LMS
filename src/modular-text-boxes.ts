@@ -48,10 +48,16 @@ let finishSession:((block?:HTMLElement)=>void)|undefined;
 export function finishModularTextEditing(block?:HTMLElement){finishSession?.(block);}
 /** Native Builder editing, with the same geometry engine as flow figure captions. */
 export function setupModularTextBoxes(host:Host){
- let session:{block:HTMLElement;cell:ModularCell;id:string;text:HTMLElement;frame:HTMLElement;controls:HTMLElement;actions:HTMLElement;observer:MutationObserver;resize:ResizeObserver}|null=null;
+ let session:{block:HTMLElement;cell:ModularCell;id:string;text:HTMLElement;frame:HTMLElement;controls:HTMLElement;actions:HTMLElement;observer:MutationObserver;resize:ResizeObserver}|null=null,positionRaf=0;
+ const schedulePosition=()=>{
+  if(!session)return;
+  if(positionRaf)return;
+  positionRaf=requestAnimationFrame(()=>{positionRaf=0;position();});
+ };
  const commit=()=>{if(!session)return;host.sync(session.block);host.persist(session.block);host.update(session.block);};
  const position=()=>{if(!session)return;if(!session.frame.isConnected){finish();return;}const r=session.frame.getBoundingClientRect(),bar=document.getElementById('rtf-toolbar');if(bar&&!bar.classList.contains('hidden')){bar.style.left=Math.max(bar.offsetWidth/2+8,Math.min(innerWidth-bar.offsetWidth/2-8,r.left+r.width/2))+'px';bar.style.top=Math.max(bar.offsetHeight+12,r.top-34)+'px';}};
  function finish(block?:HTMLElement){
+  if(positionRaf){cancelAnimationFrame(positionRaf);positionRaf=0;}
   if(!session||(block&&session.block!==block))return;
   const old=session;session=null;old.observer.disconnect();old.resize.disconnect();if(old.controls.dataset.dragging)window.modularResizing=false;host.sync(old.block);host.persist(old.block);old.controls.remove();old.actions.remove();old.frame.classList.remove('mod-text-box-active');old.text.contentEditable='false';
   if(window.currentEditableText===old.text){window.currentEditableText=null;window.lastKnownRange=null;document.getElementById('rtf-toolbar')?.classList.add('hidden');}
@@ -94,5 +100,5 @@ export function setupModularTextBoxes(host:Host){
  document.addEventListener('pointerdown',event=>{if(session&&!session.frame.contains(event.target as Node)&&!builderTextToolTarget(event.target))finish();},true);
  document.addEventListener('click',event=>{const button=(event.target as Element).closest<HTMLElement>('[data-mod-text-action]');if(!button)return;const block=button.closest<HTMLElement>('.modular-table'),cell=button.closest<HTMLElement>('.mod-cell');if(!block||!cell||!host.model(block))return;event.preventDefault();event.stopImmediatePropagation();const id=button.dataset.modTextId||button.closest<HTMLElement>('.mod-text-box-frame')?.dataset.modTextId||'primary',action=button.dataset.modTextAction;if(action==='add')add(block,cell.dataset.cell!);else if(action==='remove')remove(block,cell.dataset.cell!,id);else open(block,cell,id);},true);
  document.addEventListener('keydown',event=>{if(session&&session.frame.contains(event.target as Node)&&(event.key==='Escape'||((event.ctrlKey||event.metaKey)&&event.key==='Enter'))){event.preventDefault();event.stopImmediatePropagation();finish();}},true);
- window.addEventListener('scroll',position,true);window.addEventListener('resize',position);
+ window.addEventListener('scroll',()=>{if(session)schedulePosition();},{capture:true,passive:true});window.addEventListener('resize',schedulePosition);
 }

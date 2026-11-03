@@ -755,3 +755,10 @@ details[open] summary ~ * { animation: fadeIn 0.3s ease-in-out; }
 .dark .lms-shepherd-theme .shepherd-arrow::before {
     background: #323232;
 }
+
+/* Editor rendering optimization: contain off-screen blocks to speed up scrolling (modular tables and diagrams excluded so their perimeter shapes and connection overhangs are never clipped) */
+body:not(.is-dragging):not(.lms-group-moving):not(.lms-group-selecting) #canvas > .lms-element:not(:hover):not(:focus-within):not(.is-selected):not(.sortable-chosen):not(.drag-item):not(.is-dragging):not([data-type="pagina_completa"]):not([data-type="tabla_modular"]):not([data-type="diagrama_flujo"]),
+body:not(.is-dragging):not(.lms-group-moving):not(.lms-group-selecting) #canvas .lms-dropzone > .lms-element:not(:hover):not(:focus-within):not(.is-selected):not(.sortable-chosen):not(.drag-item):not(.is-dragging):not([data-type="pagina_completa"]):not([data-type="tabla_modular"]):not([data-type="diagrama_flujo"]) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 150px;
+}
