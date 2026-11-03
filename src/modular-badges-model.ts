@@ -1,13 +1,16 @@
 import {clamp,type ModularModel} from './modular-model';
 
 export type PerimeterPosition={edge:'top'|'right'|'bottom'|'left';offset:number};
-export type PerimeterBadge={shape:'circle'|'rounded'|'hexagon'|'triangle';color:string;scale:number;position:PerimeterPosition;text:string;html?:string;textStyle?:string;width?:number;height?:number};
+export type PerimeterBadge={shape:'circle'|'rounded'|'hexagon'|'triangle';color:string;strokeColor?:string;strokeWidth?:number;scale:number;position:PerimeterPosition;text:string;html?:string;textStyle?:string;width?:number;height?:number};
 export const badgeShapes={circle:'Círculo',rounded:'Rectángulo redondeado',hexagon:'Hexágono',triangle:'Triángulo'};
 export function normalizeBadge(value:unknown):PerimeterBadge|undefined {
   if(!value||typeof value!=='object')return;
   const badge=value as Partial<PerimeterBadge>;
   if(!Object.hasOwn(badgeShapes,badge.shape||''))return;
+  const strokeColor=/^#[0-9a-f]{6}$/i.test(badge.strokeColor||'')?badge.strokeColor!:undefined;
+  const strokeWidth=Number.isFinite(badge.strokeWidth)?clamp(badge.strokeWidth!,0,8):0;
   return {shape:badge.shape!,color:/^#[0-9a-f]{6}$/i.test(badge.color||'')?badge.color!:'#5d428c',
+    ...(strokeColor?{strokeColor}:{}),...(strokeWidth>0?{strokeWidth}:{}),
     scale:Number.isFinite(badge.scale)?clamp(badge.scale!,.5,2):1,position:normalizePosition(badge.position),
     text:typeof badge.text==='string'?badge.text:'',...(typeof badge.html==='string'?{html:badge.html}:{}),
     ...(typeof badge.textStyle==='string'?{textStyle:badge.textStyle}:{}),
@@ -50,4 +53,38 @@ export function stepPerimeter(position:PerimeterPosition,delta:number):Perimeter
 }
 export function alignBadges(model:ModularModel,position:PerimeterPosition) {
   Object.values(model.cells).forEach(cell=>{if(cell.badge)cell.badge.position={...normalizePosition(position)};});
+}
+export function setAllBadgesColor(model:ModularModel,color:string) {
+  if(!/^#[0-9a-f]{6}$/i.test(color))return;
+  Object.values(model.cells).forEach(cell=>{if(cell.badge)cell.badge.color=color;});
+}
+export function setAllBadgesStroke(model:ModularModel,stroke:{color?:string;width?:number}) {
+  const validColor=stroke.color&&/^#[0-9a-f]{6}$/i.test(stroke.color)?stroke.color:undefined;
+  const validWidth=stroke.width!==undefined&&Number.isFinite(stroke.width)?clamp(stroke.width,0,8):undefined;
+  Object.values(model.cells).forEach(cell=>{
+    const badge=cell.badge;if(!badge)return;
+    if(validColor){
+      badge.strokeColor=validColor;
+      if(validWidth===undefined&&!badge.strokeWidth)badge.strokeWidth=2;
+    }
+    if(validWidth!==undefined){
+      if(validWidth<=0)delete badge.strokeWidth;
+      else{
+        badge.strokeWidth=validWidth;
+        if(!badge.strokeColor)badge.strokeColor='#5d428c';
+      }
+    }
+  });
+}
+export function setAllBadgesScale(model:ModularModel,scale:number) {
+  const next=clamp(scale,.5,2);
+  Object.values(model.cells).forEach(cell=>{
+    const badge=cell.badge;if(!badge)return;
+    const prev=badge.scale||1;
+    if(badge.shape==='rounded'){
+      if(Number.isFinite(badge.width))badge.width=clamp(Math.round(badge.width!*(next/prev)),16,1200);
+      if(Number.isFinite(badge.height))badge.height=clamp(Math.round(badge.height!*(next/prev)),16,600);
+    }
+    badge.scale=next;
+  });
 }

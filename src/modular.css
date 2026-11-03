@@ -193,25 +193,28 @@ body:has(.mod-overflow-editor) :is(#rtf-toolbar,#image-toolbar,#inline-icon-tool
 .mod-cell:has(>.mod-badge:hover),.mod-cell:has(>.mod-badge:focus-within),.mod-cell:has(>.mod-badge[data-dragging]){z-index:72}
 .mod-badge[data-dragging]{cursor:grabbing;filter:drop-shadow(0 3px 4px #0003)}
 .mod-badge:focus-visible{outline:2px solid #ff5900;outline-offset:4px;border-radius:8px}
-.mod-badge>svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;filter:drop-shadow(0 1px 2px #0002)}
+.mod-badge>svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;filter:drop-shadow(0 1px 2px #0002)}
 .mod-badge-text.editable-text{position:relative;width:70%;max-height:none;min-height:0;overflow:visible;overflow-wrap:anywhere;text-align:center!important;line-height:1.2;white-space:pre-wrap;padding:0;margin:0}
 .mod-badge-text :is(p,div,h1,h2,h3){margin:0;text-align:center!important}
 .mod-badge-text:empty::before{content:'txt';opacity:.65}
 .mod-badge-text[contenteditable=true]{cursor:text;user-select:text;touch-action:auto}
 .mod-badge-text.editable-text:is(:hover,[contenteditable=true]){background:transparent}
-.mod-cell-tools details>.mod-badge-panel{min-width:0;width:190px;padding:10px;white-space:normal}
+.mod-cell-tools details>.mod-badge-panel{min-width:0;width:204px;padding:10px;white-space:normal}
 .mod-badge-panel .mod-badge-shapes{display:flex;gap:4px}
 .mod-badge-panel .mod-badge-shapes>[data-badge-delete]{margin-left:auto}
 .mod-badge-panel .mod-badge-shapes button[aria-pressed=true]{background:#eee8f6;outline:1px solid #5d428c}
-.mod-badge-panel label{display:block;margin:10px 0;font-size:12px}
-.mod-badge-panel output{float:right}
-.mod-badge-panel .mod-badge-color{display:flex;align-items:center;justify-content:space-between}
-.mod-badge-panel input[type=color]{width:32px;height:28px;padding:2px;border:1px solid #cdd5dc;border-radius:5px;cursor:pointer}
+.mod-badge-panel label,.mod-badge-align-panel label{display:block;margin:8px 0 4px;font-size:12px}
+.mod-badge-panel output,.mod-badge-align-panel output{float:right}
+.mod-badge-panel .mod-badge-color,.mod-badge-align-panel .mod-badge-color{display:flex;align-items:center;justify-content:space-between;margin:8px 0 6px}
+.mod-badge-panel input[type=color],.mod-badge-align-panel input[type=color]{width:30px;height:24px;padding:2px;border:1px solid #cdd5dc;border-radius:5px;cursor:pointer}
+.mod-badge-panel .mod-palette,.mod-badge-align-panel .mod-palette{display:grid;grid-template-columns:repeat(8,19px);gap:4px;margin-bottom:4px}
+.mod-badge-panel .mod-palette button,.mod-badge-align-panel .mod-palette button{width:19px;height:19px;border-radius:50%}
 .mod-cell-tools details>.mod-badge-panel>[data-badge-delete]{display:grid;width:30px;height:30px;margin:8px 0 0 auto}
 .mod-badge-align-icon{position:relative;width:20px;height:14px;border:1.5px solid currentColor;border-radius:2px}
 .mod-badge-align-icon::after{content:'';position:absolute;width:7px;height:7px;border-radius:50%;background:currentColor;top:-4px;left:5px;box-shadow:0 0 0 1px white}
-.mod-tools details>.mod-badge-align-panel{position:absolute;min-width:0;width:204px;box-sizing:border-box;padding:12px;white-space:normal}
-.mod-badge-picker{position:relative;width:160px;height:90px;box-sizing:border-box;border:2px solid #b5a6cc;border-radius:3px;background:#f3eef9;margin:20px 8px 12px;cursor:crosshair;touch-action:none}
+.mod-tools details>.mod-badge-align-panel{position:absolute;min-width:0;width:216px;box-sizing:border-box;padding:12px;white-space:normal;overflow-y:auto}
+.mod-badge-align-panel input[type=range]{display:block;width:100%;max-width:none;margin-top:4px}
+.mod-badge-picker{position:relative;width:160px;height:80px;box-sizing:border-box;border:2px solid #b5a6cc;border-radius:3px;background:#f3eef9;margin:10px auto 8px;cursor:crosshair;touch-action:none}
 .mod-badge-picker-dot{position:absolute;width:16px;height:16px;border:2px solid white;box-shadow:0 0 0 1px #5d428c;border-radius:50%;background:#5d428c;transform:translate(-50%,-50%);pointer-events:auto;cursor:grab}
 .mod-badge-picker:focus-visible{outline:2px solid #ff5900;outline-offset:6px}
 .mod-published .mod-badge{cursor:default;touch-action:auto;user-select:text}

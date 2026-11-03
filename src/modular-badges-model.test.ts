@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {activateAllCells,createModular,removeCell,removeLastTrack} from './modular-model';
-import {alignBadges,createBadge,normalizeBadge,perimeterPoint,projectToPerimeter,stepPerimeter} from './modular-badges-model';
+import {alignBadges,createBadge,normalizeBadge,perimeterPoint,projectToPerimeter,stepPerimeter,setAllBadgesColor,setAllBadgesStroke,setAllBadgesScale} from './modular-badges-model';
 
 test('figuras del perímetro: tres formas, valores seguros y modelos antiguos compatibles',()=>{
   for(const shape of ['circle','rounded','hexagon'] as const){
@@ -62,4 +62,34 @@ test('figuras, texto enriquecido y escala sobreviven a JSON; eliminación no dej
   assert.deepEqual(JSON.parse(JSON.stringify(m)),m);
   removeLastTrack(m,'column');assert.equal(Object.values(m.cells).filter(c=>c.badge).length,1);
   removeCell(m,'0:0');assert.equal(Object.values(m.cells).filter(c=>c.badge).length,0);
+});
+test('control conjunto de relleno, borde (color y grosor) y escala para todas las figuras',()=>{
+  const m=createModular(2,2);activateAllCells(m);
+  m.cells['0:0'].badge=createBadge('circle');
+  m.cells['0:1'].badge={...createBadge('rounded'),width:120,height:60};
+  m.cells['1:0'].badge=createBadge('hexagon');
+  setAllBadgesColor(m,'#ff5900');
+  for(const key of ['0:0','0:1','1:0']){
+    assert.equal(m.cells[key].badge!.color,'#ff5900');
+  }
+  setAllBadgesStroke(m,{color:'#5d428c'});
+  for(const key of ['0:0','0:1','1:0']){
+    assert.equal(m.cells[key].badge!.strokeColor,'#5d428c');
+    assert.equal(m.cells[key].badge!.strokeWidth,2);
+  }
+  setAllBadgesStroke(m,{width:5});
+  for(const key of ['0:0','0:1','1:0']){
+    assert.equal(m.cells[key].badge!.strokeWidth,5);
+    assert.deepEqual(normalizeBadge(m.cells[key].badge),m.cells[key].badge);
+  }
+  setAllBadgesScale(m,1.5);
+  for(const key of ['0:0','0:1','1:0']){
+    assert.equal(m.cells[key].badge!.scale,1.5);
+  }
+  assert.equal(m.cells['0:1'].badge!.width,180);
+  assert.equal(m.cells['0:1'].badge!.height,90);
+  setAllBadgesStroke(m,{width:0});
+  for(const key of ['0:0','0:1','1:0']){
+    assert.equal(m.cells[key].badge!.strokeWidth,undefined);
+  }
 });

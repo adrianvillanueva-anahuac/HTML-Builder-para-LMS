@@ -10,8 +10,8 @@ export function inlineModularLayout(root:ParentNode) {
     const badges=Array.from(block.querySelectorAll<HTMLElement>('.mod-badge'));
     // Scroll containers clip overflow on both axes. Leave space for the halves
     // outside each cell, including corner positions and enlarged shapes.
-    const gutterX=badges.length?Math.ceil(Math.max(...badges.map(b=>b.hasAttribute('data-rounded-width')?0:parseFloat(b.style.width)/2)))+2:0;
-    const gutterY=badges.length?Math.ceil(Math.max(...badges.map(b=>parseFloat(b.style.height)/2)))+2:0;
+    const gutterX=badges.length?Math.ceil(Math.max(...badges.map(b=>b.hasAttribute('data-rounded-width')?0:parseFloat(b.style.width)/2+(parseFloat(b.querySelector('svg')?.style.strokeWidth||'0')||0)/2)))+2:0;
+    const gutterY=badges.length?Math.ceil(Math.max(...badges.map(b=>parseFloat(b.style.height)/2+(parseFloat(b.querySelector('svg')?.style.strokeWidth||'0')||0)/2)))+2:0;
     apply('.mod-scroll',{overflowX:'auto',padding:`${gutterY}px ${gutterX}px`,margin:'0px',boxSizing:'border-box'});
     apply('.mod-grid',{position:'relative',display:'grid',gap:variable(block,'--mod-gap','20px'),boxSizing:'border-box'});
     apply('.mod-cell',{position:'relative',minWidth:'0',minHeight:'0',border:'0',boxSizing:'border-box'});
@@ -85,7 +85,7 @@ export function inlineModularLayout(root:ParentNode) {
     // Percent anchors and translate keep each badge's center on the perimeter
     // even when a published table is resized, without requiring JavaScript.
     apply('.mod-badge',{position:'absolute',transform:'translate(-50%,-50%)',zIndex:'70',display:'grid',placeItems:'center',cursor:'default'});
-    apply('.mod-badge>svg',{position:'absolute',inset:'0',width:'100%',height:'100%',pointerEvents:'none'});
+    apply('.mod-badge>svg',{position:'absolute',inset:'0',width:'100%',height:'100%',overflow:'visible',pointerEvents:'none'});
     apply('.mod-badge-text',{position:'relative',width:'70%',maxHeight:'none',minHeight:'0',overflow:'visible',overflowWrap:'anywhere',textAlign:'center',lineHeight:'1.2',whiteSpace:'pre-wrap',padding:'0',margin:'0'});
     apply('.mod-badge-text :is(p,div,h1,h2,h3)',{margin:'0',textAlign:'center'});
     // Rounded badges remain inside their own slot even without the runtime.
