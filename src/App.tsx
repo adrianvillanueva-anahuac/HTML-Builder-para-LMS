@@ -4,7 +4,7 @@ import {builderTextHostEvent} from './builder-text-tools';
 import {applyBuilderVerticalAlignment} from './builder-text-session';
 import Sortable from 'sortablejs';
 import { setupVanillaGlobals, upgradeTitleImageElements } from './vanilla-setup';
-import { TUTORIAL_TOPICS, startTutorial, type TutorialTopicId } from './tutorial';
+import { TUTORIAL_TOPICS, type TutorialTopicId } from './tutorial-content';
 import { exerciseMode, setupExercises, saveExercise } from './exercise';
 import ProjectManager from './ProjectManager';
 import { setupToolbarSelection } from './toolbar-selection';
@@ -105,11 +105,7 @@ export default function App() {
   const [footerLogos, setFooterLogos] = useState<FooterLogo[]>([]);
   const [bgImages, setBgImages] = useState<{name: string, url: string}[]>([]);
   const [titleBgImages, setTitleBgImages] = useState<{name: string, url: string}[]>([]);
-  const [user, setUser] = useState<any | null>(null);
   const isInitialized = useRef(false);
-
-  useEffect(() => {
-  }, []);
 
   useEffect(() => {
     // Fetch logs from github
@@ -339,7 +335,7 @@ export default function App() {
       (window as any).footerLogoUrls = logos.reduce((acc: any, curr: FooterLogo) => { acc[curr.id] = curr.url; return acc; }, {});
       return logos;
     });
-  });
+  }, [footerLogos]);
 
   useEffect(() => setupToolbarSelection(), []);
   useEffect(() => setupEditingContrast(), []);
@@ -393,37 +389,6 @@ export default function App() {
     window.initNestedDropzones();
 
     setupExercises();
-
-    // 4. Iniciar Íconos de Google en el Modal
-    const gridContainer = document.getElementById('icon-grid');
-
-    if (gridContainer && gridContainer.children.length === 0) {
-        Object.entries(iconCatalog).forEach(([category, icons]) => {
-            const catDiv = document.createElement('div');
-            const title = document.createElement('h3');
-            title.className = "text-sm font-bold text-gray-500 mb-2 border-b border-gray-100 pb-1";
-            title.innerText = category;
-            catDiv.appendChild(title);
-            
-            const grid = document.createElement('div');
-            grid.className = "grid grid-cols-8 gap-2";
-            
-            icons.forEach(icon => {
-                let span = document.createElement('span');
-                span.className = "material-symbols-outlined text-[32px] p-2 cursor-pointer text-anahuac-orange hover:bg-orange-50 hover:text-anahuac-purple dark:hover:bg-gray-700 dark:text-white rounded transition-colors text-center";
-                span.innerText = icon;
-                span.title = icon;
-                span.onclick = () => { 
-                    if(window.currentIconTarget) { window.currentIconTarget.innerText = icon; }
-                    document.getElementById('icon-modal')?.classList.add('hidden'); 
-                };
-                grid.appendChild(span);
-            });
-
-            catDiv.appendChild(grid);
-            gridContainer.appendChild(catDiv);
-        });
-    }
 
     // 5. Configurar eventos de texto Editable
     const handleSelectionChange = () => {
@@ -565,7 +530,7 @@ export default function App() {
 
   const handleStartTutorial = (topicId: TutorialTopicId) => {
     setShowTutorialMenu(false);
-    startTutorial(topicId);
+    void import('./tutorial').then(({ startTutorial }) => startTutorial(topicId));
   };
 
   useEffect(() => {

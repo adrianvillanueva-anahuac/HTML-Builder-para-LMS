@@ -1,6 +1,6 @@
 import Sortable from 'sortablejs';
 import {applyTableAppearance,setupTableStyleControls,prepareTableStylesExport} from './table-style-controls';
-import {toggleLmsTab} from './tabs-runtime.js';
+import {toggleLmsTab, toggleTabsOrientation} from './tabs-runtime.js';
 import {readBackground} from './workspace-appearance';
 import tabsRuntime from './tabs-runtime.js?raw';
 import {setupImageControls,prepareImageControlsExport,changeImageCropAspect,changeImageCropPosition,rotateImageCrop} from './image-controls';
@@ -25,7 +25,10 @@ import './icon-grid.css';
 import iconGridStyles from './icon-grid.css?raw';
 import './footer-layout.css';
 import footerLayoutStyles from './footer-layout.css?raw';
-import { externalizeImages } from './published-resources';
+import { externalizeImages, REPO_TITULOS_BASE, REPO_LOGOS_BASE } from './published-resources';
+import { escapeHtml, sanitizeHref } from './html-sanitize';
+import { parseReferencesText } from './references';
+import { createTemplateHtml, isPageTemplateType } from './template-registry';
 import { getExerciseBlock, prepareExerciseLinks } from './exercise';
 import {
     getBienvenidaHTML, getReferenciasHTML, getRequerimientosHTML,
@@ -352,8 +355,8 @@ export function setupVanillaGlobals() {
                         }
 
                         if (tag === 'a') {
-                            const href = el.getAttribute('href') || '#';
-                            return `<a href="${href}" target="_blank" class="text-anahuac-orange underline hover:text-orange-700 break-words">${content}</a>`;
+                            const href = escapeHtml(sanitizeHref(el.getAttribute('href') || '#', '#'));
+                            return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-anahuac-orange underline hover:text-orange-700 break-words">${content}</a>`;
                         }
                         if (tag === 'ul') {
                             return `<ul class="list-custom list-bullets pl-4 mb-3">\n${content}</ul>\n`;
@@ -506,19 +509,7 @@ export function setupVanillaGlobals() {
     // Added insert template function
     window.insertTemplate = function(type: string) {
         window.saveHistoryState();
-        let newHTML = '';
-        if(type === 'bienvenida') newHTML = getBienvenidaHTML();
-        else if(type === 'referencias') newHTML = getReferenciasHTML();
-        else if(type === 'requerimientos') newHTML = getRequerimientosHTML();
-        else if(type === 'indice') newHTML = getIndiceHTML();
-        else if(type === 'conclusiones') newHTML = getConclusionesHTML();
-        else if(type === 'profesor') newHTML = getProfesorHTML();
-        else if(type === 'pagina_basica') newHTML = getPaginaBasicaHTML();
-        else if(type === 'titulo_imagen') newHTML = getTituloImagenHTML();
-        else if(type === 'tabla_modular') newHTML = getModularHTML();
-        else if(type === 'diagrama_flujo') newHTML = getFlowHTML();
-        else if(type === 'boton_interactivo') newHTML = getInteractiveButtonHTML();
-        else newHTML = getExerciseBlock(type);
+        const newHTML = createTemplateHtml(type);
         
         if (!newHTML) return;
         
@@ -531,7 +522,7 @@ export function setupVanillaGlobals() {
         const renderedElement = template.content.firstElementChild as HTMLElement | null;
         if(renderedElement) {
             canvas.appendChild(renderedElement);
-            if (wasEmpty && ['bienvenida','referencias','requerimientos','indice','conclusiones','profesor','pagina_basica','pagina_ejercicio','pagina_foda'].includes(type)) window.switchTab('elements');
+            if (wasEmpty && isPageTemplateType(type)) window.switchTab('elements');
             if (type === 'titulo_imagen') {
                 window.updateTitleImageContrast(renderedElement);
             }
@@ -1031,35 +1022,7 @@ export function setupVanillaGlobals() {
         if (droppedEl.dataset.type && !droppedEl.classList.contains('is-rendered')) {
             // It's a drag from the sidebar
             const type = droppedEl.dataset.type;
-            if(type === 'bienvenida') draggedTemplateHTML = getBienvenidaHTML();
-            else if(type === 'referencias') draggedTemplateHTML = getReferenciasHTML();
-            else if(type === 'requerimientos') draggedTemplateHTML = getRequerimientosHTML();
-            else if(type === 'indice') draggedTemplateHTML = getIndiceHTML();
-            else if(type === 'conclusiones') draggedTemplateHTML = getConclusionesHTML();
-            else if(type === 'profesor') draggedTemplateHTML = getProfesorHTML();
-            else if(type === 'pagina_basica') draggedTemplateHTML = getPaginaBasicaHTML();
-            else if(type === 'pestanas') draggedTemplateHTML = getTabsHTML();
-            else if(type === 'caja_texto') draggedTemplateHTML = getCajaTextoHTML();
-            else if(type === 'titulo_basico') draggedTemplateHTML = getTituloBasicoHTML();
-            else if(type === 'titulo_imagen') draggedTemplateHTML = getTituloImagenHTML();
-            else if(type === 'parrafo_basico') draggedTemplateHTML = getParrafoBasicoHTML();
-            else if(type === 'imagen_suelta') draggedTemplateHTML = getImagenSueltaHTML();
-            else if(type === 'grid_2x2') draggedTemplateHTML = getGrid2x2HTML();
-            else if(type === 'tabla_modular') draggedTemplateHTML = getModularHTML();
-            else if(type === 'diagrama_flujo') draggedTemplateHTML = getFlowHTML();
-            else if(type === 'cuadro_naranja') draggedTemplateHTML = getCuadroNaranjaHTML();
-            else if(type === 'boton_interactivo') draggedTemplateHTML = getInteractiveButtonHTML();
-            else if(type === 'acordeon') draggedTemplateHTML = getAcordeonHTML();
-            else if(type === 'separador') draggedTemplateHTML = getSeparadorHTML();
-            else if(type === 'icono_suelto') draggedTemplateHTML = getIconoSueltoHTML();
-            else if(type === 'tabla_dinamica') draggedTemplateHTML = getTablaDinamicaHTML();
-            else if(type === 'profesor_datos') draggedTemplateHTML = getProfesorDatosHTML();
-            else if(type === 'referencia_item') draggedTemplateHTML = getReferenciaItemHTML();
-            else if(type === 'referencias_importer') draggedTemplateHTML = getReferenciasImporterHTML();
-            else if(type === 'flipcard') draggedTemplateHTML = getFlipcardHTML();
-            else if(type === 'calculadora_html') draggedTemplateHTML = getCalculadoraHTML();
-            else if(type?.startsWith('embed_')) { draggedTemplateHTML = getEmbedHTML(type); }
-            else draggedTemplateHTML = getExerciseBlock(type || '');
+            draggedTemplateHTML = createTemplateHtml(type || '');
             
             if (droppedEl.parentElement && droppedEl.closest('.lms-dropzone') || droppedEl.classList.contains('sortable-ghost')) {
                 droppedEl.remove();
@@ -1688,53 +1651,7 @@ export function setupVanillaGlobals() {
         } 
     }
 
-    window.toggleTabsOrientation = function(btn: HTMLElement) {
-        const container = btn.closest('.lms-element[data-type="pestanas"]');
-        if (!container) return;
-
-        const mainContent = container.querySelector('.tabs-main-container');
-        const tabList = container.querySelector('.tab-buttons-container');
-        
-        if (!mainContent || !tabList) return;
-
-        const isHorizontal = container.getAttribute('data-orientation') === 'horizontal';
-        
-        if (isHorizontal) {
-            container.setAttribute('data-orientation', 'vertical');
-            mainContent.classList.remove('flex-col');
-            mainContent.classList.add('md:flex-row', 'gap-4');
-            tabList.classList.remove('border-b', 'mb-3');
-            tabList.classList.add('flex-col', 'border-r', 'md:w-1/4', 'mb-0');
-            
-            // Adjust buttons for vertical
-            tabList.querySelectorAll('button').forEach(b => {
-                b.classList.remove('border-b-2', 'px-3', 'py-1.5');
-                b.classList.add('border-r-2', 'px-4', 'py-2', 'text-left');
-                if (b.classList.contains('border-anahuac-orange')) {
-                    b.classList.add('border-anahuac-orange');
-                } else {
-                    b.classList.add('border-transparent');
-                }
-            });
-        } else {
-            container.setAttribute('data-orientation', 'horizontal');
-            mainContent.classList.add('flex-col');
-            mainContent.classList.remove('md:flex-row', 'gap-4');
-            tabList.classList.add('border-b', 'mb-3');
-            tabList.classList.remove('flex-col', 'border-r', 'md:w-1/4', 'mb-0');
-
-            // Adjust buttons for horizontal
-            tabList.querySelectorAll('button').forEach(b => {
-                b.classList.add('border-b-2', 'px-3', 'py-1.5');
-                b.classList.remove('border-r-2', 'px-4', 'py-2', 'text-left');
-                if (b.classList.contains('border-anahuac-orange')) {
-                    b.classList.add('border-anahuac-orange');
-                } else {
-                    b.classList.add('border-transparent');
-                }
-            });
-        }
-    }
+    window.toggleTabsOrientation = toggleTabsOrientation;
 
     window.addTab = function(btn: HTMLElement) { 
         const container = btn.closest('.lms-element'); 
@@ -2651,7 +2568,8 @@ export function setupVanillaGlobals() {
             if (linkMatch) {
                 currentText = linkMatch[2];
             }
-            window.tempProfesorDatos[index].text = `<a href="${newUrl}" class="text-blue-600 underline cursor-pointer" target="_blank">${currentText}</a>`;
+            const safeHref = escapeHtml(sanitizeHref(newUrl, '#'));
+            window.tempProfesorDatos[index].text = `<a href="${safeHref}" class="text-blue-600 underline cursor-pointer" target="_blank" rel="noopener noreferrer">${currentText}</a>`;
             window.renderProfesorDatosList();
         }
         document.getElementById('profesor-link-modal')?.classList.add('hidden');
@@ -3686,7 +3604,7 @@ export function setupVanillaGlobals() {
 
         // Convierte los fondos locales de título en recursos permanentes para
         // que el HTML descargado también funcione fuera del Builder.
-        const titleImageExportBase = 'https://raw.githubusercontent.com/adrianvillanueva-anahuac/HTML-Builder-para-LMS/main/public/imagenes/titulos/';
+        const titleImageExportBase = REPO_TITULOS_BASE;
         clone.querySelectorAll('.title-image-surface').forEach(el => {
             const surface = el as HTMLElement;
             const currentUrl = surface.dataset.backgroundUrl;
@@ -3703,7 +3621,7 @@ export function setupVanillaGlobals() {
         });
 
         // Los logotipos locales deben seguir disponibles al llevar el HTML al LMS.
-        const footerLogoExportBase = 'https://raw.githubusercontent.com/adrianvillanueva-anahuac/HTML-Builder-para-LMS/main/public/imagenes/Logotipos/';
+        const footerLogoExportBase = REPO_LOGOS_BASE;
         clone.querySelectorAll('.footer-logo-image').forEach(el => {
             const logo = el as HTMLImageElement;
             const currentUrl = logo.getAttribute('src');
@@ -3715,38 +3633,7 @@ export function setupVanillaGlobals() {
         // Basic wrapper with tailwind CDN to ensure output works standalone.
         const customStyles = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,300;0,400;0,700;1,400&family=Roboto:wght@300;400;500;700&family=Zilla+Slab:wght@400;600;700&display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" /><script src="https://cdn.tailwindcss.com"><\/script><script>tailwind.config={theme:{extend:{colors:{anahuac:{orange:'#ff5900',purple:'#5d428c',light:'#f7f7f7',gray:'#cdd5dc',dark:'#646464'}},fontFamily:{sans:['Roboto','sans-serif'],serif:['Zilla Slab','serif'],lato:['Lato','sans-serif']}}}}<\/script><style>body { background-color: #f3f4f6; padding: 2rem; margin: 0; } .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; } .list-custom, .list-custom ul, .list-custom ol { list-style: none !important; margin-top: 0; margin-bottom: 0; } .list-custom { padding-left: 2rem; } .list-custom ul, .list-custom ol { padding-left: 2.5rem; margin-top: 0.5rem;} .list-custom li, .list-custom ul li, .list-custom ol li { position: relative; margin-bottom: 0.5rem; } .list-custom li::before, .list-custom ul li::before, .list-custom ol li::before { position: absolute; left: -2rem; top: 0; width: 1.5rem; text-align: right; color: #ff5900; font-weight: bold; font-family: 'Zilla Slab', serif; } .list-custom ul li::before { content: "○"; font-family: 'Roboto', sans-serif; font-size: 1.2em; top: -0.1rem; } .list-custom ul ul li::before { content: "■"; font-size: 0.8em; top: 0.15rem; } .list-custom ol { counter-reset: anahuac-sub; } .list-custom ol li::before { counter-increment: anahuac-sub; content: counter(anahuac-sub, lower-alpha) "."; } .list-numbers { counter-reset: anahuac-num; } .list-numbers > li::before { counter-increment: anahuac-num; content: counter(anahuac-num, decimal-leading-zero) "."; } .list-letters { counter-reset: anahuac-alpha; } .list-letters > li::before { counter-increment: anahuac-alpha; content: counter(anahuac-alpha, lower-alpha) "."; } .list-disc > li::before { content: "•"; font-size: 1.4em; font-family: 'Roboto', sans-serif; top: -0.2rem; } .list-circle > li::before { content: "○"; font-size: 1.2em; font-family: 'Roboto', sans-serif; top: -0.1rem; } .list-triangle > li::before { content: "▶"; font-size: 0.8em; font-family: 'Roboto', sans-serif; top: 0.15rem; } .list-plus > li::before { content: "+"; font-size: 1.3em; font-family: 'Roboto', sans-serif; top: -0.15rem; } .list-minus > li::before { content: "—"; font-size: 1.2em; font-family: 'Roboto', sans-serif; top: -0.1rem; } .parallax-container { position: relative; z-index: 1; } .parallax-bg-wrapper { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; z-index: -1; } .parallax-layer { position: absolute; width: 100%; height: 100%; left: 0%; top: 0%; pointer-events: none; z-index: 0; background-size: 100% auto; background-repeat: repeat; background-position: top center; } [data-bg="imagen"] .bg-layer { background-size: 100% auto !important; background-position: top center !important; background-repeat: no-repeat !important; background-color: #ffffff !important; } .table-container { width: 100% !important; max-width: 100% !important; overflow-x: auto !important; overflow-y: hidden !important; } .table-container table { width: 100% !important; max-width: 100% !important; table-layout: fixed !important; word-wrap: break-word !important; overflow-wrap: break-word !important; } .tab-content { display: none; } .tab-content.active { display: block; animation: fadeIn 0.3s ease; } details > summary { list-style: none; outline: none; cursor: pointer; } details > summary::-webkit-details-marker { display: none; } details[open] summary ~ * { animation: fadeIn 0.3s ease-in-out; } @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } } .flipcard-item.force-flip .flipcard-inner, .flipcard-item.is-flipped .flipcard-inner { transform: rotateY(180deg); } .flipcard-front, .flipcard-back { -webkit-backface-visibility: hidden; backface-visibility: hidden; } .flipcard-item.is-flipped .flipcard-front, .flipcard-item.force-flip .flipcard-front { pointer-events: none; } .flipcard-item.is-flipped .flipcard-back, .flipcard-item.force-flip .flipcard-back { pointer-events: auto; } .flipcard-item:not(.is-flipped):not(.force-flip) .flipcard-back { pointer-events: none; } .accordion-wrapper > details:first-child .accordion-delete-btn { display: none !important; }</style>`;
         const finalJS = `<script>
-        function toggleTabsOrientation(btn) {
-            const container = btn.closest('[data-type="pestanas"]') || btn.closest('.lms-element[data-type="pestanas"]');
-            if (!container) return;
-            const mainContent = container.querySelector('.tabs-main-container');
-            const tabList = container.querySelector('.tab-buttons-container');
-            if (!mainContent || !tabList) return;
-            const isHorizontal = container.getAttribute('data-orientation') === 'horizontal';
-            if (isHorizontal) {
-                container.setAttribute('data-orientation', 'vertical');
-                mainContent.classList.remove('flex-col');
-                mainContent.classList.add('md:flex-row', 'gap-6');
-                tabList.classList.remove('border-b', 'mb-4');
-                tabList.classList.add('flex-col', 'border-r', 'md:w-1/4', 'mb-0');
-                tabList.querySelectorAll('button').forEach(b => {
-                    b.classList.remove('border-b-2', 'px-4', 'py-2');
-                    b.classList.add('border-r-2', 'px-6', 'py-3', 'text-left');
-                    if (b.classList.contains('border-anahuac-orange')) { b.classList.add('border-anahuac-orange'); } else { b.classList.add('border-transparent'); }
-                });
-            } else {
-                container.setAttribute('data-orientation', 'horizontal');
-                mainContent.classList.add('flex-col');
-                mainContent.classList.remove('md:flex-row', 'gap-6');
-                tabList.classList.add('border-b', 'mb-4');
-                tabList.classList.remove('flex-col', 'border-r', 'md:w-1/4', 'mb-0');
-                tabList.querySelectorAll('button').forEach(b => {
-                    b.classList.add('border-b-2', 'px-4', 'py-2');
-                    b.classList.remove('border-r-2', 'px-6', 'py-3', 'text-left');
-                    if (b.classList.contains('border-anahuac-orange')) { b.classList.add('border-anahuac-orange'); } else { b.classList.add('border-transparent'); }
-                });
-            }
-        }
-        ${tabsRuntime.replace('export function','function')}
+        ${tabsRuntime.replaceAll('export function','function')}
         document.querySelectorAll('.parallax-container').forEach(container => { container.addEventListener('mousemove', (e) => { const rect = container.getBoundingClientRect(); const x = e.clientX - rect.left; const y = e.clientY - rect.top; container.querySelectorAll('.parallax-layer').forEach(layer => { const speed = parseFloat(layer.dataset.speed || 0); if(speed > 0) { layer.style.transform = \`translate(\${(x - rect.width / 2) * -speed}px, \${(y - rect.height / 2) * -speed}px)\`; } }); }); container.addEventListener('mouseleave', () => { container.querySelectorAll('.parallax-layer').forEach(layer => { layer.style.transform = \`translate(0px, 0px)\`; }); }); });
         
         document.querySelectorAll('.flipcard-item').forEach(card => {
@@ -4212,36 +4099,7 @@ export function setupVanillaGlobals() {
 
             if(type && !item.classList.contains('is-rendered')) {
                 setTimeout(() => {
-                    let newHTML = '';
-                    if(type === 'bienvenida') newHTML = getBienvenidaHTML();
-                    else if(type === 'referencias') newHTML = getReferenciasHTML();
-                    else if(type === 'requerimientos') newHTML = getRequerimientosHTML();
-                    else if(type === 'indice') newHTML = getIndiceHTML();
-                    else if(type === 'conclusiones') newHTML = getConclusionesHTML();
-                    else if(type === 'profesor') newHTML = getProfesorHTML();
-                    else if(type === 'pagina_basica') newHTML = getPaginaBasicaHTML();
-                    else if(type === 'pestanas') newHTML = getTabsHTML();
-                    else if(type === 'caja_texto') newHTML = getCajaTextoHTML();
-                    else if(type === 'titulo_basico') newHTML = getTituloBasicoHTML();
-                    else if(type === 'titulo_imagen') newHTML = getTituloImagenHTML();
-                    else if(type === 'parrafo_basico') newHTML = getParrafoBasicoHTML();
-                    else if(type === 'imagen_suelta') newHTML = getImagenSueltaHTML();
-                    else if(type === 'grid_2x2') newHTML = getGrid2x2HTML();
-                    else if(type === 'tabla_modular') newHTML = getModularHTML();
-                    else if(type === 'diagrama_flujo') newHTML = getFlowHTML();
-                    else if(type === 'cuadro_naranja') newHTML = getCuadroNaranjaHTML();
-                    else if(type === 'boton_interactivo') newHTML = getInteractiveButtonHTML();
-                    else if(type === 'acordeon') newHTML = getAcordeonHTML();
-                    else if(type === 'tabla_dinamica') newHTML = getTablaDinamicaHTML();
-                    else if(type === 'separador') newHTML = getSeparadorHTML();
-                    else if(type === 'icono_suelto') newHTML = getIconoSueltoHTML();
-                    else if(type === 'profesor_datos') newHTML = getProfesorDatosHTML();
-                    else if(type === 'referencia_item') newHTML = getReferenciaItemHTML();
-                    else if(type === 'referencias_importer') newHTML = getReferenciasImporterHTML();
-                    else if(type === 'flipcard') newHTML = getFlipcardHTML();
-                    else if(type === 'calculadora_html') newHTML = getCalculadoraHTML();
-                    else if(type.startsWith('embed_')) newHTML = getEmbedHTML(type);
-                    else newHTML = getExerciseBlock(type);
+                    const newHTML = createTemplateHtml(type);
                     
                     if (!newHTML) return;
 
@@ -4250,7 +4108,7 @@ export function setupVanillaGlobals() {
                     const renderedElement = template.content.firstElementChild as HTMLElement | null;
                     if(item.parentNode && renderedElement) {
                         item.parentNode.replaceChild(renderedElement, item);
-                        if (firstPage && ['bienvenida','referencias','requerimientos','indice','conclusiones','profesor','pagina_basica','pagina_ejercicio','pagina_foda'].includes(type)) window.switchTab('elements');
+                        if (firstPage && isPageTemplateType(type)) window.switchTab('elements');
                         if (type === 'titulo_imagen') {
                             window.updateTitleImageContrast(renderedElement);
                         }
@@ -4278,32 +4136,7 @@ export function setupVanillaGlobals() {
             
             if (!dropzone) return;
 
-            const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
-            let entries: {text: string, url: string}[] = [];
-            const urlRegex = /(https?:\/\/[^\s]+)/gi;
-            
-            for (const line of lines) {
-                const matches = [...line.matchAll(urlRegex)];
-                if (matches.length > 0) {
-                    let lastIndex = 0;
-                    for (const match of matches) {
-                        const index = match.index;
-                        const entryText = line.substring(lastIndex, index).trim();
-                        if (entryText || match[0]) {
-                            entries.push({ text: entryText, url: match[0] });
-                        }
-                        if (index !== undefined) {
-                            lastIndex = index + match[0].length;
-                        }
-                    }
-                    const trailingText = line.substring(lastIndex).trim();
-                    if (trailingText) {
-                        entries.push({ text: trailingText, url: '' });
-                    }
-                } else {
-                    entries.push({ text: line.trim(), url: '' });
-                }
-            }
+            const entries = parseReferencesText(text);
 
             if (entries.length === 0) {
                 alert('No se pudieron procesar referencias del texto.');
@@ -4334,32 +4167,7 @@ export function setupVanillaGlobals() {
         const dropzone = importerElement?.parentElement;
         if (!dropzone) return;
 
-        const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
-        let entries: {text: string, url: string}[] = [];
-        const urlRegex = /(https?:\/\/[^\s]+)/gi;
-        
-        for (const line of lines) {
-            const matches = [...line.matchAll(urlRegex)];
-            if (matches.length > 0) {
-                let lastIndex = 0;
-                for (const match of matches) {
-                    const index = match.index;
-                    const entryText = line.substring(lastIndex, index).trim();
-                    if (entryText || match[0]) {
-                        entries.push({ text: entryText, url: match[0] });
-                    }
-                    if (index !== undefined) {
-                        lastIndex = index + match[0].length;
-                    }
-                }
-                const trailingText = line.substring(lastIndex).trim();
-                if (trailingText) {
-                    entries.push({ text: trailingText, url: '' });
-                }
-            } else {
-                entries.push({ text: line.trim(), url: '' });
-            }
-        }
+        const entries = parseReferencesText(text);
 
         if (entries.length === 0) {
             alert('No se pudieron procesar referencias del texto.');
@@ -4416,7 +4224,7 @@ export function setupVanillaGlobals() {
         };
 
         const saveUrl = () => {
-            const newUrl = input.value.trim();
+            const newUrl = sanitizeHref(input.value.trim(), '');
             if (newUrl) {
                 a.setAttribute('href', newUrl);
                 a.setAttribute('title', newUrl);

@@ -1,9 +1,10 @@
-# Archivo de configuración de GitHub Actions para desplegar a GitHub Pages
+# Archivo de configuración de GitHub Actions para verificar y desplegar a GitHub Pages
 name: Deploy static content to Pages
 
 on:
-  # Se ejecuta cuando hay push a la rama main o master
+  # Ejecuta verificación en cualquier rama y despliega a Pages en main/master
   push:
+  pull_request:
     branches: ['main', 'master']
   # Permite ejecutar este flujo de trabajo manualmente desde la pestaña Actions
   workflow_dispatch:
@@ -16,14 +17,11 @@ permissions:
 
 # Permite desplegar solo concurrentemente
 concurrency:
-  group: "pages"
+  group: "pages-${{ github.ref }}"
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  verify:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -35,15 +33,28 @@ jobs:
           cache: 'npm'
       - name: Install dependencies
         run: npm ci
+      - name: Typecheck
+        run: npm run lint
+      - name: Run unit tests
+        run: npm test
       - name: Build
         run: npm run build
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-      - name: Upload artifact
+      - name: Upload Pages artifact
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'))
         uses: actions/upload-pages-artifact@v3
         with:
-          # Subimos la carpeta dist que es donde Vite exporta el proyecto final
           path: './dist'
+
+  deploy:
+    needs: verify
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'))
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

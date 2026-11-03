@@ -1,7 +1,9 @@
 import {tableStyleButtonsHTML} from './table-style-controls';
 import {flowBlockControlsHTML} from './flow-block-controls';
 // URL absoluta de los recursos que deben seguir funcionando en el HTML exportado.
-const GITHUB_REQ_IMAGES_URL = "https://raw.githubusercontent.com/adrianvillanueva-anahuac/HTML-Builder-para-LMS/main/public/imagenes/requerimientos";
+import {REPO_REQ_IMAGES_BASE} from './published-resources';
+import {escapeHtml, sanitizeHref} from './html-sanitize';
+const GITHUB_REQ_IMAGES_URL = REPO_REQ_IMAGES_BASE;
 const DEFAULT_TITLE_IMAGE_URL = `${import.meta.env.BASE_URL}imagenes/titulos/Fondo_naranja_escolar.png`;
 
 
@@ -658,14 +660,15 @@ export function getReferenciasImporterHTML() {
 export function getReferenciaItemHTML(text = "Referencia", url = "") {
     let linkHTML = '';
     if (url) {
-        linkHTML = `<div class="mt-1 flex items-center gap-2 reference-link-container group/link"><a href="${url}" target="_blank" class="text-anahuac-orange hover:underline font-serif font-bold reference-link" title="${url}">Link</a><button type="button" onclick="event.preventDefault(); event.stopPropagation(); window.editReferenceLink(this);" class="opacity-0 group-hover/link:opacity-100 transition-opacity bg-gray-100 hover:bg-gray-200 text-gray-500 rounded flex items-center justify-center p-0.5 cursor-pointer z-10 relative" title="Editar enlace"><span class="material-symbols-outlined text-[16px] pointer-events-none">edit</span></button></div>`;
+        const safeUrl = escapeHtml(sanitizeHref(url, ''));
+        if (safeUrl) linkHTML = `<div class="mt-1 flex items-center gap-2 reference-link-container group/link"><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="text-anahuac-orange hover:underline font-serif font-bold reference-link" title="${safeUrl}">Link</a><button type="button" onclick="event.preventDefault(); event.stopPropagation(); window.editReferenceLink(this);" class="opacity-0 group-hover/link:opacity-100 transition-opacity bg-gray-100 hover:bg-gray-200 text-gray-500 rounded flex items-center justify-center p-0.5 cursor-pointer z-10 relative" title="Editar enlace"><span class="material-symbols-outlined text-[16px] pointer-events-none">edit</span></button></div>`;
     }
     return `<div class="relative lms-element is-rendered hover:border-anahuac-orange" style="margin-bottom: 2px;" data-type="referencia_item">
         ${getBlockToolbar('referencia_item')}
         <div class="flex items-start gap-4 p-4 border border-gray-200 rounded-lg bg-white group/ref hover:border-anahuac-orange transition-colors">
             <span class="material-symbols-outlined text-anahuac-orange editable-icon select-none flex-shrink-0 cursor-pointer hover:bg-orange-50 rounded transition-colors" style="font-size: 70px; line-height: 1;" title="Doble clic para cambiar icono">description</span>
             <div class="flex-1 font-sans text-anahuac-dark leading-relaxed text-[16px]">
-                <div class="editable-text min-h-[1.5em] break-words">${text}</div>
+                <div class="editable-text min-h-[1.5em] break-words">${escapeHtml(text)}</div>
                 ${linkHTML}
             </div>
         </div>

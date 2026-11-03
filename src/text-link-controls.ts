@@ -1,17 +1,10 @@
 import './text-link-controls.css';
+import {normalizeTextLinkURL} from './html-sanitize';
+export {normalizeTextLinkURL};
 
 const palette=[['#ff5900','Naranja'],['#5d428c','Morado'],['#ffffff','Blanco'],['#646464','Gris']];
 const fonts=[['Zilla','"Zilla Slab", serif'],['Roboto','Roboto, sans-serif'],['Lato','Lato, sans-serif']];
 const elementAt=(node:Node)=>node instanceof Element?node:node.parentElement;
-
-export function normalizeTextLinkURL(value:string):string|null {
-  const raw=value.trim();if(!raw)return null;
-  if(raw.startsWith('#'))return raw;
-  try {
-    const url=new URL(/^[a-z][a-z\d+.-]*:/i.test(raw)?raw:'https://'+raw);
-    return ['https:','http:','mailto:','tel:'].includes(url.protocol)?url.href:null;
-  } catch {return null;}
-}
 
 export function contrastingLinkColor(node:Element):string {
   const layers:number[][]=[];

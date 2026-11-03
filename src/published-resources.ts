@@ -1,3 +1,8 @@
+export const REPO_IMAGES_BASE = 'https://raw.githubusercontent.com/adrianvillanueva-anahuac/HTML-Builder-para-LMS/main/public/imagenes';
+export const REPO_TITULOS_BASE = `${REPO_IMAGES_BASE}/titulos/`;
+export const REPO_LOGOS_BASE = `${REPO_IMAGES_BASE}/Logotipos/`;
+export const REPO_REQ_IMAGES_BASE = `${REPO_IMAGES_BASE}/requerimientos`;
+
 // Published documents must not depend on temporary browser URLs or local files.
 export function imageURL(value: string): string {
   if (/^(data:|blob:|file:)/i.test(value)) throw new Error('Hay una imagen incrustada o local. Sustitúyela por una URL HTTPS pública antes de exportar.');
@@ -5,7 +10,7 @@ export function imageURL(value: string): string {
   if (['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) {
     const path = url.pathname.match(/\/imagenes\/(.+)$/);
     if (!path) throw new Error('La imagen necesita una dirección pública, no localhost.');
-    return 'https://raw.githubusercontent.com/adrianvillanueva-anahuac/HTML-Builder-para-LMS/main/public/imagenes/' + path[1];
+    return `${REPO_IMAGES_BASE}/${path[1]}`;
   }
   if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Usa una URL HTTP o HTTPS para la imagen.');
   return url.href;

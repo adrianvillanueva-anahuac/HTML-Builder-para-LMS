@@ -1,52 +1,55 @@
-# Constructor de Contenido LMS para LMS
+# Constructor de Contenido LMS (HTML Builder para LMS)
 
-¡Hola, equipo de Diseño Instruccional! 
-
-Bienvenid@s a la herramienta de creación de contenido para Brightspace D2L. Hemos creado este espacio para que puedan diseñar experiencias de aprendizaje hermosas, interactivas y minimalistas **sin necesidad de saber una sola línea de código**.
-
- ## [Abrir la aplicación web](https://adrianvillanueva-anahuac.github.io/HTML-Builder-para-LMS/)
+Herramienta de diseño instruccional basada en web (SPA estática desplegada en **GitHub Pages**) para crear páginas HTML interactivas, responsivas y accesibles listas para **Brightspace (D2L)** bajo los lineamientos de identidad visual de la **Universidad Anáhuac**.
 
 ---
 
-##  ¿Cómo funciona?
+## Características Principales
 
-Crear un módulo interactivo es tan fácil como armar bloques de Lego. Solo sigue estos 3 pasos:
+### 1. Gestión de Proyectos Multipágina (`.lmsproject`)
+- **Múltiples páginas de trabajo** con pestañas organizables mediante arrastrar y soltar (*drag & drop*).
+- **Historial Undo / Redo por página** (`Ctrl+Z` / `Ctrl+Y`, hasta 20 estados por espacio de trabajo).
+- **Lista de pendientes automática y manual** por página para verificar que todos los recursos multimedia, diagramas y ejercicios estén completos antes de publicar.
+- **Guardado y apertura** de archivos de proyecto `.lmsproject` o importación directa de archivos `.html` previamente exportados.
 
-### 1. Selecciona y Arrastra (Drag & Drop)
-En el panel izquierdo verás diferentes elementos:
-*   **Módulos completos:** Páginas de bienvenida, presentación del profesor, conclusiones.
-*   **Elementos interactivos:** Acordeones, Flip Cards, Líneas de tiempo, Tablas dinámicas.
-    Haz clic, mantén presionado y arrastra el elemento hacia el lienzo en blanco de la derecha.*
-
-### 2. Edita el Contenido
-Una vez que el elemento esté en el lienzo, da clic sobre los textos de prueba para reemplazarlos con tu guion (puedes copiar y pegar desde tu Word o Google Docs). 
-
-### 3. Exporta a D2L 
-Cuando tu página esté lista:
-1. Haz clic en el botón azul **"Exportar para D2L 📥"** en la parte superior derecha.
-2. Se descargará un archivo `.html` a tu computadora.
-3. Entra a tu curso en Brightspace D2L.
-4. Ve a *Contenido* -> *Cargar/Crear* -> *Cargar Archivos* y selecciona el archivo que acabas de descargar. ¡Y listo!
+### 2. Catálogo de Plantillas y Bloques Interactivos
+- **Plantillas de página**: Bienvenida, Índice, Requerimientos, Profesor, Referencias (con importador automático de citas APA/IEEE), Conclusiones y Página Básica.
+- **Ejercicios descargables**: Plantillas de Ejercicio y Análisis FODA que generan evidencia descargable para el alumno (ver [`docs/EJERCICIOS-DESCARGABLES.md`](docs/EJERCICIOS-DESCARGABLES.md)).
+- **Tablas Modulares y Diagramas de Flujo**:
+  - **Tabla Modular**: Celdas personalizables con conectores visuales, insignias perimetrales (*badges*), cajas de texto enriquecido y desbordamiento controlado.
+  - **Editor de Diagramas de Flujo**: Lienzo vectorial SVG con carriles (*swimlanes*), figuras estándar, conectores ortogonales/curvos/rectos, iconos vectoriales e imágenes recortables.
+- **Componentes interactivos**: Pestañas horizontales/verticales con transición suave, Acordeones, Tarjetas Giratorias (*Flipcards*), Botones Interactivos, Incrustaciones seguras (YouTube, Vimeo, Genially, H5P, Canva, Google Drive, OneDrive) y Calculadora HTML.
 
 ---
 
-##  Consejos de Diseño (Estilo Clean & Minimal)
-*   **Menos es más:** Evita saturar las páginas con demasiado texto. Usa los *Acordeones* para ocultar información secundaria y las *Flip Cards* para conceptos clave.
-*   **Copiar y pegar:** Si copias desde Word, la herramienta limpiará el formato para mantener la tipografía oficial del curso.
-*   **Tablas:** Puedes agregar o quitar filas y columnas directamente desde los botones que aparecen junto a la tabla en el lienzo.
+## Desarrollo Local y Verificación
+
+### Requisitos previos
+- **Node.js** 20 o superior.
+
+### Comandos disponibles
+
+```bash
+# Instalar dependencias
+npm install
+
+# Iniciar servidor de desarrollo (http://localhost:3000)
+npm run dev
+
+# Verificar tipado estático con TypeScript
+npm run lint
+
+# Ejecutar la suite de pruebas unitarias
+npm test
+
+# Compilar versión de producción en ./dist
+npm run build
+```
 
 ---
 
-##  Preguntas Frecuentes / Soporte
+## Despliegue en GitHub Pages
 
-**¿Qué pasa si me equivoco y borro un elemento?**
-Cada elemento tiene un botón de 🗑️ (basurero) en la esquina superior derecha. Si borraste algo por error, simplemente arrastra uno nuevo desde el panel izquierdo. El sistema no guarda historial (Ctrl+Z), ¡así que revisa antes de borrar!
-
-**¿La página se adapta a celulares?**
-¡Sí! Todo lo que construyas aquí es 100% responsivo. Los estudiantes verán el contenido perfectamente en sus teléfonos, tablets y computadoras desde la app de D2L.
-
-**Tengo una idea para un nuevo elemento (Ej. un Quiz diferente)**
-¡Nos encanta mejorar! Por favor, contacta al equipo de Administración LMS/Desarrollo Tecnológico para evaluar la viabilidad de agregar ese nuevo bloque al catálogo.
-
----
-*Herramienta desarrollada internamente para potenciar la educación tecnológica.*
+El flujo de integración y despliegue continuo está configurado en [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
+1. En cada `push` o `pull_request` ejecuta `npm ci`, validación de tipos (`npm run lint`), pruebas unitarias (`npm test`) y compilación (`npm run build`).
+2. Al integrar cambios en la rama `main`, publica automáticamente el artefacto `./dist` en **GitHub Pages**.

@@ -4,7 +4,6 @@ import { compactModularState } from './modular-table';
 import { takeWorkspaceHistory, loadWorkspaceHistory, upgradeTitleImageElements } from './vanilla-setup';
 import { parseProject, projectContent, projectNameFromFile, emptyWorkspace, workspacePendingTasks, type Project, type Workspace } from './project-model';
 
-import { startTutorial } from './tutorial';
 import { projectDialog } from './project-dialog';
 import { pageListDialog } from './page-list-dialog';
 import { workspaceDialog } from './workspace-dialog';
@@ -534,6 +533,6 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
       <footer>Doble clic para editar la información</footer>
     </div>,document.body)}
     {(busy || message) && <div className="project-status" role="status" onClick={()=>setMessage('')}>{busy?'Guardando…':message}</div>}
-    {!project && <div className="project-welcome" role="dialog" aria-modal="true" aria-label="Comenzar proyecto"><section><h2>Tu proyecto de aprendizaje</h2><p>Diseña varias páginas en un proyecto. Puedes copiar a Brightspace sin guardar. Recuerda guardar en PC para conservar la última versión de tu proyecto.</p><div className="welcome-actions"><button onClick={()=>create()}>Nuevo proyecto</button><button onClick={()=>open()}>Abrir proyecto o HTML</button><button className="welcome-icon-action" title="Recorrido de app" aria-label="Recorrido de app" onClick={async()=>{if(await create())requestAnimationFrame(()=>startTutorial('interfaz'));}}><span className="material-symbols-outlined" aria-hidden="true">school</span></button><button className="welcome-icon-action" title="Tutoriales en video" aria-label="Tutoriales en video" onClick={()=>setShowVideoNotice(true)}><span className="material-symbols-outlined" aria-hidden="true">smart_display</span></button></div>{showVideoNotice && <p className="welcome-video-notice" role="status">Se están preparando los tutoriales</p>}</section></div>}
+    {!project && <div className="project-welcome" role="dialog" aria-modal="true" aria-label="Comenzar proyecto"><section><h2>Tu proyecto de aprendizaje</h2><p>Diseña varias páginas en un proyecto. Puedes copiar a Brightspace sin guardar. Recuerda guardar en PC para conservar la última versión de tu proyecto.</p><div className="welcome-actions"><button onClick={()=>create()}>Nuevo proyecto</button><button onClick={()=>open()}>Abrir proyecto o HTML</button><button className="welcome-icon-action" title="Recorrido de app" aria-label="Recorrido de app" onClick={async()=>{if(await create())requestAnimationFrame(()=>void import('./tutorial').then(({startTutorial})=>startTutorial('interfaz')));}}><span className="material-symbols-outlined" aria-hidden="true">school</span></button><button className="welcome-icon-action" title="Tutoriales en video" aria-label="Tutoriales en video" onClick={()=>setShowVideoNotice(true)}><span className="material-symbols-outlined" aria-hidden="true">smart_display</span></button></div>{showVideoNotice && <p className="welcome-video-notice" role="status">Se están preparando los tutoriales</p>}</section></div>}
   </div>;
 }
