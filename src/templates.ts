@@ -251,7 +251,7 @@ export function getBlockToolbar(type: string) {
         extraButtons = `
             ${tableStyleButtonsHTML()}
             <div class="w-px h-4 bg-gray-200 mx-1"></div>
-            <button type="button" class="text-gray-400 hover:text-green-600 p-1 rounded hover:bg-green-50 transition-colors flex items-center justify-center" onclick="window.pasteTableData(this)" title="Pegar desde Excel/Sheets"><span class="material-symbols-outlined text-[18px]">content_paste_go</span></button>
+            <button type="button" class="text-gray-400 hover:text-green-600 p-1 rounded hover:bg-green-50 transition-colors flex items-center justify-center" onclick="window.pasteTableData(this)" title="Pegar tabla (Excel, Sheets, PowerPoint o Presentaciones)" aria-label="Pegar tabla (Excel, Sheets, PowerPoint o Presentaciones)"><span class="material-symbols-outlined text-[18px]">content_paste_go</span></button>
             <div class="w-px h-4 bg-gray-200 mx-1"></div>
             <div class="flex items-center gap-1 px-1 relative group/color">
                 <button type="button" class="text-gray-400 hover:text-anahuac-orange p-1 rounded flex items-center justify-center cursor-default" title="Color de líneas"><span class="material-symbols-outlined text-[18px]">border_color</span></button>

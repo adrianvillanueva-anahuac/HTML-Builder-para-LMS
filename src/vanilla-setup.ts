@@ -1,5 +1,6 @@
 import Sortable from 'sortablejs';
 import {applyTableAppearance,setupTableStyleControls,prepareTableStylesExport} from './table-style-controls';
+import {parsePastedTable, applyParsedTable} from './table-paste-parser';
 import {toggleLmsTab, toggleTabsOrientation} from './tabs-runtime.js';
 import {readBackground} from './workspace-appearance';
 import tabsRuntime from './tabs-runtime.js?raw';
@@ -2777,6 +2778,7 @@ export function setupVanillaGlobals() {
         grid.style.gap = width;
     };
 
+    window.applyTableAppearance = applyTableAppearance;
     window.changeTableStyle = function(btn: HTMLElement, style: string) {
         const wrapper = btn.closest('.lms-element') as HTMLElement;
         const table = wrapper.querySelector('table');
@@ -3005,87 +3007,65 @@ export function setupVanillaGlobals() {
 
     window.pasteTableData = async function(btn: HTMLElement) {
         try {
-            const text = await navigator.clipboard.readText();
-            if (!text) return;
+            let html = '';
+            let text = '';
+            if (navigator.clipboard && navigator.clipboard.read) {
+                try {
+                    const items = await navigator.clipboard.read();
+                    for (const item of items) {
+                        if (item.types.includes('text/html')) {
+                            const blob = await item.getType('text/html');
+                            html = await blob.text();
+                        }
+                        if (item.types.includes('text/plain')) {
+                            const blob = await item.getType('text/plain');
+                            text = await blob.text();
+                        }
+                    }
+                } catch {
+                    if (navigator.clipboard.readText) {
+                        text = await navigator.clipboard.readText();
+                    }
+                }
+            } else if (navigator.clipboard && navigator.clipboard.readText) {
+                text = await navigator.clipboard.readText();
+            }
+
+            if (!html && !text) return;
             const lmsElement = btn.closest('.lms-element') as HTMLElement;
-            window.processPastedTableData(text, lmsElement);
+            if (!lmsElement) return;
+
+            window.processPastedTableData({ html, text }, lmsElement);
         } catch (err) {
             console.error('Failed to read clipboard contents: ', err);
-            // Si el clipboard falla, podemos pedirle al usuario que use Ctrl+V.
             alert('No se pudo acceder al portapapeles. Intenta usar Ctrl+V sobre la tabla.');
         }
     };
 
     window.handleTablePaste = function(e: ClipboardEvent, el: HTMLElement) {
-        const text = e.clipboardData?.getData('text/plain');
-        if (text) {
-            const rows = text.split(/\r?\n/).filter(r => r.trim());
-            // Solo lo tratamos como una tabla si tiene tabs (Google Sheets/Excel)
-            if (rows.length > 1 || (rows[0] && rows[0].includes('\t'))) {
+        const html = e.clipboardData?.getData('text/html') || '';
+        const text = e.clipboardData?.getData('text/plain') || '';
+
+        const hasHtmlTable = /<table\b/i.test(html);
+        const hasTsvData = text && (text.includes('\t') || text.split(/\r?\n/).filter(r => r.trim()).length > 1);
+
+        if (hasHtmlTable || hasTsvData) {
+            const parsed = parsePastedTable({ html, text });
+            if (parsed && parsed.rows.length > 0) {
                 e.preventDefault();
                 e.stopPropagation();
                 const lmsElement = el.closest('.lms-element') as HTMLElement;
-                window.processPastedTableData(text, lmsElement);
+                if (lmsElement) {
+                    applyParsedTable(parsed, lmsElement, applyTableAppearance);
+                }
             }
         }
     };
     
-    window.processPastedTableData = function(text: string, lmsElement: HTMLElement) {
-        const rows = text.split(/\r?\n/).filter(r => r.trim());
-        if (rows.length === 0) return;
-        
-        const table = lmsElement.querySelector('table');
-        if (!table) return;
-        
-        const parsedRows = rows.map(r => r.split('\t'));
-        const maxCols = Math.max(...parsedRows.map(r => r.length));
-        
-        const thead = table.querySelector('thead');
-        const tbody = table.querySelector('tbody');
-        if (!thead || !tbody) return;
-        
-        thead.innerHTML = '';
-        tbody.innerHTML = '';
-        
-        parsedRows.forEach((row, rowIndex) => {
-            const tr = document.createElement('tr');
-            tr.className = 'group/tr relative';
-            for (let colIndex = 0; colIndex < maxCols; colIndex++) {
-                const cellText = row[colIndex] || '';
-                const isHeader = rowIndex === 0;
-                const cell = document.createElement(isHeader ? 'th' : 'td');
-                cell.className = isHeader 
-                    ? 'border border-gray-300 p-3 bg-gray-100 text-left font-bold text-gray-800 relative group/th'
-                    : 'border border-gray-300 p-3 relative group/td';
-                
-                const div = document.createElement('div');
-                div.className = 'editable-text min-h-[1.5em]';
-                div.textContent = cellText || ' ';
-                cell.appendChild(div);
-                
-                tr.appendChild(cell);
-            }
-            if (rowIndex === 0) {
-                thead.appendChild(tr);
-            } else {
-                tbody.appendChild(tr);
-            }
-        });
-
-        if (window.setupTableHoverControls) {
-            window.setupTableHoverControls(table);
-        }
-
-        // Reapply the current table style
-        const styleBtn = lmsElement.querySelector('.block-toolbar button') as HTMLElement;
-        if(styleBtn) window.changeTableStyle(styleBtn, lmsElement.dataset.tableStyle || 'standard');
-        
-        // Trigger content updated event
-        const evt = new CustomEvent('lms-content-updated');
-        document.dispatchEvent(evt);
-        if (window.showToast) {
-            window.showToast('Datos de tabla pegados exitosamente');
-        }
+    window.processPastedTableData = function(content: { html?: string; text?: string } | string, lmsElement: HTMLElement) {
+        const parsed = parsePastedTable(content);
+        if (!parsed || parsed.rows.length === 0) return;
+        applyParsedTable(parsed, lmsElement, applyTableAppearance);
     };
 
     window.removeTableRow = function(btn: HTMLElement) {

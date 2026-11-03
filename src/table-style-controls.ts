@@ -36,8 +36,8 @@ export function applyTableAppearance(block:HTMLElement) {
     const p=layout.positions[i],header=cell.tagName==='TH',first=p.col===0;
     const bodyRow=(cell.parentElement as HTMLTableRowElement).sectionRowIndex;
     const background=header?preset.header:preset.id==='first-column'&&first?'#f3eef9':bodyRow%2===0?preset.stripe:'#ffffff';
-    paint(cell,'background-color',background);paint(cell,'background-clip','padding-box');
-    paint(cell,'color',header?preset.ink:preset.id==='first-column'&&first?'#5d428c':'#374151');
+    paint(cell,'background-color',cell.dataset.customBg||background);paint(cell,'background-clip','padding-box');
+    paint(cell,'color',cell.dataset.customColor||(header?preset.ink:preset.id==='first-column'&&first?'#5d428c':'#374151'));
     if(!cell.style.padding)paint(cell,'padding','12px');
     if(header&&!cell.style.textAlign)paint(cell,'text-align','left');
     paint(cell,'font-weight',header||preset.id==='first-column'&&first?'700':'400');
@@ -102,7 +102,12 @@ export function setupTableStyleControls() {
   });
   popup.addEventListener('click',event=>{
     const choice=(event.target as Element).closest<HTMLElement>('[data-table-style-choice]');if(!choice||!block?.isConnected)return;
-    window.saveHistoryState?.(true);block.dataset.tableStyle=choice.dataset.tableStyleChoice!;applyTableAppearance(block);window.saveHistoryState?.(true);
+    window.saveHistoryState?.(true);
+    block.querySelectorAll('th, td').forEach(c => {
+      delete (c as HTMLElement).dataset.customBg;
+      delete (c as HTMLElement).dataset.customColor;
+    });
+    block.dataset.tableStyle=choice.dataset.tableStyleChoice!;applyTableAppearance(block);window.saveHistoryState?.(true);
     popup.querySelectorAll('[aria-pressed]').forEach(b=>b.setAttribute('aria-pressed',String(b===choice)));
   });
   const start=()=>{if(!dragging){window.saveHistoryState?.(true);dragging=true;window.modularResizing=true;}};
