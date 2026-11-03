@@ -52,14 +52,18 @@ let historyTimeout: any = null;
 export function takeWorkspaceHistory() {
     window.saveHistoryState(true);
     clearTimeout(historyTimeout);
+    historyTimeout = null;
     return { stack: [...historyStack], index: historyIndex };
 }
 export function loadWorkspaceHistory(history?: {stack: string[]; index: number}) {
     clearTimeout(historyTimeout);
+    historyTimeout = null;
     historyStack = history ? [...history.stack] : [];
     historyIndex = history?.index ?? -1;
     isHistoryAction = false;
-    window.saveHistoryState(true);
+    if (historyStack.length === 0) {
+        window.saveHistoryState(true);
+    }
     window.updateHistoryButtons();
 }
 const MAX_HISTORY = 20;
@@ -446,11 +450,26 @@ export function setupVanillaGlobals() {
         }
     });
 
-    const canvasObserver = new MutationObserver(() => {
-        ensureDuplicateButtons();
-        setupImageControls();
-        normalizeCanvaEmbeds(document.getElementById('canvas')!);
-        setupMediaEmbeds(document.getElementById('canvas') || document, true);
+    const isTransientEditorTarget = (node: Node | null): boolean => {
+        const el = node instanceof Element ? node : node?.parentElement;
+        if (!el) return false;
+        return !!el.closest('.mod-cell-tools, .mod-row-tools, .mod-column-tools, .mod-center-tools, .mod-preview, .mod-text-box-preview, .mod-overflow-surface, .sortable-ghost, .layout-intent-indicator, .lms-drag-origin');
+    };
+
+    const canvasObserver = new MutationObserver((records) => {
+        const meaningful = records.filter(r => !isTransientEditorTarget(r.target));
+        if (meaningful.length === 0) return;
+        const needsControlInit = meaningful.some(r =>
+            r.type === 'childList' ||
+            (r.type === 'attributes' && (r.attributeName === 'src' || r.attributeName === 'href'))
+        );
+        if (needsControlInit) {
+            ensureDuplicateButtons();
+            setupImageControls();
+            normalizeCanvaEmbeds(document.getElementById('canvas')!);
+            setupMediaEmbeds(document.getElementById('canvas') || document, true);
+            canvasObserver.takeRecords();
+        }
         // Skip observer triggers during history navigation or sorting etc. if we can,
         // but saveHistoryState already skips if isHistoryAction is true.
         window.saveHistoryState();
@@ -4262,6 +4281,7 @@ export function setupVanillaGlobals() {
                 window.setupTableHoverControls(t as HTMLElement);
             }
         });
+        canvasObserver.takeRecords();
     };
 
     window.initParallax = function() {

@@ -1,0 +1,46 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Prueba de movimiento de menús</title>
+<style>body{margin:0;font:13px Arial}header{padding:10px;display:flex;gap:12px;background:#f7f7fb}pre{white-space:pre-wrap;margin:0;padding:8px;max-height:235px;overflow:auto}iframe{width:100%;height:calc(100vh - 310px);border:0}button{padding:7px}</style>
+<header><strong>Menús · escala suave y contexto</strong><button id="run">Verificar menús</button></header><pre id="result">Listo para verificar.</pre><iframe id="app" src="/?check=menu-motion" title="Builder aislado"></iframe>
+<script type="module">
+import {createModular,activateAllCells} from '/src/modular-model.ts';
+const frame=document.querySelector('#app'),out=document.querySelector('#result'),wait=ms=>new Promise(r=>setTimeout(r,ms));
+document.querySelector('#run').onclick=async()=>{
+ const results=[],check=(name,ok)=>{results.push(`${ok?'PASS':'FAIL'} ${name}`);out.textContent=results.join('\n');if(!ok)throw Error(name);};out.removeAttribute('data-complete');
+ try{
+  let w,d;for(let i=0;i<200;i++){w=frame.contentWindow;d=frame.contentDocument;if(w?.initNestedDropzones&&d?.querySelector('#canvas'))break;await wait(50);}
+  d.querySelector('.project-welcome .welcome-actions button')?.click();await wait(100);
+  const canvas=d.querySelector('#canvas');canvas.replaceChildren();const model=createModular(2,2);activateAllCells(model);model.rows=[130,130];
+  const page=d.createElement('div');page.className='relative lms-element is-rendered';page.innerHTML='<div class="lms-dropzone bg-white" style="padding:60px;min-height:600px"><h2 class="editable-text" style="font:26px Georgia;color:#ff5900;margin-bottom:70px">Menús del Builder</h2><section class="lms-element is-rendered modular-table" data-type="tabla_modular"></section></div>';const block=page.querySelector('section');block.dataset.modular=JSON.stringify(model);canvas.append(page);w.checkEmptyState?.();w.initNestedDropzones();await wait(350);
+  const cell=block.querySelector('.mod-cell'),bar=cell.querySelector('.mod-cell-tools'),menu=bar.querySelector('.mod-text-box-menu'),panel=menu.querySelector(':scope>div'),primary=block.querySelector(':scope>.block-toolbar'),style=el=>w.getComputedStyle(el),next=()=>new Promise(r=>w.requestAnimationFrame(()=>w.requestAnimationFrame(r)));
+  check('Icono de diálogo con más y tres líneas detrás',menu.querySelector('svg path')?.getAttribute('d')==='M13 3h9M19 7h3M19 11h3'&&menu.querySelector('svg path:last-child')?.getAttribute('d')==='M9 9v6m-3-3h6');
+  check('Icono conserva título accesible y estilo compartido',menu.querySelector('summary').getAttribute('aria-label')==='Cajas de texto'&&menu.querySelector('summary').classList.contains('editor-icon-button'));
+  check('Movimiento es exclusivo del Builder',d.body.classList.contains('builder-selection-guard'));
+  check('Menú de celda empieza oculto',style(bar).display==='none');
+  cell.dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true,relatedTarget:d.body}));await next();
+  check('Entrada de celda ejecuta transición de escala',bar.getAnimations().some(a=>a.transitionProperty==='scale'));
+  await wait(300);check('Celda termina sin transformación residual',style(bar).scale==='none'&&style(bar).opacity==='1');
+  check('Menú general no sube ni desplaza su eje',!primary.style.translate);
+  check('Solo el menú contextual está visible sobre un rectángulo',style(primary).opacity==='0');
+  const startRect=bar.getBoundingClientRect();menu.open=true;await next();
+  check('Submenú ejecuta entrada de escala y opacidad',panel.getAnimations().some(a=>a.transitionProperty==='scale')&&Number(style(panel).opacity)<1);
+  await wait(300);const r=panel.getBoundingClientRect();
+  check('Submenú conserva coordenadas dentro del lienzo',r.left>=0&&r.right<=w.innerWidth+1&&r.top>=0&&r.bottom<=w.innerHeight+1);
+  check('Barra padre no transforma coordenadas de submenús fijos',style(bar).scale==='none'&&Math.abs(bar.getBoundingClientRect().left-startRect.left)<1);
+  check('Agregar caja de texto conserva su botón habilitado',panel.querySelector('[data-mod-text-action=add]')?.disabled===false);
+  menu.open=false;await next();check('Salida de submenú conserva contenido durante la animación',panel.getAnimations().some(a=>a.transitionProperty==='scale')&&w.getComputedStyle(menu,'::details-content').contentVisibility==='visible');
+  await wait(300);check('Submenú cerrado no recibe clics',style(panel).opacity==='0'&&style(panel).pointerEvents==='none');
+  cell.dispatchEvent(new w.PointerEvent('pointerout',{bubbles:true,relatedTarget:d.body}));await wait(175);
+  check('Retención termina sin esperar dos segundos',!block.classList.contains('mod-toolbar-retained')&&!cell.classList.contains('mod-cell-hover-active'));
+  check('Salida de barra conserva la transición de escala',bar.getAnimations().some(a=>a.transitionProperty==='scale'));
+  await wait(300);check('Barra termina oculta y sin bloquear el lienzo',style(bar).display==='none'&&style(primary).opacity==='0');
+  d.body.style.setProperty('--menu-motion-duration','0ms');d.body.style.setProperty('--menu-motion-fade','0ms');d.body.style.setProperty('--menu-motion-small','none');cell.classList.add('mod-cell-hover-active');await next();
+  check('Configuración de movimiento reducido elimina escala y transiciones',style(bar).scale==='none'&&style(bar).transitionDuration.split(',').every(v=>parseFloat(v)===0));
+  d.body.style.removeProperty('--menu-motion-duration');d.body.style.removeProperty('--menu-motion-fade');d.body.style.removeProperty('--menu-motion-small');
+  const probe=d.createElement('div');probe.innerHTML='<div class="box-stroke-menu"><button>Trazo</button><div class="box-stroke-popover">Opciones</div></div><div class="ib-gear-menu"><button>Botón interactivo</button><div class="ib-tool-popover">Opciones</div></div><div class="title-image-size-control"><button>Título con imagen</button><div class="title-image-size-panel">Opciones</div></div><div class="fde-item-toolbar" hidden>Figura del diagrama</div>';d.body.append(probe);
+  for(const [selector,label] of [['.box-stroke-menu','Trazo'],['.ib-gear-menu','Botón interactivo'],['.title-image-size-control','Título con imagen']]){const group=probe.querySelector(selector),popup=group.querySelector('div');group.querySelector('button').focus();await next();check(label+' comparte la entrada líquida',style(popup).transitionProperty.includes('scale')&&popup.getAnimations().some(a=>a.transitionProperty==='scale'));await wait(300);check(label+' termina en su posición original',style(popup).scale==='none'&&style(popup).opacity==='1');group.querySelector('button').blur();await next();check(label+' comparte la salida animada',popup.getAnimations().some(a=>a.transitionProperty==='scale'));await wait(300);}
+  const flow=probe.querySelector('.fde-item-toolbar');flow.hidden=false;await next();check('Menú de figuras de flujo comparte entrada',flow.getAnimations().some(a=>a.transitionProperty==='scale'));await wait(300);flow.hidden=true;await next();check('Menú de figuras de flujo comparte salida',flow.getAnimations().some(a=>a.transitionProperty==='scale'));await wait(300);probe.remove();
+  cell.dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true,relatedTarget:d.body}));menu.open=true;await wait(300);
+  out.textContent=results.join('\n')+`\nTOTAL ${results.length} / FAIL 0`;
+ }catch(e){out.textContent+='\nERROR '+e.stack;}finally{out.dataset.complete='true';}
+};
+</script></html>

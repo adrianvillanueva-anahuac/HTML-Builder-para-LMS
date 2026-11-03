@@ -149,7 +149,9 @@ body:has(.mod-overflow-editor) :is(#rtf-toolbar,#image-toolbar,#inline-icon-tool
 .modular-table[data-overflow=true] .mod-card:focus-within,.modular-table[data-overflow=true] .mod-cell:hover{z-index:5}
 .mod-add{position:absolute;inset:0;margin:auto;width:30px;height:30px;border-radius:50%;background:#f3eef9;color:#5d428c;display:grid;place-items:center;cursor:pointer}
 .mod-tools{display:flex;align-items:center;gap:3px;padding:4px;background:white;color:#5d428c;border:1px solid #d5d8df;border-radius:8px;box-shadow:0 3px 10px #0002;white-space:nowrap}
-.modular-table>.block-toolbar{top:auto;bottom:100%;padding-bottom:6px;transform:translateX(-50%);transition:opacity .2s ease,translate 180ms ease-out}
+.modular-table>.block-toolbar{left:50%;top:0;bottom:auto;padding-bottom:4px;transform:none;translate:-50% calc(-100% + 4px)}
+.mod-primary-hit-area{position:absolute;inset:0 0 auto;width:100%;height:20px;border:0;padding:0;background:transparent;cursor:pointer;z-index:1}
+.mod-primary-hit-area:focus-visible{outline:1px dashed #5d428c;outline-offset:-2px}
 @media(prefers-reduced-motion:reduce){.modular-table>.block-toolbar{transition:none}}
 .mod-tools button,.mod-tools summary{width:30px;height:30px;display:grid;place-items:center;border-radius:5px;cursor:pointer}
 .mod-tools button:hover,.mod-tools summary:hover{background:#f0eaf7}

@@ -1,0 +1,95 @@
+/* Authoring chrome only. Do not animate student content, its layout or fonts.
+   Independent scale preserves existing translate/transform positioning. The
+   visible endpoint is `none`, so fixed submenus keep viewport coordinates. */
+body.builder-selection-guard {
+  --menu-motion-duration: 240ms;
+  --menu-motion-fade: 140ms;
+  --menu-motion-spring: cubic-bezier(.2,.8,.25,1.18);
+  --menu-motion-small: .95 .92;
+}
+body.builder-selection-guard :is(.block-toolbar,.mod-cell-tools,.mod-row-tools,.mod-column-tools,.mod-center-tools,.mod-overflow-hover-tools,.finish-tools,.box-stroke-popover,.ib-tool-popover,.title-image-size-panel,.project-menu,.fde-item-toolbar),
+body.builder-selection-guard :is(.block-toolbar,#rtf-toolbar,#image-toolbar,#inline-icon-toolbar) :is([class~="group"],[class*="group/"]) > .absolute,
+body.builder-selection-guard :is(.block-toolbar,.mod-tools,.finish-tools,#rtf-toolbar,.project-header,.flow-design-editor) details > :not(summary) {
+  transform-origin: 50% 100%;
+  transition: opacity var(--menu-motion-fade) ease,
+    scale var(--menu-motion-duration) var(--menu-motion-spring),
+    visibility var(--menu-motion-fade), display var(--menu-motion-duration) allow-discrete;
+}
+body.builder-selection-guard :is(.block-toolbar,.mod-cell-tools,.mod-row-tools,.mod-column-tools,.mod-center-tools,.mod-overflow-hover-tools,.finish-tools,.box-stroke-popover,.ib-tool-popover,.title-image-size-panel,.project-menu),
+body.builder-selection-guard :is(.block-toolbar,#rtf-toolbar,#image-toolbar,#inline-icon-toolbar) :is([class~="group"],[class*="group/"]) > .absolute {
+  scale: var(--menu-motion-small);
+}
+body.builder-selection-guard :is(
+  .lms-element:hover > .block-toolbar,
+  .block-toolbar:has(:focus-visible,details[open]),
+  .title-image-element:focus-within > .block-toolbar,
+  .title-image-element > .block-toolbar:has(.title-image-size-control.is-open),
+  .modular-table.mod-toolbar-retained > .block-toolbar,
+  .mod-cell:is(:hover,:focus-within,.mod-cell-hover-active,.mod-cell-selected) > .mod-cell-tools,
+  .mod-cell:has(>.mod-cell-tools details[open]) > .mod-cell-tools,
+  .mod-row-tools:is(:hover,:focus-within,.is-row-hovered),
+  .mod-row-tools:has(details[open]),
+  .modular-table:hover .mod-column-tools,
+  .mod-column-tools:is(:focus-within,:has(details[open])),
+  .mod-center:is(:hover,:focus-within,[data-pinned=true]) .mod-center-tools,
+  .mod-overflow-info:is(:hover,:focus-within) .mod-overflow-hover-tools,
+  .finish-button-wrap:is(:hover,:focus-within) .finish-tools,
+  .box-stroke-menu:is(:hover,:focus-within):not(.is-dismissed) > .box-stroke-popover,
+  :is(.ib-gear-menu,.ib-color-menu):is(:hover,:focus-within) > .ib-tool-popover,
+  .title-image-size-control:is(:hover,:focus-within,.is-open) .title-image-size-panel,
+  .project-menu.is-open,
+  :is(.block-toolbar,#rtf-toolbar,#image-toolbar,#inline-icon-toolbar) :is([class~="group"],[class*="group/"]):is(:hover,:focus-within) > .absolute
+) { scale: none; }
+/* Never transform a bar while its viewport-positioned submenu is open. */
+body.builder-selection-guard :is(.block-toolbar,.mod-tools,.finish-tools):has(details[open]),
+body.builder-selection-guard .block-toolbar:has(:is([class~="group"],[class*="group/"]):hover) {
+  scale: none;
+  transition-property: opacity, visibility, display;
+}
+/* General and rectangle controls share an axis: only the contextual bar is
+   visible while inside a rectangle. The general bar no longer jumps upward. */
+body.builder-selection-guard .modular-table:has(.mod-cell-hover-active,.mod-cell-selected,.mod-cell-tools details[open],.mod-row-tools:hover,.mod-column-tools:hover,.mod-center:hover) > .block-toolbar {
+  opacity: 0; pointer-events: none; scale: var(--menu-motion-small);
+}
+body.builder-selection-guard .modular-table:has(.mod-cell-hover-active,.mod-cell-selected,.mod-cell-tools details[open],.mod-row-tools:hover,.mod-column-tools:hover,.mod-center:hover) > .block-toolbar > div {
+  pointer-events: none !important;
+}
+body.builder-selection-guard :is(.block-toolbar,.mod-tools,.finish-tools,#rtf-toolbar,.project-header,.flow-design-editor) details > :not(summary) {
+  animation: none !important;
+  transform-origin: 50% 0;
+  scale: var(--menu-motion-small); opacity: 0; pointer-events: none;
+}
+body.builder-selection-guard :is(.block-toolbar,.mod-tools,.finish-tools,#rtf-toolbar,.project-header,.flow-design-editor) details[open] > :not(summary),
+body.builder-selection-guard #rtf-toolbar .rtf-vertical-menu:is(:hover,:focus-within) > div {
+  scale: none; opacity: 1; pointer-events: auto;
+}
+/* Retain native details content long enough for the closing animation. No
+   scale on this wrapper: its descendants can be positioned viewport-fixed. */
+body.builder-selection-guard :is(.block-toolbar,.mod-tools,.finish-tools,#rtf-toolbar,.project-header,.flow-design-editor) details::details-content {
+  transition: content-visibility var(--menu-motion-duration) allow-discrete;
+}
+/* display:none menus need initial/final styles as well as a discrete display
+   transition; otherwise they would pop in/out without running the spring. */
+body.builder-selection-guard :is(.mod-cell-tools,.mod-row-tools,.mod-center-tools,.mod-overflow-hover-tools) { opacity: 0; }
+body.builder-selection-guard :is(
+  .mod-cell:is(:hover,:focus-within,.mod-cell-hover-active,.mod-cell-selected) > .mod-cell-tools,
+  .mod-cell:has(>.mod-cell-tools details[open]) > .mod-cell-tools,
+  .mod-row-tools:is(:hover,:focus-within,.is-row-hovered,:has(details[open])),
+  .mod-center:is(:hover,:focus-within,[data-pinned=true]) .mod-center-tools,
+  .mod-overflow-info:is(:hover,:focus-within) .mod-overflow-hover-tools
+) { opacity: 1; }
+@starting-style {
+  body.builder-selection-guard :is(.mod-cell-tools,.mod-row-tools,.mod-center-tools,.mod-overflow-hover-tools,.fde-item-toolbar),
+  body.builder-selection-guard :is(.block-toolbar,.mod-tools,.finish-tools,#rtf-toolbar,.project-header,.flow-design-editor) details[open] > :not(summary) {
+    scale: var(--menu-motion-small) !important; opacity: 0 !important;
+  }
+}
+body.builder-selection-guard .fde-item-toolbar[hidden] { scale: var(--menu-motion-small); opacity: 0; }
+body.builder-selection-guard .project-menu { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  body.builder-selection-guard {
+    --menu-motion-duration: 0ms;
+    --menu-motion-fade: 0ms;
+    --menu-motion-small: none;
+  }
+}

@@ -1,0 +1,273 @@
+#dev-annotations-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2147483000;
+  font-family: 'Roboto', system-ui, -apple-system, sans-serif;
+}
+
+body.dev-annotating,
+body.dev-annotating * {
+  cursor: crosshair !important;
+}
+
+.dev-ann-highlight {
+  position: fixed;
+  pointer-events: none;
+  border: 2px solid #0d99ff;
+  background: rgba(13, 153, 255, 0.08);
+  border-radius: 6px;
+  z-index: 2147483001;
+  transition: all 60ms ease-out;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+.dev-ann-highlight-label {
+  position: absolute;
+  left: -2px;
+  bottom: calc(100% + 4px);
+  background: #0d99ff;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.dev-ann-toolbar {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: #1e1e1e;
+  color: #fff;
+  border-radius: 999px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.12);
+  z-index: 2147483005;
+  user-select: none;
+}
+
+.dev-ann-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: #e5e7eb;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 11px;
+  border-radius: 999px;
+  cursor: pointer !important;
+  transition: background 140ms ease, color 140ms ease, transform 100ms ease;
+}
+
+.dev-ann-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.dev-ann-btn[data-active="true"] {
+  background: #0d99ff;
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(13, 153, 255, 0.45);
+}
+
+.dev-ann-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ff5900;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.dev-ann-pin {
+  position: fixed;
+  width: 28px;
+  height: 28px;
+  margin-left: -14px;
+  margin-top: -28px;
+  border-radius: 50% 50% 50% 2px;
+  transform: rotate(-45deg);
+  background: #0d99ff;
+  color: #fff;
+  border: 2px solid #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: pointer !important;
+  z-index: 2147483002;
+  transition: transform 140ms ease, background 140ms ease;
+}
+
+.dev-ann-pin:hover,
+.dev-ann-pin[data-selected="true"] {
+  transform: rotate(-45deg) scale(1.14);
+  background: #ff5900;
+  z-index: 2147483004;
+}
+
+.dev-ann-pin[data-resolved="true"] {
+  background: #10b981;
+  opacity: 0.78;
+}
+
+.dev-ann-pin > span {
+  transform: rotate(45deg);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.dev-ann-card {
+  position: fixed;
+  width: 310px;
+  background: #1e1e1e;
+  color: #f3f4f6;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.14);
+  pointer-events: auto;
+  z-index: 2147483006;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dev-ann-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #93c5fd;
+}
+
+.dev-ann-target-meta {
+  font-size: 11px;
+  color: #9ca3af;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  word-break: break-all;
+}
+
+.dev-ann-textarea {
+  width: 100%;
+  min-height: 74px;
+  background: #2b2b2b;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  cursor: text !important;
+}
+
+.dev-ann-textarea:focus {
+  border-color: #0d99ff;
+}
+
+.dev-ann-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.dev-ann-action-btn {
+  border: 0;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer !important;
+}
+
+.dev-ann-action-save {
+  background: #0d99ff;
+  color: #fff;
+}
+
+.dev-ann-action-save:hover {
+  background: #0b84e0;
+}
+
+.dev-ann-action-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: #d1d5db;
+}
+
+.dev-ann-action-secondary:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.dev-ann-action-danger {
+  background: rgba(239, 68, 68, 0.16);
+  color: #fca5a5;
+}
+
+.dev-ann-action-danger:hover {
+  background: rgba(239, 68, 68, 0.28);
+  color: #fff;
+}
+
+.dev-ann-list-panel {
+  position: fixed;
+  left: 16px;
+  bottom: 66px;
+  width: 340px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: #1e1e1e;
+  color: #f3f4f6;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.14);
+  pointer-events: auto;
+  z-index: 2147483005;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dev-ann-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer !important;
+  text-align: left;
+  border: 1px solid transparent;
+  color: inherit;
+}
+
+.dev-ann-list-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(13, 153, 255, 0.4);
+}

@@ -7,9 +7,26 @@ export function setupToolbarSelection() {
   const dismissedStyle = document.createElement('style');
   document.head.append(style,dismissedStyle);
   let selected: HTMLElement | null = null;
+  let selectedTools=':scope > .block-toolbar';
+  let hoveredTools:HTMLElement|null=null;
   let dismissedFlow:HTMLElement|null=null;
   let ignoreClickUntil = 0;
-  const clear = () => { selected = null; style.textContent = ''; };
+  const clear = () => { selected = null; selectedTools=':scope > .block-toolbar';hoveredTools=null;style.textContent = ''; };
+  // A click pins the level it belongs to, not the enclosing element's menu.
+  // Keep a selector instead of a node: modular renders replace their toolbars.
+  const contextFor=(target:Element,block:HTMLElement)=>{
+    const cell=target.closest<HTMLElement>('.mod-cell');
+    if(cell&&block.contains(cell)){
+      const key=CSS.escape(cell.dataset.cell||'');
+      const local=target.closest('.mod-row-tools,.mod-column-tools');
+      return `.mod-cell[data-cell="${key}"] > ${local?.matches('.mod-row-tools')?'.mod-row-tools':local?'.mod-column-tools':'.mod-cell-tools'}`;
+    }
+    const center=target.closest<HTMLElement>('.mod-center');
+    if(center&&block.contains(center))return `.mod-center[data-center="${CSS.escape(center.dataset.center||'')}"] .mod-center-tools`;
+    const local=target.closest('.finish-tools');
+    if(local&&block.contains(local))return '.finish-tools';
+    return ':scope > .block-toolbar';
+  };
   const pathFor=(element:HTMLElement)=>{const parts:string[]=[];let node:Element=element;while(node!==canvas){const parent=node.parentElement;if(!parent)return '';parts.unshift(`:nth-child(${Array.from(parent.children).indexOf(node)+1})`);node=parent;}return '#canvas-container-outer > '+parts.join(' > ');};
   const renderDismissed=()=>{
     if(!dismissedFlow||!canvas.contains(dismissedFlow)){dismissedFlow=null;dismissedStyle.textContent='';return;}
@@ -24,14 +41,23 @@ export function setupToolbarSelection() {
     const block=event.target.closest<HTMLElement>('.flow-block');if(block&&canvas.contains(block)){dismissedFlow=block;renderDismissed();}
   };
   const pointerOver=(event:PointerEvent)=>{
-    if(!dismissedFlow||!(event.target instanceof Element)||!dismissedFlow.contains(event.target))return;
-    if(event.relatedTarget instanceof Node&&dismissedFlow.contains(event.relatedTarget))return;
-    dismissedFlow=null;renderDismissed();
+    if(!(event.target instanceof Element))return;
+    const target=event.target;
+    if(dismissedFlow&&dismissedFlow.contains(target)&&!(event.relatedTarget instanceof Node&&dismissedFlow.contains(event.relatedTarget))){dismissedFlow=null;renderDismissed();}
+    if(!selected||selectedTools!==':scope > .block-toolbar')return;
+    let next:HTMLElement|null=null;
+    if(selected.contains(target)){
+      const block=target.closest<HTMLElement>('.lms-element');
+      if(block){const context=contextFor(target,block);if(block!==selected||context!==':scope > .block-toolbar')next=block.querySelector<HTMLElement>(context);}
+    }
+    if(next!==hoveredTools){hoveredTools=next;render();}
   };
   const dragging = () => document.body.classList.contains('is-dragging') || window.isLmsDragging;
   const render = () => {
     if (!selected) return;
     if (!canvas.contains(selected) || dragging()) { clear(); return; }
+    const tools=hoveredTools?.isConnected?hoveredTools:selected.querySelector<HTMLElement>(selectedTools);
+    if(!tools){clear();return;}
     const parts: string[] = [];
     const layers: string[] = [];
     let node: Element = selected;
@@ -40,19 +66,20 @@ export function setupToolbarSelection() {
       parts.unshift(`:nth-child(${Array.from(parent.children).indexOf(node) + 1})`);
       node = parent;
     }
-    const path = '#canvas-container-outer > ' + parts.join(' > ');
+    const path = pathFor(tools);
     // Lift only the selected branch, never change geometry or drop targets.
     node = selected;
     for (let count = parts.length; count > 0; count--, node = node.parentElement!) {
       if (node.matches('.lms-element')) layers.push('#canvas-container-outer > ' + parts.slice(0, count).join(' > '));
     }
     style.textContent = `
-      body:not(.is-dragging) #canvas-container-outer .block-toolbar {
+      body:not(.is-dragging) #canvas-container-outer :is(.block-toolbar,.mod-cell-tools,.mod-row-tools,.mod-column-tools,.mod-center-tools,.finish-tools) {
         opacity:0!important; pointer-events:none!important;
       }
-      body:not(.is-dragging) #canvas-container-outer .block-toolbar * {pointer-events:none!important}
-      body:not(.is-dragging) ${path} > .block-toolbar {opacity:1!important;pointer-events:auto!important}
-      body:not(.is-dragging) ${path} > .block-toolbar * {pointer-events:auto!important}
+      body:not(.is-dragging) #canvas-container-outer :is(.block-toolbar,.mod-cell-tools,.mod-row-tools,.mod-column-tools,.mod-center-tools,.finish-tools) * {pointer-events:none!important}
+      body:not(.is-dragging) ${path} {display:flex!important;opacity:1!important;visibility:visible!important;pointer-events:auto!important;scale:none}
+      body:not(.is-dragging) ${path} * {pointer-events:auto!important}
+      body:not(.is-dragging) ${path} details:not([open]) > :not(summary) {pointer-events:none!important}
       ${layers.map(s => `body:not(.is-dragging) ${s}`).join(',')} {z-index:60}
     `;
   };
@@ -76,11 +103,11 @@ export function setupToolbarSelection() {
         (selected && block !== selected && block.contains(selected)))) {
       clear(); return;
     }
-    selected = block;
+    selected = block;selectedTools=contextFor(target,block);hoveredTools=null;
     render();
   };
   const doubleClick = (event: MouseEvent) => {
-    if (event.target instanceof Element && canvas.contains(event.target) && event.target.closest('.editable-text,.exercise-name,.editable-icon')) clear();
+    if (event.target instanceof Element && canvas.contains(event.target) && event.target.closest('.editable-text,.exercise-name,.editable-icon,.mod-overflow-info > summary')) clear();
   };
   const key = (event: KeyboardEvent) => { if (event.key === 'Escape') {clear();const focused=document.activeElement;if(focused instanceof HTMLElement&&focused.closest('.flow-block > .block-toolbar')){dismissedFlow=focused.closest<HTMLElement>('.flow-block');focused.blur();renderDismissed();}} };
   const dragStart = () => { ignoreClickUntil = Infinity; clear(); };

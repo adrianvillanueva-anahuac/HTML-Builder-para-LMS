@@ -74,6 +74,26 @@ export function setupStudentControls(canvas: HTMLElement) {
     }
     window.saveHistoryState();
   };
+  canvas.addEventListener('pointerover', event => {
+    if (!(event.target instanceof Element)) return;
+    const menu = event.target.closest<HTMLDetailsElement>('.student-control-menu');
+    if (!menu) return;
+    canvas.querySelectorAll<HTMLDetailsElement>('.student-control-menu[open]').forEach(other => {
+      if (other !== menu) other.open = false;
+    });
+    const input = menu.querySelector<HTMLInputElement>('input[data-download-control="label"]');
+    if (input && document.activeElement !== input) {
+      input.value = menu.closest('.exercise-block')?.querySelector('.exercise-button-text')?.textContent || '';
+    }
+    menu.open = true;
+  });
+  canvas.addEventListener('pointerout', event => {
+    if (!(event.target instanceof Element)) return;
+    const menu = event.target.closest<HTMLDetailsElement>('.student-control-menu');
+    if (!menu || menu.contains(event.relatedTarget as Node | null)) return;
+    if (document.activeElement instanceof HTMLInputElement && menu.contains(document.activeElement)) return;
+    menu.open = false;
+  });
   canvas.addEventListener('input', event => {
     const control = (event.target as Element).closest<HTMLInputElement>('input[data-student-control]');
     if (control) apply(control);

@@ -253,7 +253,7 @@ main.flex-1{min-width:0}
 
 .exercise-catalog-item{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid #cdd5dc;border-radius:8px;cursor:grab;background:white;color:#374151;font-size:14px}
 .exercise-tools{display:none!important;position:absolute;left:8px;top:0;transform:translateY(-100%);background:white;color:#5d428c;border:1px solid #ddd;border-radius:8px;padding:6px;gap:10px;z-index:60}
-.exercise-tools button{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;white-space:nowrap}
+.exercise-tools button{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap}
 .exercise-block:hover>.exercise-tools,.exercise-block:focus-within>.exercise-tools{display:flex!important}
 .exercise-block > .block-toolbar .exercise-tools{display:flex!important;position:static;transform:none;border:0;padding:0;background:transparent;gap:10px}
 .lms-element:has(.exercise-name[contenteditable="true"]) > .block-toolbar{display:none!important;pointer-events:none!important}

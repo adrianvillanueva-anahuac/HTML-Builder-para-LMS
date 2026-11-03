@@ -70,13 +70,13 @@ function layout(block:HTMLElement) {
   if(strokeRange){strokeRange.value=String(m.stroke?.width||0);strokeRange.closest('label')!.querySelector('output')!.textContent=(m.stroke?.width||0)+' px';}
   runtimes.get(block)?.update();
 }
-function render(block:HTMLElement) {
+function render(block:HTMLElement,deferRuntime=false) {
   rendering.add(block);
   try{
   if(block.isConnected)closeModularOverflowEditor();
   finishModularTextEditing(block);
   if(connector?.block===block)closeConnector();
-  runtimes.get(block)?.destroy();
+  runtimes.get(block)?.destroy();runtimes.delete(block);
   block.removeAttribute('data-pinned-cell');
   const m=models.get(block)!;
   block.classList.remove('mod-pending'); delete block.dataset.modPending;
@@ -87,6 +87,7 @@ function render(block:HTMLElement) {
     block.querySelector(`[data-mod-action=${axis}]`)!.outerHTML=globalMenu(symbol,label,button(axis,'add',axis==='row'?'Agregar fila':'Agregar columna')+button('remove-'+axis,'remove',axis==='row'?'Quitar última fila':'Quitar última columna'));
     block.querySelector(`[data-mod-action=${axis}]`)!.parentElement!.classList.add('mod-track-actions');
   }
+  const hitArea=document.createElement('button');hitArea.type='button';hitArea.className='mod-primary-hit-area mod-editor';hitArea.title='Fijar menú de tabla modular';hitArea.setAttribute('aria-label',hitArea.title);block.prepend(hitArea);
   const toolbar=block.querySelector('.block-toolbar .mod-tools')!;
   toolbar.querySelector('[data-mod-action=delete]')!.insertAdjacentHTML('beforebegin',
     globalMenu('format_color_fill','Color de todos los rectángulos',`<div class="mod-palette">${modularPalette.map(c=>`<button type="button" data-mod-fill-color="${c.value}" title="${c.name}" aria-label="Relleno general ${c.name}" style="background:${c.value};border:1px solid #aaa"></button>`).join('')}</div>`)+
@@ -161,7 +162,7 @@ function render(block:HTMLElement) {
   renderModularTextBoxes(block,m);
   renderModularOverflow(block,m);
   renderModularCellCopy(block);
-  layout(block);persist(block);runtimes.set(block,mountModularRuntime(block));
+  layout(block);persist(block);if(!deferRuntime)runtimes.set(block,mountModularRuntime(block));
   }finally{rendering.delete(block);}
 }
 function modal(title:string,content:string,onConfirm:(panel:HTMLElement)=>boolean|void,onCancel=()=>{}) {
@@ -347,24 +348,34 @@ function editConnection(block:HTMLElement,edge:HTMLElement) {
 }
 export function initModularTables() {
   runtimes.forEach((runtime,block)=>{if(!block.isConnected){runtime.destroy();runtimes.delete(block);}});
+  const toMount:HTMLElement[]=[];
   document.querySelectorAll<HTMLElement>('#canvas-container-outer .modular-table').forEach(block=>{
     if(block.dataset.modPending){chooseGrid(block);return;}
     if(runtimes.has(block))return;
-    try {const m=JSON.parse(block.dataset.modular||'');if(m.version!==1||!Array.isArray(m.rows)||!Array.isArray(m.columns)||m.rows.length>10||m.columns.length>10)return;models.set(block,m);render(block);} catch { /* Ignore malformed imported blocks. */ }
+    try {const m=JSON.parse(block.dataset.modular||'');if(m.version!==1||!Array.isArray(m.rows)||!Array.isArray(m.columns)||m.rows.length>10||m.columns.length>10)return;models.set(block,m);render(block,true);toMount.push(block);} catch { /* Ignore malformed imported blocks. */ }
   });
+  toMount.forEach(block=>runtimes.set(block,mountModularRuntime(block)));
 }
-function positionCellMenus() {
-  document.querySelectorAll<HTMLDetailsElement>('.mod-cell-tools details[open],.mod-row-tools details[open],.mod-column-tools details[open],.mod-preview-tools details[open],.mod-badge-align-menu[open]').forEach(menu=>{
+const menuPositions=new WeakMap<HTMLDetailsElement,{left:number;top:number}>();
+function positionCellMenus(reset:boolean|Event=false) {
+  const openMenus=document.querySelectorAll<HTMLDetailsElement>('.mod-cell-tools details[open],.mod-row-tools details[open],.mod-column-tools details[open],.mod-preview-tools details[open],.mod-badge-align-menu[open]');
+  if(!openMenus.length)return;
+  const bounds=document.getElementById('scroll-container')?.getBoundingClientRect();
+  openMenus.forEach(menu=>{
     const panel=menu.querySelector<HTMLElement>(':scope > div'),anchor=menu.querySelector('summary');
     if(!panel||!anchor)return;
+    if(reset===true)menuPositions.delete(menu);
     const rect=anchor.getBoundingClientRect();
-    const bounds=document.getElementById('scroll-container')?.getBoundingClientRect();
     const minX=Math.max(8,(bounds?.left||0)+8),maxX=Math.min(window.innerWidth-8,(bounds?.right||window.innerWidth)-8);
     const minY=Math.max(8,(bounds?.top||0)+8),maxY=Math.min(window.innerHeight-8,(bounds?.bottom||window.innerHeight)-8);
     panel.style.maxWidth=Math.max(0,maxX-minX)+'px';panel.style.maxHeight=Math.max(0,maxY-minY)+'px';
     const width=panel.offsetWidth,height=panel.offsetHeight;
     const clampX=(x:number)=>Math.max(minX,Math.min(x,maxX-width));
     const clampY=(y:number)=>Math.max(minY,Math.min(y,maxY-height));
+    const origin=()=>menu.matches('.mod-badge-align-menu')?menu.getBoundingClientRect():{left:0,top:0};
+    const place=(p:{left:number;top:number})=>{const o=origin();panel.style.left=(p.left-o.left)+'px';panel.style.top=(p.top-o.top)+'px';};
+    const held=menuPositions.get(menu);
+    if(held){place({left:clampX(held.left),top:clampY(held.top)});return;}
     const toolbar=menu.closest<HTMLElement>('.mod-tools')!;
     const bar=toolbar.getBoundingClientRect();
     const obstacles=Array.from(menu.closest('.modular-table')?.querySelectorAll<HTMLElement>('.block-toolbar,.mod-cell-tools,.mod-row-tools,.mod-column-tools')||[])
@@ -389,8 +400,7 @@ function positionCellMenus() {
     const {left,top}=candidates[0];
     // The main toolbar is transformed: its popover must use local absolute
     // coordinates rather than viewport-fixed coordinates inside that transform.
-    const origin=menu.matches('.mod-badge-align-menu')?menu.getBoundingClientRect():{left:0,top:0};
-    panel.style.left=(left-origin.left)+'px';panel.style.top=(top-origin.top)+'px';
+    menuPositions.set(menu,{left,top});place({left,top});
   });
 }
 export function setupModularTables() {
@@ -404,9 +414,10 @@ export function setupModularTables() {
   const hoverTimers=new WeakMap<Element,ReturnType<typeof setTimeout>>();
   const tableHoverTimers=new WeakMap<Element,ReturnType<typeof setTimeout>>();
   const cancelHoverClose=(el:Element)=>{clearTimeout(hoverTimers.get(el));hoverTimers.delete(el);};
-  window.addEventListener('scroll',positionConnector,true);window.addEventListener('resize',positionConnector);
-  window.addEventListener('scroll',positionCellMenus,true);window.addEventListener('resize',positionCellMenus);
-  document.addEventListener('toggle',event=>{if((event.target as HTMLElement).matches?.('.mod-cell-tools details,.mod-row-tools details,.mod-column-tools details,.mod-preview-tools details,.mod-badge-align-menu'))positionCellMenus();},true);
+  let scrollFrame=0;
+  const onScroll=()=>{if(!scrollFrame)scrollFrame=requestAnimationFrame(()=>{scrollFrame=0;positionConnector();positionCellMenus(false);});};
+  window.addEventListener('scroll',onScroll,true);window.addEventListener('resize',()=>{positionConnector();positionCellMenus(true);});
+  document.addEventListener('toggle',event=>{const menu=event.target as HTMLDetailsElement;if(menu.matches?.('.mod-cell-tools details,.mod-row-tools details,.mod-column-tools details,.mod-preview-tools details,.mod-badge-align-menu')){if(!menu.open)menuPositions.delete(menu);positionCellMenus();}},true);
   document.addEventListener('pointerover',event=>{
     const target=event.target as HTMLElement;
     const hoveredTable=target.closest?.<HTMLElement>('.modular-table');
@@ -429,17 +440,17 @@ export function setupModularTables() {
     const menu=target.closest?.<HTMLDetailsElement>('.modular-table .mod-tools details');
     if(menu&&!menu.contains(event.relatedTarget as Node)){
       cancelHoverClose(menu);
-      hoverTimers.set(menu,setTimeout(()=>{if(menu.isConnected&&!menu.matches(':hover,:focus-within')&&menu.dataset.menuPinned!=='true')menu.open=false;},450));
+      hoverTimers.set(menu,setTimeout(()=>{if(menu.isConnected&&!menu.matches(':hover,:focus-within')&&menu.dataset.menuPinned!=='true')menu.open=false;},140));
     }
     const cell=target.closest?.<HTMLElement>('.mod-cell');
     if(cell&&!cell.contains(event.relatedTarget as Node)){
       cancelHoverClose(cell);
       hoverTimers.set(cell,setTimeout(()=>{
         if(!cell.matches(':hover,:focus-within'))cell.classList.remove('mod-cell-hover-active');
-      },450));
+      },140));
     }
     const block=target.closest?.('.modular-table');
-    if(block&&!block.contains(event.relatedTarget as Node)){clearTimeout(tableHoverTimers.get(block));tableHoverTimers.set(block,setTimeout(()=>block.classList.remove('mod-toolbar-retained'),2000));}
+    if(block&&!block.contains(event.relatedTarget as Node)){clearTimeout(tableHoverTimers.get(block));tableHoverTimers.set(block,setTimeout(()=>block.classList.remove('mod-toolbar-retained'),140));}
     if(block)setTimeout(()=>block.querySelectorAll<HTMLElement>('[data-row-tools]').forEach(tool=>{
       const row=tool.dataset.rowTools;
       if(!block.querySelector(`.mod-cell[data-row="${row}"]:hover`)&&!tool.querySelector('details[open]'))tool.classList.remove('is-row-hovered');
@@ -661,8 +672,8 @@ export function prepareModularExport(root:HTMLElement) {
   compactModularState(root);
   root.querySelectorAll<HTMLElement>('.modular-table[data-modular]').forEach(block=>{
     const model=JSON.parse(block.dataset.modular!);
-    models.set(block,model);render(block);
-    runtimes.get(block)?.destroy();runtimes.delete(block);models.delete(block);
+    models.set(block,model);render(block,true);
+    models.delete(block);
   });
   root.querySelectorAll<HTMLElement>('.modular-table').forEach(block=>{
     if(block.dataset.modPending){block.remove();return;}

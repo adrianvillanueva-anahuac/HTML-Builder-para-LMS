@@ -35,7 +35,7 @@ export function renderModularTextBoxes(block:HTMLElement,model:ModularModel){
 }
 function renderTextMenu(cell:HTMLElement,value:ModularCell){
   cell.querySelector('.mod-text-box-menu')?.remove();
-  const menu=document.createElement('details');menu.className='mod-text-box-menu';menu.innerHTML=`<summary title="Cajas de texto" aria-label="Cajas de texto">${symbol('text_fields')}</summary><div class="mod-text-box-menu-panel"></div>`;
+  const menu=document.createElement('details');menu.className='mod-text-box-menu';menu.innerHTML='<summary class="editor-icon-button" title="Cajas de texto" aria-label="Cajas de texto"><svg class="mod-text-box-menu-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 3h9M19 7h3M19 11h3" opacity=".7"/><path d="M3 5.5h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H7l-4 3v-3a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z"/><path d="M9 9v6m-3-3h6"/></svg></summary><div class="mod-text-box-menu-panel"></div>';
   const panel=menu.querySelector('div')!;
   for(const {id,label}of modularTextEntries(value)){
    const row=document.createElement('div'),edit=document.createElement('button');row.dataset.modTextRow=id;edit.type='button';edit.dataset.modTextAction='edit';edit.dataset.modTextId=id;edit.textContent=label;row.append(edit);

@@ -5,6 +5,7 @@ import { projectDialog } from './project-dialog';
 import {normalizeFinish,setupFinishControls,configureFinish} from './finish-controls';
 import { downloadControls, setupDownloadControls } from './download-controls';
 import { normalizeStudentControls, setupStudentControls, restoreStudentAppearance } from './student-controls';
+import { optimizeStudentDocumentStyles } from './exercise-css-purge';
 
 export const exerciseMode = new URLSearchParams(location.search).get('editor') === 'exercise' && window.parent !== window;
 export const escapeHTML = (text: string) => text.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
@@ -94,6 +95,7 @@ export function prepareExerciseLinks(clone: HTMLElement) {
       const studentDocument = new DOMParser().parseFromString(block.dataset.exerciseFile, 'text/html');
       if (!studentDocument.querySelector('#exercise-student-state')) throw new Error('El archivo del botón no es un ejercicio válido. Abre «Edita ejercicio» y vuelve a guardarlo.');
       studentDocument.title = exerciseName(block);
+      optimizeStudentDocumentStyles(studentDocument);
       a.href = exerciseDownloadURL('<!doctype html>\n' + studentDocument.documentElement.outerHTML);
     }
     delete block.dataset.exerciseFile;
@@ -253,6 +255,7 @@ export function setupExercises() {
     if (data) {
       if (block.dataset.exerciseEncoding !== 'text') { alert('Abre «Edita ejercicio» y guarda para actualizar el archivo a HTML sin PDF.'); return; }
       const doc = new DOMParser().parseFromString(data, 'text/html'); doc.title = exerciseName(block);
+      optimizeStudentDocumentStyles(doc);
       const url=URL.createObjectURL(new Blob(['<!doctype html>\n'+doc.documentElement.outerHTML],{type:'text/html;charset=utf-8'}));
       const a=document.createElement('a'); a.href=url; a.download=exerciseFilename(exerciseName(block)); a.click(); setTimeout(()=>URL.revokeObjectURL(url),30000);
     }

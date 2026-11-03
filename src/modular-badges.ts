@@ -23,8 +23,11 @@ export function updateBadge(cell:HTMLElement,badge:PerimeterBadge) {
     for(const axis of ['width','height']as const){const input=cell.querySelector<HTMLInputElement>(`[data-badge-${axis}]`);if(input){if(axis==='width')input.max=String(Math.floor(cell.clientWidth));input.value=String(Math.round(size[axis]));input.closest('label')!.querySelector('output')!.textContent=input.value+' px';}}
   }else{delete node.dataset.roundedWidth;delete node.dataset.roundedHeight;}
   node.style.color=ink(badge.color);node.style.fontSize=14*badge.scale+'px';
-  node.querySelector('svg')!.innerHTML=outlines[badge.shape];
-  node.querySelector('svg')!.setAttribute('viewBox',badge.shape==='rounded'?'0 0 96 54':'0 0 100 100');
+  // No stretched viewBox for rectangles: SVG units stay CSS pixels, so rx/ry
+  // remain circular with independent dimensions, including published HTML.
+  const svg=node.querySelector('svg')!;
+  svg.innerHTML=badge.shape==='rounded'?`<rect width="100%" height="100%" rx="${12*badge.scale}" ry="${12*badge.scale}"/>`:outlines[badge.shape];
+  if(badge.shape==='rounded')svg.removeAttribute('viewBox');else svg.setAttribute('viewBox','0 0 100 100');
   node.querySelector('svg')!.style.fill=badge.color;
   const text=node.querySelector<HTMLElement>('.mod-badge-text')!;
   if(text.contentEditable!=='true'){

@@ -67,6 +67,8 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
   // Remember actual generated tasks for this editing session. Undo can then
   // restore an existing task while automatic creation is disabled, without
   // treating newly inserted/duplicated empty elements as previously tracked.
+  const clearPendingInspect=useRef<()=>void>(()=>{});
+  const syncedCache=useRef(new Map<string,{html:string;checklist:Workspace['checklist'];dismissed:Workspace['dismissedAutomaticTasks'];auto:boolean;result:Workspace}>());
   const trackedTasks=useRef({buttons:new Set<string>(),media:new Set<string>()});
   function rememberTasks(spaces:Workspace[]){
     spaces.forEach(space=>space.checklist?.forEach(item=>{
@@ -138,7 +140,21 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     // final snapshot, never a temporary parked/ghost canvas during the drag.
     if(!window.lmsWorkspaceDragActive){
       rememberTasks(p.spaces);
-      p={...p,spaces:p.spaces.map(space=>syncWorkspaceAutomaticChecklist(space,undefined,p.autoChecklist!==false,trackedTasks.current,space.id!==p.activeId))};
+      const auto=p.autoChecklist!==false;
+      p={...p,spaces:p.spaces.map(space=>{
+        if(space.id===p.activeId){
+          const res=syncWorkspaceAutomaticChecklist(space,outer(),auto,trackedTasks.current,false);
+          syncedCache.current.set(space.id,{html:res.html,checklist:res.checklist,dismissed:res.dismissedAutomaticTasks,auto,result:res});
+          return res;
+        }
+        const cached=syncedCache.current.get(space.id);
+        if(cached&&cached.html===space.html&&cached.checklist===space.checklist&&cached.dismissed===space.dismissedAutomaticTasks&&cached.auto===auto){
+          return {...space,html:cached.result.html,checklist:cached.result.checklist};
+        }
+        const res=syncWorkspaceAutomaticChecklist(space,undefined,auto,trackedTasks.current,true);
+        syncedCache.current.set(space.id,{html:res.html,checklist:res.checklist,dismissed:res.dismissedAutomaticTasks,auto,result:res});
+        return res;
+      })};
       rememberTasks(p.spaces);
     }
     (window as any).globalFooterConfig=p.footerConfig;
@@ -174,6 +190,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     outer().querySelectorAll('[data-sortable-active]').forEach(n => n.removeAttribute('data-sortable-active'));
     window.initNestedDropzones(); upgradeTitleImageElements(); window.checkEmptyState();
     loadWorkspaceHistory(histories.current.get(s.id));
+    clearPendingInspect.current();
   }
   async function canReplace(mode:'new'|'open'='open') {
     if (busy) { setMessage('Espera a que termine el guardado del proyecto.'); return false; }
@@ -309,6 +326,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
   function change(id:string) {
     if(window.lmsWorkspaceDragActive)return;
     if(busy || document.querySelector('iframe[title="Diseñar ejercicio descargable"]'))return;
+    keepTabInfo();setTabInfo(null);
     const p=capture()!;histories.current.set(p.activeId,takeWorkspaceHistory());
     const s=p.spaces.find(s=>s.id===id)!;restore(s);publish({...p,activeId:id});
   }
@@ -462,7 +480,15 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
       if(document.body.classList.contains('is-dragging') || window.isLmsDragging || window.lmsWorkspaceDragActive)return;
       timer=setTimeout(inspect,250);
     };
-    const observer=new MutationObserver(schedule);
+    const isTransientMutation=(r:MutationRecord)=>{
+      const el=r.target instanceof Element?r.target:r.target.parentElement;
+      return !!el?.closest('.mod-cell-tools,.mod-row-tools,.mod-column-tools,.mod-center-tools,.mod-preview,.mod-text-box-preview,.mod-overflow-surface,.sortable-ghost,.layout-intent-indicator,.lms-drag-origin');
+    };
+    const observer=new MutationObserver(records=>{
+      if(records.every(isTransientMutation))return;
+      schedule();
+    });
+    clearPendingInspect.current=()=>{clearTimeout(timer);observer.takeRecords();};
     if(outer())observer.observe(outer(),{subtree:true,childList:true,characterData:true,attributes:true});
     outer()?.addEventListener('input',schedule);
     window.addEventListener('lms-drag-ended',schedule);

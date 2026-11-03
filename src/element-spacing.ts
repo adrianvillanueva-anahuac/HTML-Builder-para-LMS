@@ -90,19 +90,33 @@ export function setupSpacingHandles(){
   };
   document.addEventListener('pointermove',event=>{
     if(drag){adjust(drag.kind,drag.up,drag.down,Math.round(event.clientY-drag.y));return;}
-    if(window.isLmsDragging||(event.target as Element).closest?.('#element-spacing-handles'))return;
+    const target=event.target instanceof Element?event.target:null;
+    if(window.isLmsDragging||!target||target.closest('#element-spacing-handles'))return;
+    if(!target.closest('#scroll-container')){overlay.hidden=true;return;}
     if(pair&&!overlay.hidden){
       const a=boundary(pair.upper),b=boundary(pair.lower);
       const x=parseFloat(overlay.style.left),y=parseFloat(overlay.style.top);
       if(event.clientY>=Math.min(a.bottom-8,y-34)&&event.clientY<=Math.max(b.top+8,y+34)&&
         event.clientX>=Math.min(a.right,x)-8&&event.clientX<=Math.max(a.right,x+52)+8)return;
     }
-    const target=document.elementFromPoint(event.clientX,event.clientY),zone=target?.closest<HTMLElement>('#canvas .lms-dropzone,#canvas');
+    const zone=target.closest<HTMLElement>('#canvas .lms-dropzone,#canvas');
     if(!zone){overlay.hidden=true;return;}
-    const blocks=Array.from(zone.children).filter((el):el is HTMLElement=>el instanceof HTMLElement&&el.matches('.lms-element,.lms-footer-wrapper')&&el.getBoundingClientRect().height>0);
-    for(let i=0;i<blocks.length-1;i++){
-      const a=boundary(blocks[i]),b=boundary(blocks[i+1]);
-      if(event.clientY>=a.bottom-8&&event.clientY<=b.top+8&&event.clientX>=a.left&&event.clientX<=a.right){pair={upper:blocks[i],lower:blocks[i+1]};draw();return;}
+    const hoveredBlock=target.closest<HTMLElement>('.lms-element,.lms-footer-wrapper');
+    if(hoveredBlock&&hoveredBlock.parentElement===zone){
+      const r=boundary(hoveredBlock);
+      if(event.clientY>r.top+8&&event.clientY<r.bottom-8){overlay.hidden=true;return;}
+    }
+    const entries:{el:HTMLElement;rect:DOMRect}[]=[];
+    for(let i=0;i<zone.children.length;i++){
+      const el=zone.children[i];
+      if(el instanceof HTMLElement&&el.matches('.lms-element,.lms-footer-wrapper')){
+        const rect=boundary(el);
+        if(rect.height>0)entries.push({el,rect});
+      }
+    }
+    for(let i=0;i<entries.length-1;i++){
+      const a=entries[i].rect,b=entries[i+1].rect;
+      if(event.clientY>=a.bottom-8&&event.clientY<=b.top+8&&event.clientX>=a.left&&event.clientX<=a.right){pair={upper:entries[i].el,lower:entries[i+1].el};draw();return;}
     }overlay.hidden=true;
   });
   buttons.forEach(button=>{

@@ -34,10 +34,10 @@ export function normalizeFinish(block:HTMLElement) {
 
 export function setupFinishControls(canvas:HTMLElement) {
   canvas.addEventListener('pointerover',event=>{
-    const menu=(event.target as Element).closest<HTMLDetailsElement>('.finish-color-menu');if(menu)menu.open=true;
+    const menu=(event.target as Element).closest<HTMLDetailsElement>('.finish-tools details');if(menu)menu.open=true;
   });
   canvas.addEventListener('pointerout',event=>{
-    const menu=(event.target as Element).closest<HTMLDetailsElement>('.finish-color-menu');
+    const menu=(event.target as Element).closest<HTMLDetailsElement>('.finish-tools details');
     if(menu&&!menu.contains(event.relatedTarget as Node|null))menu.open=false;
   });
   canvas.addEventListener('click',event=>{
