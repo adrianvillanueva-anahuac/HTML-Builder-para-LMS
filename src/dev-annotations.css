@@ -271,3 +271,38 @@ body.dev-annotating * {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(13, 153, 255, 0.4);
 }
+
+.dev-ann-banner {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0d99ff;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(13, 153, 255, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.2);
+  pointer-events: auto;
+  z-index: 2147483010;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dev-ann-banner button {
+  background: rgba(255, 255, 255, 0.25);
+  border: 0;
+  color: white;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.dev-ann-banner button:hover {
+  background: rgba(255, 255, 255, 0.4);
+}

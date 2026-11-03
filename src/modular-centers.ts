@@ -16,12 +16,13 @@ export function updateCenter(node:HTMLElement,value:CenterShape) {
   if(text.contentEditable!=='true'){
     if(value.html!==undefined)text.innerHTML=value.html;
     else text.textContent=value.text;
+    text.style.cssText=value.textStyle||'';
   }
 }
 export function syncCenterText(block:HTMLElement,model:ModularModel) {
   block.querySelectorAll<HTMLElement>('.mod-center[data-center]').forEach(node=>{
-    const value=model.centers?.[node.dataset.center!],text=node.querySelector('.mod-center-text');
-    if(value&&text){value.html=text.innerHTML;value.text=text.textContent||'';}
+    const value=model.centers?.[node.dataset.center!],text=node.querySelector<HTMLElement>('.mod-center-text');
+    if(value&&text){value.html=text.innerHTML;value.text=text.textContent||'';value.textStyle=text.style.cssText;}
   });
 }
 export function renderCenters(grid:Element,model:ModularModel) {

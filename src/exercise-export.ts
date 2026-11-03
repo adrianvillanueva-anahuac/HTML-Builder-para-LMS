@@ -21,7 +21,9 @@ export async function buildStudentDocument(html: string): Promise<string> {
     for(const attr of Array.from(el.attributes)) if(attr.name.startsWith('on') && !(attr.name==='onclick' && attr.value.startsWith('toggleLmsTab('))) el.removeAttribute(attr.name);
     el.removeAttribute('contenteditable');
   });
+  doc.querySelectorAll('.student-split-handle').forEach(el=>el.remove());
   doc.querySelectorAll<HTMLTextAreaElement>('.student-answer').forEach((el,index)=> {
+    delete el.dataset.editingPlaceholder; el.value=''; el.textContent='';
     el.dataset.answerId=String(index); el.style.resize='none'; el.style.height='auto'; el.style.overflow='hidden';
   });
   // Keep the submission block at the end, outside nested layouts.

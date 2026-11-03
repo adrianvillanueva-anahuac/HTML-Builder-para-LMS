@@ -49,7 +49,7 @@
   const progressFilename='progreso_'+exerciseId+'.html';
   const validName=()=>!requireName||!!nameInput&&nameInput.value.trim().split(/\s+/).filter(part=>/\p{L}/u.test(part)).length>=2;
   const resize = field => {
-    field.style.height='auto';field.style.height=field.scrollHeight+'px';
+    field.style.height='auto';field.style.height=Math.max(parseFloat(field.style?.minHeight)||0,field.scrollHeight)+'px';
     // Nested containers must not clip a growing response.
     let parent=field.parentElement;
     while(parent && !parent.classList.contains('anahuac-builder-export')) {

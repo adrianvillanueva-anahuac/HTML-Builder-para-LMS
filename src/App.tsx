@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, memo } from 'react';
 import {createPortal,flushSync} from 'react-dom';
 import {builderTextHostEvent} from './builder-text-tools';
-import {applyBuilderVerticalAlignment} from './builder-text-session';
+import {applyBuilderVerticalAlignment, applyBuilderLineHeight} from './builder-text-session';
 import Sortable from 'sortablejs';
 import { setupVanillaGlobals, upgradeTitleImageElements } from './vanilla-setup';
 import { TUTORIAL_TOPICS, type TutorialTopicId } from './tutorial-content';
@@ -571,6 +571,7 @@ export default function App() {
           <button onClick={() => document.execCommand('justifyCenter', false, undefined)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded text-gray-700"><span className="material-symbols-outlined text-[18px]">format_align_center</span></button>
           <button title="Alinear a la derecha" aria-label="Alinear a la derecha" onClick={() => document.execCommand('justifyRight', false, undefined)} className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded text-gray-700"><span className="material-symbols-outlined text-[18px]">format_align_right</span></button>
           <details className="rtf-vertical-menu"><summary aria-label="Alineación vertical del texto" title="Alineación vertical del texto"><span className="material-symbols-outlined text-[18px]">vertical_align_center</span><small>A</small></summary><div role="group" aria-label="Posición vertical del texto">{(['start','center','end'] as const).map((value,index)=><button key={value} type="button" title={['Texto arriba','Texto centrado verticalmente','Texto abajo'][index]} aria-label={['Texto arriba','Texto centrado verticalmente','Texto abajo'][index]} onClick={()=>applyBuilderVerticalAlignment(value)}><span className="material-symbols-outlined text-[18px]">{['vertical_align_top','vertical_align_center','vertical_align_bottom'][index]}</span></button>)}</div></details>
+          <details className="rtf-vertical-menu rtf-line-height-menu"><summary aria-label="Interlineado de los renglones" title="Interlineado de los renglones"><span className="material-symbols-outlined text-[18px]">format_line_spacing</span></summary><div role="group" aria-label="Interlineado de los renglones">{([['tight','Justo','Interlineado justo'],['normal','Normal','Interlineado normal (por defecto)'],['loose','Amplio','Interlineado amplio']] as const).map(([value,label,title])=><button key={value} type="button" data-line-height-option={value} data-active={value==='normal'?'true':'false'} aria-pressed={value==='normal'} title={title} aria-label={title} onClick={()=>applyBuilderLineHeight(value)}>{label}</button>)}</div></details>
           <div className="w-px h-6 bg-gray-300 my-auto mx-1"></div>
           <div className="flex gap-1.5 items-center px-2">
               <button onClick={() => document.execCommand('foreColor', false, '#ff5900')} className="w-5 h-5 rounded-full bg-[#ff5900] border border-transparent hover:ring-2 ring-offset-1 ring-[#ff5900]" title="Naranja Anáhuac"></button>

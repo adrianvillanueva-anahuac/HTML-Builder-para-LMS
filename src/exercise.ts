@@ -104,7 +104,7 @@ export function prepareExerciseLinks(clone: HTMLElement) {
     const name = block.querySelector('.exercise-name');
     name?.removeAttribute('tabindex'); name?.removeAttribute('title'); name?.removeAttribute('contenteditable');
   });
-  clone.querySelectorAll('.exercise-design-note,.exercise-tools').forEach(el => el.remove());
+  clone.querySelectorAll('.exercise-design-note,.exercise-tools,.student-split-handle').forEach(el => el.remove());
 }
 
 export function setupExercises() {

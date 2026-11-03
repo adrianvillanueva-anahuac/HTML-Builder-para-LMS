@@ -15,3 +15,10 @@ test('vertical text alignment survives rich document and modular style normaliza
  }
  assert.equal(normalizeFlowRichDocument({tag:'div',style:{'align-content':'url(javascript:alert(1))'}})?.style,undefined);
 });
+test('line-height presets (justo, normal, amplio) survive rich document and modular style normalization',()=>{
+ for(const value of ['1.1','1.45','1.85']){
+  const doc=normalizeFlowRichDocument({tag:'div',style:{'line-height':value},children:[{tag:'#text',text:'Texto'}]})!;
+  assert.equal(doc.style?.['line-height'],value);assert.equal(flowRichNeedsHTML(doc),true);assert.match(flowRichHTML(doc),new RegExp('line-height:'+value));
+  assert.equal(modularTextStyle({'line-height':value})?.['line-height'],value);
+ }
+});

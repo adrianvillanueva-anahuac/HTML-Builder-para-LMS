@@ -7,7 +7,7 @@ export type ModularConnection = { id?:string;from: string; to: string; direction
 export function createModularConnection(from:string,to:string):ModularConnection {
   return {from,to,direction:'forward',fill:'#5d428c',stroke:'none',dotted:false};
 }
-export type CenterShape = {shape:'triangle'|'circle'|'square'|'diamond'|'hexagon';color:string;size:number;front:boolean;text:string;html?:string};
+export type CenterShape = {shape:'triangle'|'circle'|'square'|'diamond'|'hexagon';color:string;size:number;front:boolean;text:string;html?:string;textStyle?:string};
 export type ModularModel = { version: 1; rows: number[]; columns: number[]; gap: number; margin: number; overflow: boolean; stroke?: {width:number;color:string}; defaultRadius?:number; defaultColor?:string; cells: Record<string, ModularCell>; connections: ModularConnection[]; centers?:Record<string,CenterShape> };
 export function centerGroups(model:ModularModel):string[] {
   const groups:string[]=[];

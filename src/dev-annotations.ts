@@ -14,9 +14,17 @@ export interface DevAnnotation {
   fallbackY: number;
   resolved: boolean;
   createdAt: string;
+  context?: 'main' | 'exercise';
 }
 
 const STORAGE_KEY = 'lms_dev_annotations_v1';
+
+const generateId = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'ann_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
+};
 
 function buildSelector(el: Element): string {
   if (el.id) return `#${CSS.escape(el.id)}`;
@@ -71,9 +79,18 @@ function describeElement(el: Element): {selector: string; blockType: string; tag
 }
 
 export function setupDevAnnotations(): void {
-  if (typeof window === 'undefined' || window !== window.top) return;
+  if (typeof window === 'undefined') return;
   if (location.search.includes('check=')) return;
-  if (document.getElementById('dev-annotations-root')) return;
+  const isExerciseMode = new URLSearchParams(location.search).get('editor') === 'exercise';
+  if (window !== window.top && !isExerciseMode) return;
+
+  const win = window as unknown as {__lmsDevAnnotationsCleanup?: () => void};
+  if (typeof win.__lmsDevAnnotationsCleanup === 'function') {
+    win.__lmsDevAnnotationsCleanup();
+  }
+  document.getElementById('dev-annotations-root')?.remove();
+  document.getElementById('dev-ann-header-btn')?.remove();
+  document.body.classList.remove('dev-annotating');
 
   const root = document.createElement('div');
   root.id = 'dev-annotations-root';
@@ -85,6 +102,13 @@ export function setupDevAnnotations(): void {
   let listOpen = false;
   let selectedId: string | null = null;
   let hoveredTarget: Element | null = null;
+
+  const banner = document.createElement('div');
+  banner.className = 'dev-ann-banner';
+  banner.style.display = 'none';
+  banner.innerHTML = `<span>💬 ${isExerciseMode ? '[Editor de ejercicio] ' : ''}Haz clic en cualquier elemento para agregar una nota</span><button type="button" aria-label="Salir del modo comentarios">Esc</button>`;
+  banner.querySelector('button')!.onclick = () => setAnnotating(false);
+  root.appendChild(banner);
 
   const highlight = document.createElement('div');
   highlight.className = 'dev-ann-highlight';
@@ -186,6 +210,7 @@ export function setupDevAnnotations(): void {
   const setAnnotating = (active: boolean) => {
     annotating = active;
     document.body.classList.toggle('dev-annotating', annotating);
+    banner.style.display = annotating ? 'flex' : 'none';
     if (!annotating) {
       hoveredTarget = null;
       highlight.style.display = 'none';
@@ -194,7 +219,9 @@ export function setupDevAnnotations(): void {
   };
 
   const renderToolbar = () => {
-    const pendingCount = annotations.filter(a => !a.resolved).length;
+    const pendingCount = annotations.filter(
+      a => !a.resolved && (isExerciseMode ? a.context === 'exercise' : (a.context || 'main') === 'main'),
+    ).length;
     toolbar.innerHTML = '';
 
     const commentBtn = document.createElement('button');
@@ -202,7 +229,7 @@ export function setupDevAnnotations(): void {
     commentBtn.className = 'dev-ann-btn';
     commentBtn.dataset.active = String(annotating);
     commentBtn.title = 'Modo Comentarios estilo Figma (Alt + C)';
-    commentBtn.innerHTML = `<span>💬 Comentar</span>${
+    commentBtn.innerHTML = `<span>💬 ${isExerciseMode ? 'Comentar ejercicio' : 'Comentar'} (Alt+C)</span>${
       pendingCount > 0 ? `<span class="dev-ann-badge">${pendingCount}</span>` : ''
     }`;
     commentBtn.onclick = e => {
@@ -211,13 +238,17 @@ export function setupDevAnnotations(): void {
     };
     toolbar.appendChild(commentBtn);
 
+    const relevantCount = annotations.filter(
+      a => (isExerciseMode ? a.context === 'exercise' : (a.context || 'main') === 'main'),
+    ).length;
+
     if (annotations.length > 0) {
       const listBtn = document.createElement('button');
       listBtn.type = 'button';
       listBtn.className = 'dev-ann-btn';
       listBtn.dataset.active = String(listOpen);
       listBtn.title = 'Ver lista de anotaciones';
-      listBtn.textContent = `Notas (${annotations.length})`;
+      listBtn.textContent = `Notas (${relevantCount}/${annotations.length})`;
       listBtn.onclick = e => {
         e.stopPropagation();
         listOpen = !listOpen;
@@ -246,7 +277,12 @@ export function setupDevAnnotations(): void {
     renderedPins = [];
     if (!pinsVisible) return;
 
-    for (const ann of annotations) {
+    const visibleAnnotations = annotations.filter(ann => {
+      const annContext = ann.context || 'main';
+      return isExerciseMode ? annContext === 'exercise' : annContext === 'main';
+    });
+
+    for (const ann of visibleAnnotations) {
       const coords = computePinCoords(ann);
       const pin = document.createElement('button');
       pin.type = 'button';
@@ -300,7 +336,7 @@ export function setupDevAnnotations(): void {
 
     const header = document.createElement('div');
     header.className = 'dev-ann-card-header';
-    header.innerHTML = `<span>Pin #${ann.number} ${ann.blockType ? `· ${ann.blockType}` : ''}</span>`;
+    header.innerHTML = `<span>Pin #${ann.number} ${ann.context === 'exercise' ? '· [Ejercicio]' : ''} ${ann.blockType ? `· ${ann.blockType}` : ''}</span>`;
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
     closeBtn.className = 'dev-ann-action-btn dev-ann-action-secondary';
@@ -323,6 +359,9 @@ export function setupDevAnnotations(): void {
     textarea.placeholder = 'Escribe tu observación para Antigravity... (Enter para guardar)';
     textarea.value = ann.comment;
     card.appendChild(textarea);
+    setTimeout(() => {
+      textarea.focus();
+    }, 50);
 
     const saveComment = () => {
       const value = textarea.value.trim();
@@ -439,9 +478,10 @@ export function setupDevAnnotations(): void {
       item.innerHTML = `
         <span class="dev-ann-badge" style="background:${ann.resolved ? '#10b981' : '#0d99ff'}">${ann.number}</span>
         <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:600;color:#fff;margin-bottom:2px">${
-            ann.comment ? ann.comment.replace(/</g, '&lt;') : '<em>(Sin texto aún)</em>'
-          }</div>
+          <div style="font-size:12px;font-weight:600;color:#fff;margin-bottom:2px">
+            ${ann.context === 'exercise' ? '<span style="background:#5d428c;color:#fff;font-size:10px;padding:1px 5px;border-radius:4px;margin-right:4px">Ejercicio</span>' : ''}
+            ${ann.comment ? ann.comment.replace(/</g, '&lt;') : '<em>(Sin texto aún)</em>'}
+          </div>
           <div style="font-size:11px;color:#9ca3af;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${
             ann.blockType ? `[${ann.blockType}] ` : ''
           }${ann.selector}</div>
@@ -470,116 +510,150 @@ export function setupDevAnnotations(): void {
     renderList();
   };
 
-  window.addEventListener(
-    'pointermove',
-    e => {
-      if (!annotating) return;
-      const target = document.elementFromPoint(e.clientX, e.clientY);
-      if (!target || root.contains(target) || target === document.body || target === document.documentElement) {
-        hoveredTarget = null;
-        highlight.style.display = 'none';
-        return;
-      }
-      hoveredTarget = target;
-      const rect = target.getBoundingClientRect();
-      highlight.style.display = 'block';
-      highlight.style.left = `${rect.left}px`;
-      highlight.style.top = `${rect.top}px`;
-      highlight.style.width = `${rect.width}px`;
-      highlight.style.height = `${rect.height}px`;
-      highlightLabel.textContent = describeElement(target).label;
-    },
-    true,
-  );
+  const onPointerMove = (e: PointerEvent) => {
+    if (!annotating) return;
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    if (!target || root.contains(target) || target === document.body || target === document.documentElement) {
+      hoveredTarget = null;
+      highlight.style.display = 'none';
+      return;
+    }
+    hoveredTarget = target;
+    const rect = target.getBoundingClientRect();
+    highlight.style.display = 'block';
+    highlight.style.left = `${rect.left}px`;
+    highlight.style.top = `${rect.top}px`;
+    highlight.style.width = `${rect.width}px`;
+    highlight.style.height = `${rect.height}px`;
+    highlightLabel.textContent = describeElement(target).label;
+  };
 
-  window.addEventListener(
-    'click',
-    e => {
-      if (!annotating) return;
-      const target = e.target as Node | null;
-      if (target && root.contains(target)) return;
+  const onClickCapture = (e: MouseEvent) => {
+    if (!annotating) return;
+    const target = e.target as Node | null;
+    if (target && root.contains(target)) return;
 
-      e.preventDefault();
-      e.stopPropagation();
+    e.preventDefault();
+    e.stopPropagation();
 
-      const el = hoveredTarget || (e.target instanceof Element ? e.target : document.body);
-      const rect = el.getBoundingClientRect();
-      const info = describeElement(el);
-      const rx = rect.width > 0 ? Math.max(0.05, Math.min(0.95, (e.clientX - rect.left) / rect.width)) : 0.5;
-      const ry = rect.height > 0 ? Math.max(0.05, Math.min(0.95, (e.clientY - rect.top) / rect.height)) : 0.5;
+    const el = hoveredTarget || (e.target instanceof Element ? e.target : document.body);
+    const rect = el.getBoundingClientRect();
+    const info = describeElement(el);
+    const rx = rect.width > 0 ? Math.max(0.05, Math.min(0.95, (e.clientX - rect.left) / rect.width)) : 0.5;
+    const ry = rect.height > 0 ? Math.max(0.05, Math.min(0.95, (e.clientY - rect.top) / rect.height)) : 0.5;
 
-      const newAnn: DevAnnotation = {
-        id: crypto.randomUUID(),
-        number: annotations.length + 1,
-        comment: '',
-        selector: info.selector,
-        blockType: info.blockType,
-        tag: info.tag,
-        textSnippet: info.textSnippet,
-        rx,
-        ry,
-        fallbackX: e.clientX,
-        fallbackY: e.clientY,
-        resolved: false,
-        createdAt: new Date().toISOString(),
-      };
+    const newAnn: DevAnnotation = {
+      id: generateId(),
+      number: annotations.length + 1,
+      comment: '',
+      selector: info.selector,
+      blockType: info.blockType,
+      tag: info.tag,
+      textSnippet: info.textSnippet,
+      rx,
+      ry,
+      fallbackX: e.clientX,
+      fallbackY: e.clientY,
+      resolved: false,
+      createdAt: new Date().toISOString(),
+      context: isExerciseMode ? 'exercise' : 'main',
+    };
 
-      annotations.push(newAnn);
-      selectedId = newAnn.id;
-      setAnnotating(false);
-      void syncToServer(annotations);
-      renderAll();
-    },
-    true,
-  );
+    annotations.push(newAnn);
+    selectedId = newAnn.id;
+    setAnnotating(false);
+    void syncToServer(annotations);
+    renderAll();
+  };
 
-  window.addEventListener('keydown', e => {
+  const onKeyDown = (e: KeyboardEvent) => {
     if (e.altKey && e.key.toLowerCase() === 'c') {
       e.preventDefault();
+      e.stopPropagation();
+      const childFrame = getExerciseFrame();
+      if (childFrame) {
+        // The exercise editor overlay covers this window: forward the toggle to the iframe.
+        childFrame.contentWindow?.postMessage({type: 'dev-ann-toggle'}, location.origin);
+        childFrame.focus();
+        return;
+      }
       setAnnotating(!annotating);
     } else if (e.key === 'Escape' && annotating) {
       e.preventDefault();
+      e.stopPropagation();
       setAnnotating(false);
     }
-  });
+  };
 
+  // While annotating, swallow press events so editor handlers (selection, toolbars, drag) don't react.
+  const onPressCapture = (e: Event) => {
+    if (!annotating) return;
+    const target = e.target as Node | null;
+    if (target && root.contains(target)) return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const onMessage = (e: MessageEvent) => {
+    if (e.origin !== location.origin || e.data?.type !== 'dev-ann-toggle') return;
+    setAnnotating(!annotating);
+  };
+
+  // The exercise editor is an iframe overlay appended directly to <body> of the main window.
+  // Hide the main window's annotation UI while it's open so it doesn't cover the iframe's own toolbar.
+  const getExerciseFrame = (): HTMLIFrameElement | null =>
+    isExerciseMode ? null : document.querySelector<HTMLIFrameElement>('.exercise-editor-overlay iframe');
+  let overlayWasOpen = false;
+  const syncOverlayState = () => {
+    const open = !!getExerciseFrame();
+    if (open === overlayWasOpen) return;
+    overlayWasOpen = open;
+    root.style.display = open ? 'none' : '';
+    if (open) {
+      if (annotating) setAnnotating(false);
+    } else {
+      // Reload so annotations created inside the exercise editor are not overwritten later.
+      void loadInitial();
+    }
+  };
+  const overlayObserver = isExerciseMode ? null : new MutationObserver(syncOverlayState);
+  // childList only (no subtree): never reacts to our own DOM updates inside #dev-annotations-root.
+  overlayObserver?.observe(document.body, {childList: true});
+
+  window.addEventListener('pointermove', onPointerMove, true);
+  window.addEventListener('pointerdown', onPressCapture, true);
+  window.addEventListener('mousedown', onPressCapture, true);
+  window.addEventListener('click', onClickCapture, true);
+  window.addEventListener('keydown', onKeyDown, true);
+  window.addEventListener('message', onMessage);
   window.addEventListener('scroll', schedulePinPositions, {capture: true, passive: true});
   window.addEventListener('resize', schedulePinPositions);
 
+  win.__lmsDevAnnotationsCleanup = () => {
+    overlayObserver?.disconnect();
+    window.removeEventListener('pointermove', onPointerMove, true);
+    window.removeEventListener('pointerdown', onPressCapture, true);
+    window.removeEventListener('mousedown', onPressCapture, true);
+    window.removeEventListener('click', onClickCapture, true);
+    window.removeEventListener('keydown', onKeyDown, true);
+    window.removeEventListener('message', onMessage);
+    window.removeEventListener('scroll', schedulePinPositions, true);
+    window.removeEventListener('resize', schedulePinPositions);
+    if (pinScrollRaf) {
+      cancelAnimationFrame(pinScrollRaf);
+      pinScrollRaf = 0;
+    }
+    document.body.classList.remove('dev-annotating');
+    root.remove();
+  };
+
   void loadInitial();
   renderToolbar();
-}
-
-// Recover any unsaved textarea input on HMR and enable self-accepting HMR
-if (typeof document !== 'undefined') {
-  const existingTextarea = document.querySelector<HTMLTextAreaElement>('.dev-ann-textarea');
-  if (existingTextarea) {
-    const syncLiveTextarea = () => {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return;
-        const items: DevAnnotation[] = JSON.parse(raw);
-        const selectedPin = document.querySelector<HTMLElement>('.dev-ann-pin[data-selected="true"]');
-        const pinNum = Number(selectedPin?.textContent?.trim() || items.length);
-        const target = items.find(i => i.number === pinNum) || items[items.length - 1];
-        if (target && existingTextarea.value.trim()) {
-          target.comment = existingTextarea.value.trim();
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-          void fetch('/__dev-annotations', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(items),
-          });
-        }
-      } catch {
-        // Ignore
-      }
-    };
-    syncLiveTextarea();
-    existingTextarea.addEventListener('input', syncLiveTextarea);
-  }
+  syncOverlayState();
 }
 
 if (import.meta.hot) {
-  import.meta.hot.accept();
+  import.meta.hot.accept(() => {
+    setupDevAnnotations();
+  });
 }

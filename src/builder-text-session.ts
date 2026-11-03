@@ -14,10 +14,61 @@ export function finishBuilderTextSession(){
  document.body.classList.remove('builder-text-editing');
  document.dispatchEvent(new CustomEvent('builder-text-editing-ended',{detail:text}));
 }
+export const BUILDER_LINE_HEIGHTS = {
+ tight: '1.1',
+ normal: '1.45',
+ loose: '1.85',
+} as const;
+export type BuilderLineHeightPreset = keyof typeof BUILDER_LINE_HEIGHTS;
+
+const LEADING_CLASSES = ['leading-none','leading-tight','leading-snug','leading-normal','leading-relaxed','leading-loose'];
+
+export function resolveBuilderLineHeightPreset(raw: string | null | undefined): BuilderLineHeightPreset {
+ const trimmed = (raw || '').trim();
+ if (trimmed === 'tight') return 'tight';
+ if (trimmed === 'loose') return 'loose';
+ if (trimmed === 'normal') return 'normal';
+ const num = parseFloat(trimmed);
+ if (Number.isFinite(num)) {
+  if (num <= 1.2) return 'tight';
+  if (num >= 1.65) return 'loose';
+ }
+ return 'normal';
+}
+
+export function syncBuilderLineHeightMenu(text: HTMLElement | null = typeof window !== 'undefined' ? window.currentEditableText : null) {
+ if (typeof document === 'undefined') return;
+ const preset = resolveBuilderLineHeightPreset(text?.dataset?.lineHeight || text?.style?.getPropertyValue?.('line-height'));
+ document.querySelectorAll<HTMLButtonElement>('#rtf-toolbar [data-line-height-option]').forEach(btn => {
+  const active = btn.dataset.lineHeightOption === preset;
+  btn.dataset.active = String(active);
+  btn.setAttribute('aria-pressed', String(active));
+ });
+}
+
 export function applyBuilderVerticalAlignment(value:'start'|'center'|'end'){
  const text=window.currentEditableText;if(!text?.isContentEditable)return;
  window.saveHistoryState?.(true);text.style.setProperty('align-content',value);text.dispatchEvent(new Event('input',{bubbles:true}));window.saveHistoryState?.(true);
- document.querySelector<HTMLDetailsElement>('#rtf-toolbar .rtf-vertical-menu')?.removeAttribute('open');
+ document.querySelector<HTMLDetailsElement>('#rtf-toolbar .rtf-vertical-menu:not(.rtf-line-height-menu)')?.removeAttribute('open');
+}
+
+export function applyBuilderLineHeight(preset: BuilderLineHeightPreset) {
+ const text = window.currentEditableText as HTMLElement | null;
+ if (!text?.isContentEditable) return;
+ const validPreset: BuilderLineHeightPreset = preset in BUILDER_LINE_HEIGHTS ? preset : 'normal';
+ const value = BUILDER_LINE_HEIGHTS[validPreset];
+ window.saveHistoryState?.(true);
+ text.classList?.remove(...LEADING_CLASSES);
+ if (text.dataset) text.dataset.lineHeight = validPreset;
+ text.style.setProperty('line-height', value);
+ text.querySelectorAll<HTMLElement>('*:not(.material-symbols-outlined):not(.editable-icon)').forEach(el => {
+  el.classList?.remove(...LEADING_CLASSES);
+  el.style?.removeProperty?.('line-height');
+ });
+ text.dispatchEvent?.(new Event('input', {bubbles: true}));
+ window.saveHistoryState?.(true);
+ syncBuilderLineHeightMenu(text);
+ document.querySelector<HTMLDetailsElement>('#rtf-toolbar .rtf-line-height-menu')?.removeAttribute('open');
 }
 let installed=false;
 export function setupBuilderTextSessions(){
@@ -25,7 +76,7 @@ export function setupBuilderTextSessions(){
  document.body.classList.add('builder-selection-guard');
  if(!window.currentEditableText?.isContentEditable)document.getSelection()?.removeAllRanges();
  document.addEventListener('selectstart',event=>{const target=event.target instanceof Element?event.target:event.target instanceof Node?event.target.parentElement:null;if(!target?.closest('[contenteditable=true],input,textarea'))event.preventDefault();},true);
- const sync=()=>{const editing=!!window.currentEditableText?.isConnected&&window.currentEditableText.isContentEditable,wasEditing=document.body.classList.contains('builder-text-editing');if(wasEditing!==editing){document.body.classList.toggle('builder-text-editing',editing);if(!editing)document.getSelection()?.removeAllRanges();}};
+ const sync=()=>{const editing=!!window.currentEditableText?.isConnected&&window.currentEditableText.isContentEditable,wasEditing=document.body.classList.contains('builder-text-editing');if(wasEditing!==editing){document.body.classList.toggle('builder-text-editing',editing);if(!editing)document.getSelection()?.removeAllRanges();}if(editing)syncBuilderLineHeightMenu(window.currentEditableText);};
  const observer=new MutationObserver(sync);observer.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class','contenteditable'],childList:true});
  window.addEventListener('pointerdown',event=>{const text=window.currentEditableText;if(text?.isContentEditable&&!builderTextSessionTarget(event.target,text))finishBuilderTextSession();},true);
  window.addEventListener('pointerover',event=>{const text=window.currentEditableText;if(text?.isContentEditable&&!builderTextSessionTarget(event.target,text))event.stopImmediatePropagation();},true);

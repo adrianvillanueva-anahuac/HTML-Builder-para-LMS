@@ -125,6 +125,7 @@ const EDITOR_ONLY_PATTERNS: RegExp[] = [
   /\.student-color-swatch\b/,
   /\.student-line-sample\b/,
   /\.student-height-slider\b/,
+  /\.student-split-handle\b/,
   /\.button-text-icon-label\b/,
   /\.exercise-tools\b/,
   /\.exercise-design-note\b/,

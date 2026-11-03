@@ -81,12 +81,12 @@ export function inlineModularLayout(root:ParentNode) {
     apply('.mod-center',{position:'absolute',pointerEvents:'none'});
     block.querySelectorAll<HTMLElement>('.mod-center-visual').forEach(el=>Object.assign(el.style,{position:'absolute',inset:'0',zIndex:el.parentElement?.dataset.front==='false'?'1':'40',pointerEvents:'auto',display:'grid',placeItems:'center'}));
     apply('.mod-center-visual svg',{position:'absolute',width:'100%',height:'100%',inset:'0'});
-    apply('.mod-center-text',{position:'relative',width:'58%',maxHeight:'65%',overflow:'auto',textAlign:'center',overflowWrap:'anywhere',fontSize:'12px',lineHeight:'1.2',whiteSpace:'pre-wrap'});
+    block.querySelectorAll<HTMLElement>('.mod-center-text').forEach(el=>Object.assign(el.style,{position:'relative',width:'58%',maxHeight:'65%',overflow:'auto',textAlign:'center',overflowWrap:'anywhere',fontSize:'12px',lineHeight:el.style.lineHeight||'1.2',whiteSpace:'pre-wrap'}));
     // Percent anchors and translate keep each badge's center on the perimeter
     // even when a published table is resized, without requiring JavaScript.
     apply('.mod-badge',{position:'absolute',transform:'translate(-50%,-50%)',zIndex:'70',display:'grid',placeItems:'center',cursor:'default'});
     apply('.mod-badge>svg',{position:'absolute',inset:'0',width:'100%',height:'100%',overflow:'visible',pointerEvents:'none'});
-    apply('.mod-badge-text',{position:'relative',width:'70%',maxHeight:'none',minHeight:'0',overflow:'visible',overflowWrap:'anywhere',textAlign:'center',lineHeight:'1.2',whiteSpace:'pre-wrap',padding:'0',margin:'0'});
+    block.querySelectorAll<HTMLElement>('.mod-badge-text').forEach(el=>Object.assign(el.style,{position:'relative',width:'70%',maxHeight:'none',minHeight:'0',overflow:'visible',overflowWrap:'anywhere',textAlign:'center',lineHeight:el.style.lineHeight||'1.2',whiteSpace:'pre-wrap',padding:'0',margin:'0'}));
     apply('.mod-badge-text :is(p,div,h1,h2,h3)',{margin:'0',textAlign:'center'});
     // Rounded badges remain inside their own slot even without the runtime.
     block.querySelectorAll<HTMLElement>('.mod-badge[data-rounded-width]').forEach(node=>{
