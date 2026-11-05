@@ -32,14 +32,14 @@ check(!out.querySelector('#element-spacing-handles,.mod-editor,.block-toolbar'),
 const finalRect=a.getBoundingClientRect();canvas.dispatchEvent(new w.PointerEvent('pointermove',{bubbles:true,clientX:finalRect.left+40,clientY:finalRect.bottom+8}));
 table.scrollIntoView({block:'center'});
 const selected=table.querySelector('.mod-cell');selected.classList.add('mod-cell-selected');
-selected.dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true}));await wait(250);
+selected.dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true}));selected.click();await wait(250);
 const main=table.querySelector(':scope > .block-toolbar > .mod-tools'),secondary=selected.querySelector('.mod-cell-tools');
-check(main.getBoundingClientRect().bottom<=secondary.getBoundingClientRect().top-7,'Menú principal elevado sobre el secundario, sin desplazamiento lateral');
-check(main.getBoundingClientRect().bottom<=table.getBoundingClientRect().top&&secondary.getBoundingClientRect().bottom<=table.getBoundingClientRect().top,'Ambos menús están sobre el borde superior del elemento');
+check(w.getComputedStyle(main.parentElement).opacity==='0'&&w.getComputedStyle(secondary).opacity==='1','La selección muestra únicamente el menú del rectángulo');
+check(secondary.getBoundingClientRect().bottom<=selected.getBoundingClientRect().top,'El menú secundario queda encima de su rectángulo');
 check(w.getComputedStyle(scroll).overflowY==='visible','Tabla sin barra de desplazamiento vertical interna ni recorte');
 const overlaps=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
 check(!overlaps(main.getBoundingClientRect(),secondary.getBoundingClientRect()),'Barra secundaria no tapa el menú principal');
-main.parentElement.style.opacity='1';main.parentElement.style.pointerEvents='auto';
+// Keep the editor's real layer state; report hit targets if a control is blocked.
 check([...secondary.querySelectorAll(':scope > button,:scope > details > summary')].every(control=>{const r=control.getBoundingClientRect();return control.contains(d.elementFromPoint(r.left+r.width/2,r.top+r.height/2));}),'Todas las opciones secundarias reciben el cursor sin capas invisibles');
 const detail=secondary.querySelector('details');detail.open=true;await wait(100);
 const popup=detail.querySelector(':scope > div').getBoundingClientRect();
@@ -48,7 +48,7 @@ selected.classList.remove('mod-cell-selected');delete table.dataset.pinnedCell;d
 const summary=detail.querySelector('summary'),option=detail.querySelector('div button');
 summary.dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true}));
 summary.dispatchEvent(new w.PointerEvent('pointerout',{bubbles:true,relatedTarget:d.body}));
-await wait(220);
+await wait(80);
 check(detail.open&&w.getComputedStyle(secondary).display!=='none','Rollover visible durante el recorrido sin fijarlo');
 option.dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true,relatedTarget:d.body}));
 await wait(300);
@@ -58,12 +58,12 @@ check(JSON.parse(table.dataset.modular).cells['0:0'].color,'Se puede seleccionar
 option.dispatchEvent(new w.PointerEvent('pointerout',{bubbles:true,relatedTarget:d.body}));
 await wait(500);
 check(!detail.open,'El menú no fijado se cierra al abandonar las opciones');
-table.querySelectorAll('.mod-cell-selected,.mod-cell-hover-active').forEach(el=>el.classList.remove('mod-cell-selected','mod-cell-hover-active'));delete table.dataset.pinnedCell;
+d.body.click();table.querySelectorAll('.mod-cell-selected,.mod-cell-hover-active').forEach(el=>el.classList.remove('mod-cell-selected','mod-cell-hover-active'));delete table.dataset.pinnedCell;
 const lowerCell=table.querySelector('[data-cell="1:1"]');lowerCell.classList.add('mod-cell-selected');
-lowerCell.dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true}));await wait(300);
+lowerCell.dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true}));lowerCell.click();await wait(300);
 const lowerTools=lowerCell.querySelector('.mod-cell-tools');
 check(Math.abs(lowerTools.getBoundingClientRect().bottom-lowerCell.getBoundingClientRect().top+6)<1,'Menú inferior situado sobre su propio rectángulo');
-check(main.parentElement.style.translate.split(' ').every(v=>parseFloat(v)===0),'Menú principal inmóvil para las filas inferiores');
+check(w.getComputedStyle(main.parentElement).pointerEvents==='none','Menú principal oculto no intercepta las filas inferiores');
 check([...lowerTools.querySelectorAll(':scope > button,:scope > details > summary')].every(control=>{const r=control.getBoundingClientRect();return control.contains(d.elementFromPoint(r.left+r.width/2,r.top+r.height/2));}),'Todas las opciones de la fila inferior son accesibles');
 results.textContent+='Todas las comprobaciones correctas';
 }catch(error){results.textContent+='ERROR: '+error.message;}};

@@ -1,5 +1,7 @@
 <!doctype html><html lang="es"><meta charset="utf-8"><title>Selección múltiple</title><body style="font:14px Arial"><h1>Selección múltiple: comprobaciones</h1><button id="run" disabled>Probar selección</button><pre id="result">Cargando…</pre><iframe id="editor" src="/" style="width:1400px;height:720px;border:1px solid #ddd"></iframe><script type="module">
 import {getPaginaBasicaHTML,getParrafoBasicoHTML,getCajaTextoHTML} from '/src/templates.ts';
+// Sortable's expando belongs to the editor iframe's module instance.
+const sortableFor=el=>Object.keys(el).filter(key=>key.startsWith('Sortable')).map(key=>el[key]).find(value=>value?.el===el);
 const frame=document.querySelector('#editor'),run=document.querySelector('#run'),result=document.querySelector('#result');
 const wait=ms=>new Promise(r=>setTimeout(r,ms));frame.onload=()=>run.disabled=false;
 run.onclick=async()=>{run.disabled=true;result.textContent='';const check=(ok,label)=>{if(!ok)throw Error(label);result.textContent+='✓ '+label+'\n';};try{
@@ -9,6 +11,7 @@ const tabs=()=>[...d.querySelectorAll('[role=tab]')],active=()=>tabs().findIndex
 const select=async(first,last)=>{const a=first.getBoundingClientRect(),b=last.getBoundingClientRect();p('pointerdown',a.left-18,a.top+2);p('pointermove',a.left+25,b.bottom-2);p('pointerup',a.left+25,b.bottom-2);await wait(40);};
 const start=()=>{const handle=d.querySelector('[data-group-move]'),r=handle.getBoundingClientRect();p('pointerdown',r.left+15,r.top+15,handle);};
 const newProject=[...d.querySelectorAll('button')].find(b=>b.textContent==='Nuevo proyecto'&&!b.closest('#project-file-menu'));newProject.click();await wait(200);
+check(d.querySelectorAll('#inline-icon-toolbar').length===1,'StrictMode instala una sola barra global de iconos');
 canvas().innerHTML=getPaginaBasicaHTML();zone().innerHTML=['A','B','C'].map(text=>getParrafoBasicoHTML().replace('Escribe tu párrafo aquí. Haz doble clic para editar o añadir viñetas.',text)).join('');
 w.initNestedDropzones();await wait(100);
 items()[0].querySelector('p').id='group-original';items()[0].dataset.spaceBottom='17';items()[0].style.setProperty('margin-bottom','17px','important');
@@ -22,6 +25,12 @@ check(d.querySelector('[data-group-count]').textContent==='2 elementos','Duplica
 w.undo();await wait(100);check(items().map(el=>el.querySelector('p').textContent).join('')==='ABC','Deshacer revierte el duplicado completo en un paso');
 w.redo();await wait(100);check(items().map(el=>el.querySelector('p').textContent).join('')==='ABABC','Rehacer restaura el conjunto duplicado');
 await select(items()[2],items()[3]);
+const deleteButton=d.querySelector('[data-group-delete]');check(!!deleteButton,'La selección ofrece Eliminar selección');
+const toolRect=deleteButton.getBoundingClientRect();check(d.elementFromPoint(toolRect.left+18,toolRect.top+18)?.closest('[data-group-delete]')===deleteButton,'La capa de acciones permite pulsar Eliminar');
+deleteButton.click();await wait(100);check(items().map(el=>el.querySelector('p').textContent).join('')==='ABC','Eliminar retira solamente el grupo seleccionado');
+w.undo();await wait(100);check(items().map(el=>el.querySelector('p').textContent).join('')==='ABABC','Deshacer recupera todo el grupo eliminado en un paso');
+w.redo();await wait(100);check(items().map(el=>el.querySelector('p').textContent).join('')==='ABC','Rehacer elimina nuevamente el grupo');
+w.undo();await wait(100);await select(items()[2],items()[3]);
 start();let r=zone().getBoundingClientRect();p('pointermove',r.left+15,r.bottom-15);p('pointerup',r.left+15,r.bottom-15);await wait(180);
 check(items().map(el=>el.querySelector('p').textContent).join('')==='ABCAB','Mueve el conjunto dentro de la página sin alterar su orden');
 const blank=zone().getBoundingClientRect();p('pointerdown',blank.left+8,blank.top+8);p('pointerup',blank.left+8,blank.top+8);check(d.querySelector('#lms-group-selection').hidden,'Clic exterior deshace la selección sin eliminar elementos');
@@ -43,6 +52,18 @@ zone().innerHTML=getCajaTextoHTML()+getParrafoBasicoHTML();w.initNestedDropzones
 check(!w.generateExportHTML(false).includes('id="lms-group-selection"'),'Exportación no incluye la interfaz de selección');
 const text=items()[1].querySelector('p');text.contentEditable='true';const range=d.createRange();range.selectNodeContents(text);w.getSelection().removeAllRanges();w.getSelection().addRange(range);const textRect=text.getBoundingClientRect();p('pointerdown',textRect.left+4,textRect.top+4,text);check(w.getSelection().toString()===text.textContent,'La edición de texto mantiene su selección normal');text.contentEditable='false';w.getSelection().removeAllRanges();
 await select(items()[0],items()[1]);
+const input=d.createElement('input');d.body.append(input);input.focus();input.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Delete',bubbles:true,cancelable:true}));check(items().length===2,'Supr en un campo no elimina la selección del lienzo');input.remove();
+const dialog=d.createElement('dialog');dialog.innerHTML='<button>Continuar</button>';d.body.append(dialog);dialog.showModal();dialog.querySelector('button').dispatchEvent(new w.KeyboardEvent('keydown',{key:'Delete',bubbles:true,cancelable:true}));check(items().length===2,'Supr en un diálogo no elimina bloques detrás');dialog.close();dialog.remove();
+d.activeElement?.blur();d.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Delete',bubbles:true,cancelable:true}));await wait(100);check(items().length===0,'Supr elimina el grupo completo');w.undo();await wait(100);check(items().length===2,'Deshacer recupera cajas y texto después de Supr');
+// Typed containers at the canvas root must remain whole selectable blocks.
+w.destroyNestedDropzones(canvas());canvas().innerHTML=getCajaTextoHTML()+getParrafoBasicoHTML();w.initNestedDropzones();await wait(100);
+const rootItems=()=>[...canvas().children].filter(el=>el.matches('.lms-element'));
+const shift=el=>{const r=el.getBoundingClientRect();el.dispatchEvent(new w.PointerEvent('pointerdown',{bubbles:true,cancelable:true,button:0,shiftKey:true,clientX:r.left+20,clientY:r.top+20}));};
+shift(rootItems()[0]);shift(rootItems()[1]);check(d.querySelector('[data-group-count]').textContent==='2 elementos','Shift+clic selecciona una caja raíz completa y su vecino');
+shift(rootItems()[1]);check(d.querySelector('[data-group-count]').textContent==='1 elemento','Shift+clic retira un elemento de la selección');
+const nestedZone=rootItems()[0].querySelector('.lms-dropzone');check(!!sortableFor(nestedZone),'La caja seleccionada tiene arrastre inicializado');
+d.querySelector('[data-group-delete]').click();await wait(100);check(rootItems().length===1&&!sortableFor(nestedZone),'Eliminar una caja libera su instancia Sortable anidada');
+w.undo();await wait(100);check(rootItems().length===2,'Deshacer restaura la caja raíz completa');
 result.textContent+='Todas las comprobaciones correctas';
 }catch(e){result.textContent+='ERROR: '+e.message;}};
 </script></body></html>

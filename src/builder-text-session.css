@@ -16,6 +16,6 @@
 body.builder-selection-guard,body.builder-selection-guard *{-webkit-user-select:none;user-select:none}
 body.builder-selection-guard [contenteditable=true],body.builder-selection-guard [contenteditable=true] *,body.builder-selection-guard input,body.builder-selection-guard textarea{-webkit-user-select:text;user-select:text}
 /* While text owns the pointer, only its original tools and geometry may appear. */
-body.builder-text-editing :is(.block-toolbar,.mod-cell-tools,.mod-row-tools,.mod-column-tools,.mod-center-tools,.mod-badge-menu,.mod-connector-popover,.flow-block-popover,.finish-tools,#element-spacing-handles,.fde-item-toolbar){display:none!important;pointer-events:none!important}
+body.builder-text-editing :is(.block-toolbar,.mod-cell-tools,.mod-row-tools,.mod-column-tools,.mod-center-tools,.mod-badge-menu,.mod-connector-popover,.flow-block-popover,.finish-tools,#element-spacing-handles){display:none!important;pointer-events:none!important}
 body.builder-text-editing :is(.mod-edge>button,.mod-resize,.mod-badge-picker){visibility:hidden!important;pointer-events:none!important}
 body.builder-text-editing :is(.mod-overflow-hover-tools,.mod-preview-tools,.mod-center-trigger){display:none!important;pointer-events:none!important}

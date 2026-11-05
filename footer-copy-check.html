@@ -1,34 +1,30 @@
 <!doctype html><meta charset="utf-8"><title>Verificación Footer y copia</title><button id="run">Probar footer global</button><pre id="result"></pre><iframe id="app" src="/" style="width:100%;height:700px"></iframe>
 <script type="module">
-import {getDynamicFooterHTML} from '/src/templates.ts';
 const app=document.querySelector('#app');
 document.querySelector('#run').onclick=async()=>{
  const w=app.contentWindow,d=w.document,out=document.querySelector('#result'),results=[];
- const wait=()=>new Promise(r=>setTimeout(r,350));
- const check=(name,ok)=>results.push((ok?'PASS ':'FAIL ')+name);
- const seed=()=>{d.querySelector('#canvas').innerHTML=getDynamicFooterHTML();w.initNestedDropzones();};
- if(!d.querySelector('.project-tab-add')){d.querySelector('.project-menu-toggle').click();Array.from(d.querySelectorAll('button')).find(b=>b.textContent==='Nuevo proyecto').click();await wait();}
- seed();await wait();
- d.querySelector('[title="Agregar página"]').click();await wait();
- d.querySelector('dialog input').value='Segunda';d.querySelector('dialog button[value="ok"]').click();await wait();seed();await wait();
+ const wait=(ms=350)=>new Promise(r=>setTimeout(r,ms));
+ const check=(name,ok)=>{results.push((ok?'PASS ':'FAIL ')+name);out.textContent=results.join('\n');if(!ok)throw Error(name);};
+ try{
+ d.querySelector('.project-welcome .welcome-actions > button').click();await wait();
+ w.insertTemplate('pagina_basica');await wait();
+ d.querySelector('.project-tab-add').click();await wait();
+ d.querySelector('dialog input').value='Segunda';d.querySelector('dialog button[value="ok"]').click();await wait();w.insertTemplate('pagina_basica');await wait();
  w.openGlobalFooterModal();w.tempFooterType='solido';w.tempFooterBlockColor='morado';w.applyFooterConfig();await wait();
- check('Footer activo global',d.querySelector('.lms-footer-wrapper').dataset.footerType==='solido');
- d.querySelectorAll('[role="tab"]')[0].click();await wait();check('Footer de pestaña inactiva',d.querySelector('.lms-footer-wrapper').dataset.footerType==='solido');
- w.openFooterModal(d.querySelector('.lms-footer-wrapper'));w.tempFooterType='lineas';w.applyFooterConfig();await wait();
- d.querySelectorAll('[role="tab"]')[1].click();await wait();check('Edición individual no cambia otras pestañas',d.querySelector('.lms-footer-wrapper').dataset.footerType==='solido');
+ check('Footer activo global',d.querySelector('#canvas .lms-footer-wrapper')?.dataset.footerType==='solido');
+ d.querySelectorAll('[role="tab"]')[0].click();await wait();check('Footer de pestaña inactiva',d.querySelector('#canvas .lms-footer-wrapper')?.dataset.footerType==='solido');
+ w.openFooterModal(d.querySelector('#canvas .lms-footer-wrapper'));w.tempFooterType='lineas';w.applyFooterConfig();await wait();
+ d.querySelectorAll('[role="tab"]')[1].click();await wait();check('Edición individual no cambia otras pestañas',d.querySelector('#canvas .lms-footer-wrapper')?.dataset.footerType==='solido');
  check('Predeterminado conservado',w.globalFooterConfig.type==='solido');
+ let copied='',stored='';Object.defineProperty(w.navigator,'clipboard',{configurable:true,value:{writeText:async text=>{copied=text;}}});
  check('Copiar habilitado sin guardar',!d.querySelector('.project-copy').disabled);
  d.querySelector('.project-copy').click();await wait();
- check('Opciones guardar y continuar',!!d.querySelector('dialog button[value="save"]')&&!!d.querySelector('dialog button[value="copy"]'));
- out.textContent=results.join('\n');
- let copied=0,stored='';
- Object.defineProperty(w.navigator,'clipboard',{configurable:true,value:{writeText:async()=>{copied++;}}});
- d.querySelector('dialog button[value="copy"]').click();await wait();check('Continuar sin guardar copia',copied===1);
+ check('El recordatorio permite continuar sin guardar',!!d.querySelector('dialog button[value="copy"]'));
+ d.querySelector('dialog button[value="copy"]').click();await wait();check('Continuar sin guardar produce HTML con footer',copied.includes('lms-page-footer')&&!d.querySelector('dialog[open]'));
  w.showSaveFilePicker=async()=>({name:'Prueba.lmsproject',createWritable:async()=>({write:async text=>{stored=text;},close:async()=>{}})});
- d.querySelector('.project-copy').click();await wait();d.querySelector('dialog button[value="save"]').click();await wait();
- const name=d.querySelector('dialog input');if(name){name.value='Prueba';d.querySelector('dialog button[value="ok"]').click();}
- await wait();await wait();check('Guardar y copiar',!!stored&&copied===2);check('Footer global persistido',!!stored&&JSON.parse(stored).footerConfig.type==='solido');
- d.querySelector('.project-copy').click();await wait();check('Proyecto guardado copia sin aviso',copied===3&&!d.querySelector('dialog[open]'));
- out.textContent=results.join('\n');
+ d.querySelector('.project-name').dispatchEvent(new w.MouseEvent('dblclick',{bubbles:true}));await wait();
+ const prompt=d.querySelector('dialog.project-prompt');if(prompt){prompt.querySelector('input').value='Prueba footer';prompt.querySelector('button[value="ok"]').click();}await wait();
+ check('Footer global y páginas se guardan en el proyecto',!!stored&&JSON.parse(stored).footerConfig.type==='solido'&&JSON.parse(stored).spaces.length===2);
+ }catch(error){out.textContent+='\nERROR: '+error.message;}
 };
 </script>

@@ -50,10 +50,69 @@ let historyStack: string[] = [];
 let historyIndex: number = -1;
 let isHistoryAction: boolean = false;
 let historyTimeout: any = null;
-export function takeWorkspaceHistory() {
-    window.saveHistoryState(true);
+
+export function destroyNestedDropzones(root: HTMLElement | Document | null) {
+    if (!root) return;
+    // Floating editors must not retain detached trees after replacement/deletion.
+    for (const key of ['currentEditableText','currentIconTarget','currentInlineIcon','currentBgTarget','currentTitleImageTarget','currentFooterWrapper','selectedEditorialImage','draggedEditorialImage']) {
+        const target=window[key];
+        if(target instanceof Node&&root.contains(target))window[key]=null;
+    }
+    if(window.lastKnownRange&&root.contains(window.lastKnownRange.commonAncestorContainer))window.lastKnownRange=null;
+    const dropzones: HTMLElement[] = [];
+    if (root instanceof HTMLElement && (root.classList.contains('lms-dropzone') || root.dataset.sortableActive === 'true')) {
+        dropzones.push(root);
+    }
+    if (root instanceof HTMLElement || root instanceof Document) {
+        root.querySelectorAll<HTMLElement>('.lms-dropzone, [data-sortable-active="true"]').forEach(el => {
+            if (!dropzones.includes(el)) dropzones.push(el);
+        });
+    }
+    dropzones.forEach(zone => {
+        try {
+            Sortable.get(zone)?.destroy();
+        } catch {}
+        delete zone.dataset.sortableActive;
+    });
+}
+
+function getCleanCanvasState(): string | null {
+    const container = document.getElementById('canvas-container-outer') || document.getElementById('canvas');
+    if (!container) return null;
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = container.innerHTML;
+    compactModularState(wrapper);
+    // Opening/closing a presentation menu is not an authored history change.
+    wrapper.querySelectorAll('[data-flow-presentation]').forEach(el=>el.removeAttribute('aria-expanded'));
+    wrapper.querySelectorAll('.sortable-ghost, .layout-intent-indicator, .lms-drag-origin').forEach(el => el.remove());
+    wrapper.querySelectorAll('.selected-img, .drag-over, .is-dragging, .drag-item').forEach(el => {
+        el.classList.remove('selected-img', 'drag-over', 'is-dragging', 'drag-item');
+    });
+    return wrapper.innerHTML;
+}
+
+function commitPendingHistory() {
     clearTimeout(historyTimeout);
     historyTimeout = null;
+    if (isHistoryAction || window.modularResizing || window.lmsWorkspaceDragActive || document.body.classList.contains('is-dragging')) return;
+    const currentState = getCleanCanvasState();
+    if (!currentState) return;
+    if (historyIndex >= 0 && historyStack[historyIndex] === currentState) return;
+
+    if (historyIndex < historyStack.length - 1) {
+        historyStack = historyStack.slice(0, historyIndex + 1);
+    }
+    historyStack.push(currentState);
+    if (historyStack.length > MAX_HISTORY) {
+        historyStack.shift();
+    } else {
+        historyIndex++;
+    }
+    window.updateHistoryButtons?.();
+}
+
+export function takeWorkspaceHistory() {
+    commitPendingHistory();
     return { stack: [...historyStack], index: historyIndex };
 }
 export function loadWorkspaceHistory(history?: {stack: string[]; index: number}) {
@@ -63,9 +122,9 @@ export function loadWorkspaceHistory(history?: {stack: string[]; index: number})
     historyIndex = history?.index ?? -1;
     isHistoryAction = false;
     if (historyStack.length === 0) {
-        window.saveHistoryState(true);
+        window.saveHistoryState?.(true);
     }
-    window.updateHistoryButtons();
+    window.updateHistoryButtons?.();
 }
 const MAX_HISTORY = 20;
 
@@ -166,7 +225,12 @@ export function upgradeTitleImageElements(root: ParentNode = document) {
     });
 }
 
+// These imperative services belong to the document, not to a React effect.
+// React can replay the effect; its per-mount Sortables are restored separately.
+let globalsInstalled=false;
 export function setupVanillaGlobals() {
+    if(globalsInstalled)return;
+    globalsInstalled=true;
     setupBuilderTextSessions();
     setupSpacingHandles();
     setupGroupSelection();
@@ -206,51 +270,23 @@ export function setupVanillaGlobals() {
     window.tempBgMargin = "15";
 
     // HISTORY FUNCTIONS
+    window.destroyNestedDropzones = destroyNestedDropzones;
+
     window.saveHistoryState = function(immediate = false) {
         if (isHistoryAction || window.modularResizing || window.lmsWorkspaceDragActive || document.body.classList.contains('is-dragging')) return;
-        const save = () => {
-            if (window.modularResizing || window.lmsWorkspaceDragActive || document.body.classList.contains('is-dragging')) return;
-            const container = document.getElementById('canvas-container-outer') || document.getElementById('canvas');
-            if (!container) return;
-            
-            // Generate clean state representing the layout
-            const wrapper = document.createElement('div');
-            wrapper.innerHTML = container.innerHTML;
-            compactModularState(wrapper);
-            
-            // Remove editor-specific state that shouldn't trigger history like active sorting ghost
-            wrapper.querySelectorAll('.sortable-ghost, .layout-intent-indicator, .lms-drag-origin').forEach(el => el.remove());
-            wrapper.querySelectorAll('.selected-img, .drag-over, .is-dragging, .drag-item').forEach(el => {
-                el.classList.remove('selected-img', 'drag-over', 'is-dragging', 'drag-item');
-            });
-            
-            const currentState = wrapper.innerHTML;
-            
-            if (historyIndex >= 0 && historyStack[historyIndex] === currentState) return;
-
-            if (historyIndex < historyStack.length - 1) {
-                historyStack = historyStack.slice(0, historyIndex + 1);
-            }
-
-            historyStack.push(currentState);
-            if (historyStack.length > MAX_HISTORY) {
-                historyStack.shift();
-            } else {
-                historyIndex++;
-            }
-            window.updateHistoryButtons();
-        };
-
         if (immediate) {
-            clearTimeout(historyTimeout);
-            save();
+            commitPendingHistory();
         } else {
             clearTimeout(historyTimeout);
-            historyTimeout = setTimeout(save, 1000);
+            historyTimeout = setTimeout(() => {
+                historyTimeout = null;
+                commitPendingHistory();
+            }, 1000);
         }
     };
 
     window.undo = function() {
+        commitPendingHistory();
         if (historyIndex > 0) {
             isHistoryAction = true;
             historyIndex--;
@@ -259,6 +295,8 @@ export function setupVanillaGlobals() {
     };
 
     window.redo = function() {
+        clearTimeout(historyTimeout);
+        historyTimeout = null;
         if (historyIndex < historyStack.length - 1) {
             isHistoryAction = true;
             historyIndex++;
@@ -272,14 +310,15 @@ export function setupVanillaGlobals() {
             // Unfocus any inputs to prevent weird bugs before replacing DOM
             (document.activeElement as HTMLElement)?.blur();
             window.currentEditableText = null;
+            destroyNestedDropzones(container);
             container.innerHTML = state;
             
             // Force re-initialization of Sortable by removing the initialized flag on new DOM elements
             container.querySelectorAll('.lms-dropzone').forEach(zone => {
-                (zone as HTMLElement).dataset.sortableActive = "false";
+                delete (zone as HTMLElement).dataset.sortableActive;
             });
             if (container.classList.contains('lms-dropzone')) {
-                (container as HTMLElement).dataset.sortableActive = "false";
+                delete (container as HTMLElement).dataset.sortableActive;
             }
             
             window.initNestedDropzones();
@@ -488,8 +527,9 @@ export function setupVanillaGlobals() {
     }, 500);
 
     window.deleteBlock = function(btn: HTMLElement) {
-        const el = btn.closest('.lms-element');
+        const el = btn.closest('.lms-element') as HTMLElement | null;
         if (el) {
+            destroyNestedDropzones(el);
             el.remove();
             window.checkEmptyState();
         }
@@ -509,12 +549,15 @@ export function setupVanillaGlobals() {
              const rightItems = Array.from(colRight.children).filter(c => c.classList.contains('lms-element'));
              
              if (leftItems.length === 0 && rightItems.length === 0) {
+                 destroyNestedDropzones(wrapper as HTMLElement);
                  wrapper.remove();
              } else if (leftItems.length === 0) {
                  rightItems.forEach(item => wrapper.parentNode?.insertBefore(item, wrapper));
+                 destroyNestedDropzones(wrapper as HTMLElement);
                  wrapper.remove();
              } else if (rightItems.length === 0) {
                  leftItems.forEach(item => wrapper.parentNode?.insertBefore(item, wrapper));
+                 destroyNestedDropzones(wrapper as HTMLElement);
                  wrapper.remove();
              }
         });
@@ -3762,6 +3805,7 @@ export function setupVanillaGlobals() {
             
             const container = document.getElementById('canvas-container-outer') || document.getElementById('canvas');
             if (container) {
+                destroyNestedDropzones(container);
                 if (!restoredHtml.includes('id="canvas"')) {
                     // OLD FORMAT: restoredHtml only contains the blocks.
                     // Keep the outer container and inject into #canvas.

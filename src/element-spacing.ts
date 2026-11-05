@@ -93,6 +93,7 @@ export function setupSpacingHandles(){
     const target=event.target instanceof Element?event.target:null;
     if(window.isLmsDragging||!target||target.closest('#element-spacing-handles'))return;
     if(!target.closest('#scroll-container')){overlay.hidden=true;return;}
+    if(pair&&(!pair.upper.isConnected||!pair.lower.isConnected)){pair=null;overlay.hidden=true;}
     if(pair&&!overlay.hidden){
       const a=boundary(pair.upper),b=boundary(pair.lower);
       const x=parseFloat(overlay.style.left),y=parseFloat(overlay.style.top);
@@ -128,4 +129,11 @@ export function setupSpacingHandles(){
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&drag&&pair){setElementSpacing(pair.upper,value(pair.upper,'top'),drag.up);setElementSpacing(pair.lower,drag.down,value(pair.lower,'bottom'));end();overlay.hidden=true;}});
   window.addEventListener('scroll',()=>{if(!drag&&!overlay.hidden)overlay.hidden=true;},{capture:true,passive:true});
   window.addEventListener('resize',()=>{overlay.hidden=true;});
+  const root=document.getElementById('canvas-container-outer');
+  if(root)new MutationObserver(()=>{
+    if(pair&&(!pair.upper.isConnected||!pair.lower.isConnected)){
+      pair=null;overlay.hidden=true;
+      if(drag){drag=null;window.modularResizing=false;}
+    }
+  }).observe(root,{childList:true,subtree:true});
 }

@@ -7,7 +7,7 @@ body.builder-selection-guard {
   --menu-motion-spring: cubic-bezier(.2,.8,.25,1.18);
   --menu-motion-small: .95 .92;
 }
-body.builder-selection-guard :is(.block-toolbar,.mod-cell-tools,.mod-row-tools,.mod-column-tools,.mod-center-tools,.mod-overflow-hover-tools,.finish-tools,.box-stroke-popover,.ib-tool-popover,.title-image-size-panel,.project-menu,.fde-item-toolbar),
+body.builder-selection-guard :is(.block-toolbar,.mod-cell-tools,.mod-row-tools,.mod-column-tools,.mod-center-tools,.mod-overflow-hover-tools,.finish-tools,.box-stroke-popover,.ib-tool-popover,.title-image-size-panel,.project-menu),
 body.builder-selection-guard :is(.block-toolbar,#rtf-toolbar,#image-toolbar,#inline-icon-toolbar) :is([class~="group"],[class*="group/"]) > .absolute,
 body.builder-selection-guard :is(.block-toolbar,.mod-tools,.finish-tools,#rtf-toolbar,.project-header,.flow-design-editor) details > :not(summary) {
   transform-origin: 50% 100%;
@@ -79,12 +79,11 @@ body.builder-selection-guard :is(
   .mod-overflow-info:is(:hover,:focus-within) .mod-overflow-hover-tools
 ) { opacity: 1; }
 @starting-style {
-  body.builder-selection-guard :is(.mod-cell-tools,.mod-row-tools,.mod-center-tools,.mod-overflow-hover-tools,.fde-item-toolbar),
+  body.builder-selection-guard :is(.mod-cell-tools,.mod-row-tools,.mod-center-tools,.mod-overflow-hover-tools),
   body.builder-selection-guard :is(.block-toolbar,.mod-tools,.finish-tools,#rtf-toolbar,.project-header,.flow-design-editor) details[open] > :not(summary) {
     scale: var(--menu-motion-small) !important; opacity: 0 !important;
   }
 }
-body.builder-selection-guard .fde-item-toolbar[hidden] { scale: var(--menu-motion-small); opacity: 0; }
 body.builder-selection-guard .project-menu { transform: none; }
 @media (prefers-reduced-motion: reduce) {
   body.builder-selection-guard {

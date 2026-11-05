@@ -1,0 +1,54 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>QA de HTML Builder</title>
+<style>body{font:14px system-ui;margin:16px}button{padding:10px}pre{white-space:pre-wrap}iframe{width:1500px;height:1000px;border:1px solid #ddd}details{margin:8px 0}.fail{color:#a00}.pass{color:#075}</style>
+<h1>Regresión funcional del editor</h1><p>Ejecuta los escenarios aislados sobre una instancia nueva de la aplicación. No utiliza proyectos del usuario. Los escenarios manuales se indican por separado.</p>
+<button id="run">Ejecutar auditoría funcional</button> <label>Filtrar <input id="filter" placeholder="Nombre de escenario"></label>
+<p id="status" role="status">Listo</p><div id="stage"></div><div id="results"></div>
+<script type="module">
+const files=Object.keys(import.meta.glob('./*check.html',{query:'?raw',import:'default'})).filter(p=>!p.endsWith('qa-check.html')).sort();
+const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const withTimeout=(promise,ms)=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Tiempo agotado')),ms);Promise.resolve(promise).then(v=>{clearTimeout(timer);resolve(v)},e=>{clearTimeout(timer);reject(e)});});
+const manual=new Set();
+const extra={'independent-editors-check.html':['exercise-check','flow-check'],'flow-check.html':['run','image-check','crop-check','Probar nuevas anotaciones','Probar edición directa','Probar arrastre y PNG','Probar controles del fondo','Probar píxeles y bisel','Probar figuras y rollover','Probar chicle y terminaciones','Probar etiquetas y conectores','Probar escala de etiquetas'],'flow-text-boxes-check.html':['run','menus'],'modular-text-boxes-check.html':['run','tools'],'shared-text-tools-check.html':['run','badge-run']};
+const reportKey='html-builder-qa-report-v1';let report;
+const appendResult=entry=>{
+ const detail=document.createElement('details');detail.className=entry.ok?'pass':'fail';const summary=document.createElement('summary');summary.textContent=(entry.ok?'PASS ':'FAIL ')+entry.name+' / '+entry.action;const pre=document.createElement('pre');pre.textContent=entry.output;detail.append(summary,pre);document.querySelector('#results').append(detail);
+};
+const persist=()=>{try{localStorage.setItem(reportKey,JSON.stringify(report));}catch{/* Results remain visible if browser storage is unavailable. */}};
+try{
+ const saved=JSON.parse(localStorage.getItem(reportKey)||'null');
+ if(saved&&Array.isArray(saved.entries)){report=saved;saved.entries.forEach(appendResult);document.querySelector('#filter').value=saved.filter||'';document.querySelector('#status').textContent=saved.complete?saved.status+' · informe guardado '+saved.started:'Ejecución interrumpida: '+saved.entries.length+' escenarios registrados. Ejecuta de nuevo para validar el código actual.';}
+}catch{/* A malformed cached report must never block QA. */}
+document.querySelector('#run').onclick=async()=>{
+ const run=document.querySelector('#run'),status=document.querySelector('#status'),results=document.querySelector('#results'),stage=document.querySelector('#stage');run.disabled=true;results.replaceChildren();let passed=0,failed=0,skipped=0;
+ const filters=document.querySelector('#filter').value.split(',').map(s=>s.trim());
+ report={started:new Date().toISOString(),filter:document.querySelector('#filter').value,complete:false,entries:[]};persist();
+ for(const file of files.filter(p=>filters.some(f=>p.includes(f)))){
+  const name=file.slice(2);if(manual.has(name)){skipped++;const note=document.createElement('p');note.textContent='MANUAL '+name;results.append(note);continue;}
+  for(const action of extra[name]||['default']){
+   status.textContent='Ejecutando '+name+' / '+action;
+   const frame=document.createElement('iframe');frame.title=name;
+   // These fixtures drive their own pointer events. Prevent the real cursor
+   // from injecting hover changes as test output moves nested frames.
+   frame.style.pointerEvents='none';stage.replaceChildren(frame);
+   let output='';let ok=false;
+   try{
+    const loaded=new Promise(resolve=>frame.onload=resolve);frame.src=file;await withTimeout(loaded,30000);
+    const d=frame.contentDocument;
+    // Give nested apps time to install their imperative handlers and fonts.
+    for(let i=0;i<150;i++){const apps=[...d.querySelectorAll('iframe[src]')].filter(f=>new URL(f.src,location.href).pathname==='/');if(apps.every(f=>f.contentWindow?.initNestedDropzones&&f.contentDocument.querySelector('#canvas')))break;await wait(100);}
+    await wait(600);
+    const button=d.getElementById(action==='default'?'run':action)||(action==='default'?d.getElementById('test'):[...d.querySelectorAll('button')].find(b=>b.textContent.trim()===action));
+    if(button){if(typeof button.onclick==='function')await withTimeout(button.onclick.call(button,new frame.contentWindow.MouseEvent('click')),90000);else{button.click();await withTimeout((async()=>{for(;;){const text=[...d.querySelectorAll('pre')].map(p=>p.textContent).join('\n');if(/TOTAL:|ERROR|Todas las comprobaciones/.test(text))return;await wait(200);}})(),90000);}}
+    else await wait(800);
+    output=[...d.querySelectorAll('pre')].map(p=>p.textContent).join('\n');
+    ok=!!output.trim()&&!/^FAIL\b|\bERROR\b|❌|✗|FAIL:\s*[1-9]/im.test(output)&&/PASS|✓|correctas|correctos/i.test(output);
+    if(!output.trim())output='Sin resultado verificable';
+   }catch(error){output+='\nERROR: '+error.message;}
+   const entry={name,action,ok,output};appendResult(entry);report.entries.push(entry);persist();if(ok)passed++;else failed++;
+   if(ok)frame.remove();await wait(50);
+  }
+ }
+ status.textContent=`Finalizado: ${passed} aprobados, ${failed} fallidos, ${skipped} manuales`;run.disabled=false;
+ report.complete=true;report.status=status.textContent;persist();
+};
+</script></html>

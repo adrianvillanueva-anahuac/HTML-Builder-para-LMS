@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { compactModularState } from './modular-table';
-import { takeWorkspaceHistory, loadWorkspaceHistory, upgradeTitleImageElements } from './vanilla-setup';
+import { takeWorkspaceHistory, loadWorkspaceHistory, upgradeTitleImageElements, destroyNestedDropzones } from './vanilla-setup';
 import { parseProject, projectContent, projectNameFromFile, emptyWorkspace, workspacePendingTasks, type Project, type Workspace } from './project-model';
 
 import { projectDialog } from './project-dialog';
@@ -144,7 +144,9 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
       p={...p,spaces:p.spaces.map(space=>{
         if(space.id===p.activeId){
           const res=syncWorkspaceAutomaticChecklist(space,outer(),auto,trackedTasks.current,false);
-          syncedCache.current.set(space.id,{html:res.html,checklist:res.checklist,dismissed:res.dismissedAutomaticTasks,auto,result:res});
+          // Active pages defer new tasks. Never reuse that result when leaving
+          // the page, where missing content must create its pending tasks.
+          syncedCache.current.delete(space.id);
           return res;
         }
         const cached=syncedCache.current.get(space.id);
@@ -187,6 +189,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     try {
       window.currentEditableText = null;
       document.getElementById('rtf-toolbar')?.classList.add('hidden');
+      destroyNestedDropzones(outer());
       outer().innerHTML=s.html; restoreBackgroundMetadata(outer(),s); outer().style.cssText=s.style;
       if(ensureMediaChecklistIds(outer()))s.html=outer().innerHTML;
       outer().querySelectorAll('[data-sortable-active]').forEach(n => n.removeAttribute('data-sortable-active'));
@@ -216,6 +219,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     if (!blank.current) blank.current=emptyWorkspace();
     const s={...emptyWorkspace(),id:crypto.randomUUID(),name:'Página 1'};
     baseline.current=null;handle.current=null;histories.current.clear();
+    syncedCache.current.clear();
     trackedTasks.current={buttons:new Set(),media:new Set()};
     resetNameEditor('Proyecto nuevo');
     restore(s);publish({format:'lms-builder-project',version:1,name:'Proyecto nuevo',activeId:s.id,spaces:[s]});setMenu(false);return true;
@@ -259,13 +263,14 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
           if(existing) {
             histories.current.set(existing.activeId,takeWorkspaceHistory());
             p={...existing,activeId:imported.id,spaces:[...existing.spaces,imported]};
-          } else { histories.current.clear();handle.current=null;baseline.current=null;trackedTasks.current={buttons:new Set(),media:new Set()}; }
+          } else { histories.current.clear();handle.current=null;baseline.current=null;syncedCache.current.clear();trackedTasks.current={buttons:new Set(),media:new Set()}; }
           restore(imported);publish(p);resetNameEditor(p.name);setMenu(false);
           setMessage('HTML anterior añadido como nueva página. Guarda el proyecto para conservarlo.');
           return;
         }
         if(!(await canReplace()))return;
         histories.current.clear();handle.current=null;
+        syncedCache.current.clear();
         trackedTasks.current={buttons:new Set(),media:new Set()};
         restore(p.spaces.find(s=>s.id===p.activeId)!);
         baseline.current=projectContent(p);publish(p);resetNameEditor(p.name);setMenu(false);
@@ -349,7 +354,7 @@ export default function ProjectManager({onTutorial}: {onTutorial:()=>void}) {
     if(action==='delete') {
       if(spaces.length===1){setMessage('El proyecto debe conservar al menos un espacio.');return;}
       if(!(await projectDialog(`¿Eliminar «${spaces[index].name}» y su contenido? Esta acción no se puede deshacer.`)))return;
-      const removed=spaces[index].id;histories.current.delete(removed);spaces.splice(index,1);
+      const removed=spaces[index].id;histories.current.delete(removed);syncedCache.current.delete(removed);spaces.splice(index,1);
       if(removed===p.activeId){const next=spaces[Math.min(index,spaces.length-1)];restore(next);publish({...p,spaces,activeId:next.id});}else publish({...p,spaces});return;
     }
     publish({...p,spaces});

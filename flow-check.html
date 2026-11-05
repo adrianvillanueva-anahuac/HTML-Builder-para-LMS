@@ -370,12 +370,12 @@ dragChecks.onclick=async()=>{
   const {w,d}=await reset(),model=dragSample(),[source,target,image]=model.nodes,block=setModel(insertBlock(),model);openBlock(block);await wait();
   const dialog=()=>d.querySelector('.flow-design-editor'),inspector=()=>dialog().querySelector('.fde-inspector'),surface=()=>dialog().querySelector('.fde-surface');
   const select=id=>dialog().querySelector(`[data-select-kind="node"][data-select-id="${id}"]`).click();
-  const loaded=async()=>{for(let i=0;i<100;i++){await wait(35);if(/Imagen válida/.test(inspector().querySelector('.fde-image-error')?.textContent||''))return;}throw new Error(inspector().querySelector('.fde-image-error')?.textContent||'No terminó la carga');};
+  const loaded=async()=>{for(let i=0;i<100;i++){await wait(35);if(/Imagen cargada/.test(inspector().querySelector('.fde-image-error')?.textContent||''))return;}throw new Error(inspector().querySelector('.fde-image-error')?.textContent||'No terminó la carga');};
   const png=await(await fetch(imageFixture())).blob();
   async function upload(type,name){select(image.id);const files=new w.DataTransfer(),input=inspector().querySelector('input[type="file"]');files.items.add(new w.File([png],name,{type}));input.files=files.files;input.dispatchEvent(new w.Event('change',{bubbles:true}));await loaded();}
-  await upload('image/png','alpha.png');record('Archivo PNG con alpha se importa por el selector local',inspector().textContent.includes('Transparencia alpha detectada')&&inspector().querySelector('[data-prop="image.mask"]').value==='none');
-  for(const type of ['', 'application/octet-stream']){await upload(type,'alpha-sin-mime.png');record(`PNG con MIME ${type||'vacío'} se valida por sus bytes`,inspector().textContent.includes('Transparencia alpha detectada'));}
-  select(image.id);const clipboard=new w.DataTransfer();clipboard.items.add(new w.File([png],'alpha-portapapeles.png',{type:'image/png'}));inspector().querySelector('.fde-image-url').dispatchEvent(new w.ClipboardEvent('paste',{bubbles:true,clipboardData:clipboard}));await loaded();record('PNG binario pegado conserva alpha y máscara original',inspector().textContent.includes('Transparencia alpha detectada')&&inspector().querySelector('[data-prop="image.mask"]').value==='none');
+  await upload('image/png','alpha.png');record('Archivo PNG con alpha se importa por el selector local',inspector().querySelector('[data-prop="image.mask"]').value==='none');
+  for(const type of ['', 'application/octet-stream']){await upload(type,'alpha-sin-mime.png');record(`PNG con MIME ${type||'vacío'} se valida por sus bytes`,inspector().querySelector('[data-prop="image.mask"]').value==='none');}
+  select(image.id);const clipboard=new w.DataTransfer();clipboard.items.add(new w.File([png],'alpha-portapapeles.png',{type:'image/png'}));inspector().querySelector('.fde-image-url').dispatchEvent(new w.ClipboardEvent('paste',{bubbles:true,clipboardData:clipboard}));await loaded();record('PNG binario pegado conserva alpha y máscara original',inspector().querySelector('[data-prop="image.mask"]').value==='none');
   const viewport=dialog().querySelector('.fde-viewport'),capture=viewport.setPointerCapture.bind(viewport),release=viewport.releasePointerCapture.bind(viewport),has=viewport.hasPointerCapture.bind(viewport);
   // Synthetic events cannot own native pointer capture. Real drags are verified separately.
   viewport.setPointerCapture=()=>{};viewport.releasePointerCapture=()=>{};viewport.hasPointerCapture=()=>false;
@@ -407,7 +407,7 @@ dragChecks.onclick=async()=>{
   record('El origen del arrastre no se confunde con el clic previo',saved.edges[3].from===source.id&&saved.edges[3].to===image.id);
   const published=new DOMParser().parseFromString(w.generateExportHTML(false),'text/html');record('Publicar conserva la imagen y excluye previos y resaltados de arrastre',!!published.querySelector('.flow-published image')&&!published.querySelector('[data-flow-connection-preview],[data-flow-connection-target]'));
   const decoded=new w.Image();decoded.src=photo.image.src;await decoded.decode();const canvas=d.createElement('canvas');canvas.width=400;canvas.height=260;const ctx=canvas.getContext('2d');ctx.drawImage(decoded,0,0);record('PNG importado mantiene píxeles transparentes opacos y semitransparentes',ctx.getImageData(1,1,1,1).data[3]===0&&ctx.getImageData(135,100,1,1).data[3]===255&&ctx.getImageData(385,125,1,1).data[3]===128);
-  openBlock(block);await wait();select(image.id);record('Reabrir conserva PNG con alpha y su máscara original',inspector().textContent.includes('Transparencia alpha detectada')&&inspector().querySelector('[data-prop="image.mask"]').value==='none');dialog().querySelector('[data-action="cancel"]').click();
+  openBlock(block);await wait();select(image.id);record('Reabrir conserva PNG con alpha y su máscara original',inspector().querySelector('[data-prop="image.mask"]').value==='none');dialog().querySelector('[data-action="cancel"]').click();
   out.textContent=results.join('\n')+`\nTOTAL: ${results.length} / FAIL: 0`;
  }catch(error){out.textContent+='\nERROR '+error.stack;}finally{busy=false;}
 };

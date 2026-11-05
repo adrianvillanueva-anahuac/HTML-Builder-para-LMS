@@ -5,7 +5,7 @@ import {materialIconSVG,materialIconVectors} from './material-icon-vectors';
 
 test('every catalog icon and quick choice has a bundled LMS-safe vector',()=>{
   const names=new Set([...Object.values(iconCatalog).flat(),...buttonQuickIcons.map(([name])=>name)].filter(Boolean));
-  assert.equal(Object.keys(iconCatalog).length,8);assert.equal(names.size,110);
+  assert.equal(Object.keys(iconCatalog).length,8);assert.equal(names.size,215);
   for(const name of names){assert.ok(materialIconVectors[name],name);assert.match(materialIconSVG(name),/^<svg /,name);}
 });
 test('bundled icons need neither external fonts nor remote resources',()=>{

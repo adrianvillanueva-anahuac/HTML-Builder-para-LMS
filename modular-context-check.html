@@ -9,6 +9,18 @@ async function setup(){for(let i=0;i<200;i++){w=frame.contentWindow;d=frame.cont
 document.querySelector('#proof').onclick=async()=>{await setup();hover(cell('0:1'));cell('0:1').click();cell('0:1').querySelector('.mod-badge-menu summary').click();await wait();};
 document.querySelector('#run').onclick=async()=>{const results=[],check=(name,ok)=>{results.push((ok?'PASS ':'FAIL ')+name);out.textContent=results.join('\n');if(!ok){out.textContent+='\nDIAG '+JSON.stringify({primary:primary()&&{opacity:style(primary()).opacity,pointer:style(primary()).pointerEvents,transition:style(primary()).transition},classes:block?.className});throw Error(name);}};out.removeAttribute('data-complete');try{
 await setup();d.body.style.setProperty('--menu-motion-duration','0ms');d.body.style.setProperty('--menu-motion-fade','0ms');const hit=block.querySelector('.mod-primary-hit-area');hover(hit);await wait();let a=rect(primary()),b=rect(block),h=rect(hit);check('Menú principal centrado en el elemento',Math.abs(a.left+a.width/2-b.left-b.width/2)<1);check('Menú principal junto al área sensible superior',Math.abs(a.bottom-h.top-4)<1&&h.height===20);
+
+// Preserve the useful viewport coverage of the former toolbar-elevation fixture.
+const originalWidth=frame.style.width;
+for(const width of [1320,970]){
+ frame.style.width=width+'px';d.body.click();hover(hit);await wait();
+ const initial=rect(block),mainRect=rect(primary());
+ check(width+' px: menú principal centrado',Math.abs(mainRect.left+mainRect.width/2-initial.left-initial.width/2)<1);
+ hit.click();hover(cell('0:1'));cell('0:1').click();await wait();
+ check(width+' px: solo el nivel secundario recibe acciones',style(primary()).pointerEvents==='none'&&style(bar('0:1')).opacity==='1');
+ check(width+' px: seleccionar no desplaza contenido',Math.abs(rect(block).top-initial.top)<1);
+}
+frame.style.width=originalWidth;d.body.click();hover(hit);await wait();
 hit.click();leave(block);await wait();check('Clic en área superior fija el menú principal',style(primary()).opacity==='1'&&style(primary()).pointerEvents==='auto');
 hover(cell('0:1'));await wait();check('Al aparecer menú del rectángulo se oculta el principal fijado',style(primary()).opacity==='0'&&style(bar('0:1')).opacity==='1');
 hover(hit);leave(cell('0:1'));hover(hit);await wait();check('Salir del secundario recupera el nivel principal fijado',style(primary()).opacity==='1');

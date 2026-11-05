@@ -1,0 +1,26 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Estabilidad de servicios del editor</title>
+<button id="run">Verificar estabilidad</button><pre id="result"></pre><iframe id="app" src="/" style="width:1300px;height:800px"></iframe>
+<script type="module">
+const frame=document.querySelector('#app'),out=document.querySelector('#result'),wait=(ms=150)=>new Promise(resolve=>setTimeout(resolve,ms));
+document.querySelector('#run').onclick=async()=>{
+ const lines=[],check=(name,ok)=>{lines.push((ok?'PASS ':'FAIL ')+name);out.textContent=lines.join('\n');if(!ok)throw Error(name);};
+ try{
+ const w=frame.contentWindow,d=frame.contentDocument;d.querySelector('.project-welcome .welcome-actions button').click();await wait();
+ w.insertTemplate('pagina_basica');w.insertTemplate('ejercicio_descargable');await wait();
+ const download=d.querySelector('#canvas [data-type=ejercicio_descargable]');download.dataset.exerciseFile='<!doctype html><html><body>Prueba de diálogo</body></html>';download.dataset.exerciseEncoding='text';
+ download.querySelector('.exercise-download').click();await wait();
+ check('StrictMode instala un solo manejador de descarga',d.querySelectorAll('dialog.project-prompt[open]').length===1);
+ d.querySelector('dialog.project-prompt [value=cancel]').click();await wait();check('Cancelar retira el diálogo completo',!d.querySelector('dialog.project-prompt'));
+ for(let i=0;i<20;i++)w.initNestedDropzones();
+ for(const selector of ['#inline-icon-toolbar','#lms-group-selection','#lms-group-marquee','#element-spacing-handles'])check('Inicializaciones repetidas conservan un único '+selector,d.querySelectorAll(selector).length===1);
+ for(let i=0;i<10;i++){
+  const canvas=d.querySelector('#canvas'),old=canvas.querySelector('.editable-text'),range=d.createRange();range.selectNodeContents(old);w.currentIconTarget=old;w.lastKnownRange=range;
+  const zone=canvas.querySelector('.lms-dropzone'),sortable=Object.keys(zone).filter(key=>key.startsWith('Sortable')).map(key=>zone[key]).find(value=>value?.el===zone);
+  check('Ciclo '+(i+1)+': zona de arrastre activa',!!sortable);
+  w.restoreState(d.querySelector('#canvas-container-outer').innerHTML);await wait(70);
+  check('Ciclo '+(i+1)+': libera arrastre y referencias al árbol anterior',!sortable.el&&!old.isConnected&&w.currentIconTarget===null&&w.lastKnownRange===null);
+ }
+ out.textContent+='\nTOTAL: '+lines.length+' / FAIL: 0';
+ }catch(error){out.textContent+='\nERROR '+error.stack;}
+};
+</script></html>

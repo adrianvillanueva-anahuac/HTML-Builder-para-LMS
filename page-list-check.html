@@ -3,4 +3,21 @@ import '/src/index.css';
 import {pageListDialog,nextPageName} from '/src/page-list-dialog.ts';
 document.querySelector('#result').textContent=[['Unidad 4','Unidad 5'],['Unidad 09','Unidad 10'],['Tema','Tema 2']].map(([a,b])=>(nextPageName(a)===b?'PASS ':'FAIL ')+a+' → '+b).join('\n');
 document.querySelector('#open').onclick=async()=>{document.querySelector('#result').textContent=JSON.stringify(await pageListDialog('Unidad 4'));};
+const run=document.createElement('button');run.id='run';run.textContent='Verificar lista de páginas';document.body.prepend(run);
+run.onclick=async()=>{
+ const out=document.querySelector('#result'),lines=[],check=(label,ok)=>{lines.push((ok?'PASS ':'FAIL ')+label);out.textContent=lines.join('\n');if(!ok)throw Error(label);};
+ try{
+ for(const [a,b]of[['Unidad 4','Unidad 5'],['Unidad 09','Unidad 10'],['Tema','Tema 2']])check(a+' → '+b,nextPageName(a)===b);
+ const pending=pageListDialog('Unidad 4'),dialog=document.querySelector('dialog'),list=dialog.querySelector('.page-name-list');
+ dialog.querySelector('.page-list-mode').click();list.querySelector('.page-name-add').click();list.lastElementChild.querySelector('.page-name-add').click();
+ check('Crea tres nombres consecutivos',[...list.querySelectorAll('input')].map(n=>n.value).join(',')==='Unidad 4,Unidad 5,Unidad 6');
+ list.lastElementChild.querySelector('input').dispatchEvent(new KeyboardEvent('keydown',{bubbles:true,key:'ArrowUp',altKey:true}));
+ check('Alt + arriba reordena los nombres',[...list.querySelectorAll('input')].map(n=>n.value).join(',')==='Unidad 4,Unidad 6,Unidad 5');
+ list.lastElementChild.querySelector('.page-name-delete').click();dialog.querySelector('[value=ok]').click();
+ check('Acepta solo las páginas conservadas',JSON.stringify(await pending)===JSON.stringify(['Unidad 4','Unidad 6']));
+ check('Cierra y retira el diálogo',!document.querySelector('dialog'));
+ const cancelled=pageListDialog('Descartar');document.querySelector('dialog [value=cancel]').click();check('Cancelar no crea páginas',await cancelled===null);
+ out.textContent+='\nTOTAL: '+lines.length+' / FAIL: 0';
+ }catch(error){out.textContent+='\nERROR '+error.message;}
+};
 </script></body></html>

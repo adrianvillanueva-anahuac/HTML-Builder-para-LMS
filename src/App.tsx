@@ -3,7 +3,7 @@ import {createPortal,flushSync} from 'react-dom';
 import {builderTextHostEvent} from './builder-text-tools';
 import {applyBuilderVerticalAlignment, applyBuilderLineHeight} from './builder-text-session';
 import Sortable from 'sortablejs';
-import { setupVanillaGlobals, upgradeTitleImageElements } from './vanilla-setup';
+import { setupVanillaGlobals, upgradeTitleImageElements, destroyNestedDropzones } from './vanilla-setup';
 import { TUTORIAL_TOPICS, type TutorialTopicId } from './tutorial-content';
 import { exerciseMode, setupExercises, saveExercise } from './exercise';
 import ProjectManager from './ProjectManager';
@@ -105,7 +105,6 @@ export default function App() {
   const [footerLogos, setFooterLogos] = useState<FooterLogo[]>([]);
   const [bgImages, setBgImages] = useState<{name: string, url: string}[]>([]);
   const [titleBgImages, setTitleBgImages] = useState<{name: string, url: string}[]>([]);
-  const isInitialized = useRef(false);
 
   useEffect(() => {
     // Fetch logs from github
@@ -341,41 +340,42 @@ export default function App() {
   useEffect(() => setupEditingContrast(), []);
   useEffect(() => setupTextLinkControls(), []);
 
+  // Manejo simétrico de selección de texto
   useEffect(() => {
-    if (isInitialized.current) return;
-    isInitialized.current = true;
+    const handleSelectionChange = () => {
+      const sel = window.getSelection(); 
+      if (sel && sel.rangeCount > 0 && window.currentEditableText && window.currentEditableText.contains(sel.anchorNode)) { 
+        window.lastKnownRange = sel.getRangeAt(0); 
+      }
+    };
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+    };
+  }, []);
 
-    // 1. Iniciar Globales y Funciones
-    setupVanillaGlobals();
-
-    const canvas = document.getElementById('canvas');
-    
-    // Set initial canvas content if empty
-    if (canvas && canvas.children.length === 0) {
-        canvas.innerHTML = '<div class="text-center mt-12 pointer-events-none" id="empty-state"><h3 class="text-xl text-gray-400 font-bold">Arrastra plantillas o elementos aquí</h3></div>';
-    }
-
-    // 2. Iniciar Catálogos Sortable (Menú lateral)
+  // Catálogos Sortable con ciclo de vida simétrico
+  useEffect(() => {
     const catOpts = { 
-        group: { name: 'shared', pull: 'clone', put: false }, 
-        animation: 0,
-        sort: false,
-        filter: '.media-home-link',
-        preventOnFilter: false,
-        forceFallback: true,
-        fallbackOnBody: true,
-        fallbackTolerance: 3,
-        ghostClass: 'ghost-element',
-        dragClass: 'drag-item',
-        onStart: (evt: any) => {
-            document.body.classList.add('is-dragging');
-            if (window.lmsOnSortableStart) window.lmsOnSortableStart(evt);
-        },
-        onEnd: (evt: any) => {
-            document.body.classList.remove('is-dragging');
-            if (window.lmsOnSortableEnd) window.lmsOnSortableEnd(evt);
-        },
-        onMove: (evt: any, originalEvent: MouseEvent) => window.lmsOnSortableMove && window.lmsOnSortableMove(evt, originalEvent)
+      group: { name: 'shared', pull: 'clone', put: false }, 
+      animation: 0,
+      sort: false,
+      filter: '.media-home-link',
+      preventOnFilter: false,
+      forceFallback: true,
+      fallbackOnBody: true,
+      fallbackTolerance: 3,
+      ghostClass: 'ghost-element',
+      dragClass: 'drag-item',
+      onStart: (evt: any) => {
+        document.body.classList.add('is-dragging');
+        if (window.lmsOnSortableStart) window.lmsOnSortableStart(evt);
+      },
+      onEnd: (evt: any) => {
+        document.body.classList.remove('is-dragging');
+        if (window.lmsOnSortableEnd) window.lmsOnSortableEnd(evt);
+      },
+      onMove: (evt: any, originalEvent: MouseEvent) => window.lmsOnSortableMove && window.lmsOnSortableMove(evt, originalEvent)
     };
     const catalogPages = document.getElementById('catalog-pages');
     if (catalogPages) new Sortable(catalogPages, catOpts as any);
@@ -385,146 +385,163 @@ export default function App() {
     const catalogContainers = document.getElementById('catalog-containers');
     if (catalogContainers) new Sortable(catalogContainers, catOpts as any);
 
-    // 3. Iniciar Zonas de Drop
-    window.initNestedDropzones();
-
-    setupExercises();
-
-    // 5. Configurar eventos de texto Editable
-    const handleSelectionChange = () => {
-        const sel = window.getSelection(); 
-        if (sel && sel.rangeCount > 0 && window.currentEditableText && window.currentEditableText.contains(sel.anchorNode)) { 
-            window.lastKnownRange = sel.getRangeAt(0); 
-        }
+    return () => {
+      if (catalogPages) Sortable.get(catalogPages)?.destroy();
+      document.querySelectorAll('.catalog-list').forEach(el => Sortable.get(el as HTMLElement)?.destroy());
+      if (catalogContainers) Sortable.get(catalogContainers)?.destroy();
     };
-    document.addEventListener('selectionchange', handleSelectionChange);
+  }, []);
 
+  // Eventos del espacio de trabajo y arrastre de imágenes
+  useEffect(() => {
     const workspaceContainer = document.getElementById('scroll-container');
-    if (workspaceContainer) {
-        workspaceContainer.addEventListener('keydown', function(e) {
-            let target = e.target as HTMLElement;
-            let textTarget = target.closest('.editable-text') as HTMLElement; 
-            if(textTarget && e.key === 'Tab') { 
-                e.preventDefault(); 
-                if(e.shiftKey) { document.execCommand('outdent', false, undefined); } 
-                else { document.execCommand('indent', false, undefined); } 
-            }
-        });
+    if (!workspaceContainer) return;
+    const controller = new AbortController();
+    const { signal } = controller;
 
-        const textEditingSessions = new WeakMap<HTMLElement,symbol>();
-        workspaceContainer.addEventListener('dblclick', function(e) {
-            let target = e.target as HTMLElement;
-            let textTarget = target.closest('.editable-text') as HTMLElement;
-            const rtfToolbar = document.getElementById('rtf-toolbar');
-            
-            if(textTarget && rtfToolbar) {
-                const session = Symbol('text-edit'); textEditingSessions.set(textTarget,session);
-                textTarget.contentEditable = "true"; 
-                textTarget.focus(); 
-                window.currentEditableText = textTarget;
-                const rect = textTarget.getBoundingClientRect(); 
-                rtfToolbar.style.top = (rect.top - 15) + 'px'; 
-                rtfToolbar.style.left = (rect.left + rect.width / 2) + 'px'; 
-                rtfToolbar.classList.remove('hidden');
-                
-                const blurHandler = (ev: Event) => { 
-                    setTimeout(() => { 
-                        if(textEditingSessions.get(textTarget) !== session) return;
-                        // A second text box can already own the shared toolbar.
-                        if(window.currentEditableText !== textTarget) { textTarget.contentEditable = "false"; return; }
-                        if(document.activeElement === textTarget) { textTarget.addEventListener('blur',blurHandler,{once:true}); return; }
-                        if(!rtfToolbar.contains(document.activeElement) && document.activeElement?.id !== "rtf-image-input" && !document.activeElement?.closest('.text-link-dialog,#text-link-tools,#image-toolbar,#inline-icon-toolbar,#icon-modal,.mod-text-geometry')) {
-                            textTarget.contentEditable = "false"; 
-                            rtfToolbar.classList.add('hidden'); 
-                            textTarget.removeEventListener('blur', blurHandler); 
-                        } else { 
-                            textTarget.addEventListener('blur', blurHandler, {once:true}); 
-                        } 
-                    }, 100); 
-                };
-                textTarget.addEventListener('blur', blurHandler, {once:true});
-            }
-            
-            let iconTarget = target.closest('.editable-icon') as HTMLElement;
-            if(iconTarget) { 
-                window.currentIconTarget = iconTarget; 
-                document.getElementById('icon-modal')?.classList.remove('hidden'); 
-            }
-        });
+    workspaceContainer.addEventListener('keydown', function(e) {
+      let target = e.target as HTMLElement;
+      let textTarget = target.closest('.editable-text') as HTMLElement; 
+      if(textTarget && e.key === 'Tab') { 
+        e.preventDefault(); 
+        if(e.shiftKey) { document.execCommand('outdent', false, undefined); } 
+        else { document.execCommand('indent', false, undefined); } 
+      }
+    }, { signal });
 
-        workspaceContainer.addEventListener('click', function(e) {
-            let target = e.target as HTMLElement;
-            const imgToolbar = document.getElementById('image-toolbar');
-            if(target.classList.contains('editorial-image')) {
-                window.selectedEditorialImage = target; 
-                const rect = target.getBoundingClientRect(); 
-                if(imgToolbar) {
-                    imgToolbar.style.top = (rect.top - 10) + 'px'; 
-                    imgToolbar.style.left = (rect.left + rect.width / 2) + 'px'; 
-                    imgToolbar.classList.remove('hidden');
-                }
-                document.querySelectorAll('.editorial-image').forEach(img => img.classList.remove('selected-img')); 
-                target.classList.add('selected-img');
+    const textEditingSessions = new WeakMap<HTMLElement,symbol>();
+    workspaceContainer.addEventListener('dblclick', function(e) {
+      let target = e.target as HTMLElement;
+      let textTarget = target.closest('.editable-text') as HTMLElement;
+      const rtfToolbar = document.getElementById('rtf-toolbar');
+      
+      if(textTarget && rtfToolbar) {
+        const session = Symbol('text-edit'); textEditingSessions.set(textTarget,session);
+        textTarget.contentEditable = "true"; 
+        textTarget.focus(); 
+        window.currentEditableText = textTarget;
+        const rect = textTarget.getBoundingClientRect(); 
+        rtfToolbar.style.top = (rect.top - 15) + 'px'; 
+        rtfToolbar.style.left = (rect.left + rect.width / 2) + 'px'; 
+        rtfToolbar.classList.remove('hidden');
+        
+        const blurHandler = (ev: Event) => { 
+          setTimeout(() => { 
+            if(textEditingSessions.get(textTarget) !== session) return;
+            // A second text box can already own the shared toolbar.
+            if(window.currentEditableText !== textTarget) { textTarget.contentEditable = "false"; return; }
+            if(document.activeElement === textTarget) { textTarget.addEventListener('blur',blurHandler,{once:true}); return; }
+            if(!rtfToolbar.contains(document.activeElement) && document.activeElement?.id !== "rtf-image-input" && !document.activeElement?.closest('.text-link-dialog,#text-link-tools,#image-toolbar,#inline-icon-toolbar,#icon-modal,.mod-text-geometry')) {
+              textTarget.contentEditable = "false"; 
+              rtfToolbar.classList.add('hidden'); 
+              textTarget.removeEventListener('blur', blurHandler); 
             } else { 
-                if(imgToolbar) imgToolbar.classList.add('hidden'); 
-                document.querySelectorAll('.editorial-image').forEach(img => img.classList.remove('selected-img')); 
-            }
-        });
-
-        // Imágenes Drag & Drop (Editorial)
-        document.addEventListener('dragstart', function(e) { 
-            let target = e.target as HTMLElement;
-            if(target.classList && target.classList.contains('editorial-image')) { 
-                window.draggedEditorialImage = target; 
-                if(e.dataTransfer) e.dataTransfer.effectAllowed = 'move'; 
+              textTarget.addEventListener('blur', blurHandler, {once:true}); 
             } 
-        });
-        document.addEventListener('dragend', function(e) { 
-            setTimeout(() => { window.draggedEditorialImage = null; }, 50); 
-            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-        });
-        workspaceContainer.addEventListener('dragover', function(e: any) { 
-            let editableText = e.target.closest('.editable-text'); 
-            if (editableText) { e.preventDefault(); editableText.classList.add('drag-over'); } 
-        });
-        workspaceContainer.addEventListener('dragleave', function(e: any) { 
-            let editableText = e.target.closest('.editable-text'); 
-            if (editableText) editableText.classList.remove('drag-over'); 
-        });
-        workspaceContainer.addEventListener('drop', function(e: any) {
-            let editableText = e.target.closest('.editable-text');
-            if (editableText) {
-                editableText.classList.remove('drag-over');
-            }
-            if (window.draggedEditorialImage && editableText) {
-                e.preventDefault(); let range;
-                if ((document as any).caretRangeFromPoint) { 
-                    range = (document as any).caretRangeFromPoint(e.clientX, e.clientY); 
-                } else if ((document as any).caretPositionFromPoint) { 
-                    const pos = (document as any).caretPositionFromPoint(e.clientX, e.clientY); 
-                    if(pos) { range = document.createRange(); range.setStart(pos.offsetNode, pos.offset); } 
-                }
-                if (range && editableText.contains(range.startContainer)) { 
-                    range.insertNode(window.draggedEditorialImage); 
-                    const sel = window.getSelection(); 
-                    if(sel) sel.removeAllRanges(); 
-                    document.getElementById('image-toolbar')?.classList.add('hidden'); 
-                    document.querySelectorAll('.editorial-image').forEach(img => img.classList.remove('selected-img')); 
-                }
-                window.draggedEditorialImage = null; return;
-            }
-            if (editableText && e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-                e.preventDefault(); const file = e.dataTransfer.files[0];
-                if (file.type.startsWith('image/')) { 
-                    const url = prompt('Para añadir esta imagen, pega su URL HTTPS pública. No se incrustan imágenes locales.');
-                    if (url) window.insertDOMImage(url.trim(), editableText);
-                }
-            }
-        });
-    }
+          }, 100); 
+        };
+        textTarget.addEventListener('blur', blurHandler, {once:true});
+      }
+      
+      let iconTarget = target.closest('.editable-icon') as HTMLElement;
+      if(iconTarget) { 
+        window.currentIconTarget = iconTarget; 
+        document.getElementById('icon-modal')?.classList.remove('hidden'); 
+      }
+    }, { signal });
+
+    workspaceContainer.addEventListener('click', function(e) {
+      let target = e.target as HTMLElement;
+      const imgToolbar = document.getElementById('image-toolbar');
+      if(target.classList.contains('editorial-image')) {
+        window.selectedEditorialImage = target; 
+        const rect = target.getBoundingClientRect(); 
+        if(imgToolbar) {
+          imgToolbar.style.top = (rect.top - 10) + 'px'; 
+          imgToolbar.style.left = (rect.left + rect.width / 2) + 'px'; 
+          imgToolbar.classList.remove('hidden');
+        }
+        document.querySelectorAll('.editorial-image').forEach(img => img.classList.remove('selected-img')); 
+        target.classList.add('selected-img');
+      } else { 
+        if(imgToolbar) imgToolbar.classList.add('hidden'); 
+        document.querySelectorAll('.editorial-image').forEach(img => img.classList.remove('selected-img')); 
+      }
+    }, { signal });
+
+    // Imágenes Drag & Drop (Editorial)
+    document.addEventListener('dragstart', function(e) { 
+      let target = e.target as HTMLElement;
+      if(target.classList && target.classList.contains('editorial-image')) { 
+        window.draggedEditorialImage = target; 
+        if(e.dataTransfer) e.dataTransfer.effectAllowed = 'move'; 
+      } 
+    }, { signal });
+    document.addEventListener('dragend', function(e) { 
+      setTimeout(() => { window.draggedEditorialImage = null; }, 50); 
+      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    }, { signal });
+    workspaceContainer.addEventListener('dragover', function(e: any) { 
+      let editableText = e.target.closest('.editable-text'); 
+      if (editableText) { e.preventDefault(); editableText.classList.add('drag-over'); } 
+    }, { signal });
+    workspaceContainer.addEventListener('dragleave', function(e: any) { 
+      let editableText = e.target.closest('.editable-text'); 
+      if (editableText) editableText.classList.remove('drag-over'); 
+    }, { signal });
+    workspaceContainer.addEventListener('drop', function(e: any) {
+      let editableText = e.target.closest('.editable-text');
+      if (editableText) {
+        editableText.classList.remove('drag-over');
+      }
+      if (window.draggedEditorialImage && editableText) {
+        e.preventDefault(); let range;
+        if ((document as any).caretRangeFromPoint) { 
+          range = (document as any).caretRangeFromPoint(e.clientX, e.clientY); 
+        } else if ((document as any).caretPositionFromPoint) { 
+          const pos = (document as any).caretPositionFromPoint(e.clientX, e.clientY); 
+          if(pos) { range = document.createRange(); range.setStart(pos.offsetNode, pos.offset); } 
+        }
+        if (range && editableText.contains(range.startContainer)) { 
+          range.insertNode(window.draggedEditorialImage); 
+          const sel = window.getSelection(); 
+          if(sel) sel.removeAllRanges(); 
+          document.getElementById('image-toolbar')?.classList.add('hidden'); 
+          document.querySelectorAll('.editorial-image').forEach(img => img.classList.remove('selected-img')); 
+        }
+        window.draggedEditorialImage = null; return;
+      }
+      if (editableText && e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+        e.preventDefault(); const file = e.dataTransfer.files[0];
+        if (file.type.startsWith('image/')) { 
+          const url = prompt('Para añadir esta imagen, pega su URL HTTPS pública. No se incrustan imágenes locales.');
+          if (url) window.insertDOMImage(url.trim(), editableText);
+        }
+      }
+    }, { signal });
 
     return () => {
-        document.removeEventListener('selectionchange', handleSelectionChange);
+      controller.abort();
+    };
+  }, []);
+
+  // Inicialización de funciones globales y zonas de drop
+  useEffect(() => {
+    setupVanillaGlobals();
+
+    const canvas = document.getElementById('canvas');
+    if (canvas && canvas.children.length === 0) {
+      canvas.innerHTML = '<div class="text-center mt-12 pointer-events-none" id="empty-state"><h3 class="text-xl text-gray-400 font-bold">Arrastra plantillas o elementos aquí</h3></div>';
+    }
+
+    window.initNestedDropzones();
+    setupExercises();
+
+    return () => {
+      const container = document.getElementById('canvas-container-outer') || document.getElementById('canvas');
+      if (container) {
+        destroyNestedDropzones(container);
+      }
     };
   }, []);
 

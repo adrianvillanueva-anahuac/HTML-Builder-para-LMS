@@ -46,8 +46,8 @@ export const TUTORIALS:Record<TutorialTopicId,TutorialDefinition>={
   step('organize-pages','Crea páginas en lote','Usa agregar página. Activa el modo lista para añadir nombres consecutivos; puedes borrar o reordenar los campos antes de aceptar.','.project-tab-add','bottom'),
   step('organize-names','Nombres, colores y notas','Haz doble clic en una pestaña del proyecto para personalizarla. Arrastra las pestañas para cambiar su orden y consulta sus notas y checklist.',workspaces,'bottom'),
   step('organize-transfer','Lleva un elemento a otra página','Arrástralo desde sus seis puntitos y mantén el cursor sobre la pestaña de destino. El espacio cambia automáticamente; suéltalo en su nueva ubicación.',workspaces,'bottom'),
-  step('organize-select','Selecciona varios elementos','Empieza a arrastrar en un espacio vacío, fuera de los bloques. El marco selecciona los elementos completos que toca, aunque solo los encierre parcialmente.',canvas,'left'),
-  step('organize-group','Mueve o duplica la selección','La caja de selección ofrece seis puntitos más grandes y un botón de duplicar. Mueve el conjunto dentro de la página o a otra pestaña: conserva orden, contenido y separaciones.',canvas,'left'),
+  step('organize-select','Selecciona varios elementos','Empieza a arrastrar en un espacio vacío, fuera de los bloques. El marco selecciona los elementos completos que toca, aunque solo los encierre parcialmente. Usa Shift+clic para agregar o quitar elementos del mismo contenedor.',canvas,'left'),
+  step('organize-group','Mueve, duplica o elimina la selección','La caja de selección permite mover, duplicar o eliminar el grupo. También puedes eliminar con Supr y recuperar con Deshacer. Mueve el conjunto dentro de la página o a otra pestaña: conserva orden, contenido y separaciones.',canvas,'left'),
   step('organize-release','Libera la selección','Haz clic fuera de la caja para quitar la selección de grupo. Los elementos siguen siendo independientes.',canvas,'left')
  ]},
  interactivos:{tab:'elements',steps:[

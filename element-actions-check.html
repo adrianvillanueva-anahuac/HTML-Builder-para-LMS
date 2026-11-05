@@ -10,14 +10,14 @@ run.onclick=async()=>{results.textContent='';const check=(ok,label)=>{if(!ok)thr
  const win=frame.contentWindow,doc=frame.contentDocument,canvas=doc.querySelector('#canvas');
  canvas.innerHTML=getCajaTextoHTML()+getCuadroNaranjaHTML()+getTabsHTML()+getModularHTML();const mod=canvas.querySelector('.modular-table');mod.removeAttribute('data-mod-pending');mod.dataset.modular=JSON.stringify(createModular(2,2));win.initNestedDropzones();
  const box=canvas.querySelector('[data-type=caja_texto]'),body=box.querySelector(':scope > div:not(.block-toolbar)'),text=body.querySelector('.editable-text');
- for(const [label,pad,line,margin] of [['Justo',8,1.25,8],['Normal',24,1.625,24],['Amplio',48,1.9,40]]){
+ for(const [label,pad,line,margin] of [['Justo',8,1.25,8],['Normal',24,1.625,24],['Amplio',48,1.9,30]]){
   box.querySelector(`button[title="${label}"]`).click();const css=win.getComputedStyle(body),tc=win.getComputedStyle(text);
   check(parseFloat(css.paddingTop)===pad&&parseFloat(css.paddingBottom)===pad&&Math.abs(parseFloat(tc.lineHeight)/parseFloat(tc.fontSize)-line)<0.01&&parseFloat(win.getComputedStyle(box).marginBottom)===margin,`Caja: ${label} ajusta padding, interlineado y margen`);
  }
  const orange=canvas.querySelector('[data-type=cuadro_naranja]');
  for(const [label,pad] of [['Justo',8],['Normal',32],['Amplio',64]]){orange.querySelector(`button[title="${label}"]`).click();check(parseFloat(win.getComputedStyle(orange.querySelector(':scope > div:not(.block-toolbar)')).paddingTop)===pad,`Cuadro: ${label}`);}
  check([...canvas.querySelectorAll('.block-toolbar')].every(t=>t.querySelector('[data-duplicate-element]')),'Todas las barras incluyen content_copy');
- box.querySelector('[data-duplicate-element]').click();check(box.nextElementSibling.dataset.type==='caja_texto'&&box.nextElementSibling.style.marginBottom==='40px','Duplicar conserva contenido, estilo y ubicación');
+ box.querySelector('[data-duplicate-element]').click();check(box.nextElementSibling.dataset.type==='caja_texto'&&box.nextElementSibling.style.marginBottom==='30px','Duplicar conserva contenido, estilo y ubicación');
  const tabs=canvas.querySelector('[data-type=pestanas]');tabs.querySelector('[data-duplicate-element]').click();const copy=tabs.nextElementSibling;
  check(copy.querySelector('[id]').id!==tabs.querySelector('[id]').id,'Pestañas duplicadas tienen IDs propios');
  copy.querySelectorAll('.tab-buttons-container > button')[1].click();check(copy.querySelectorAll('.lms-tab-pane')[1].style.display!=='none'&&tabs.querySelectorAll('.lms-tab-pane')[1].style.display==='none','Pestañas de la copia funcionan sin modificar el original');

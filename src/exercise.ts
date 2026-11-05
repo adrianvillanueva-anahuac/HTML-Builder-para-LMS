@@ -107,7 +107,10 @@ export function prepareExerciseLinks(clone: HTMLElement) {
   clone.querySelectorAll('.exercise-design-note,.exercise-tools,.student-split-handle').forEach(el => el.remove());
 }
 
+let exercisesInstalled=false;
 export function setupExercises() {
+  if(exercisesInstalled)return;
+  exercisesInstalled=true;
   document.body.classList.toggle('exercise-editor', exerciseMode);
   window.getExerciseBlock = getExerciseBlock;
   const canvas = document.getElementById('canvas-container-outer');
@@ -271,6 +274,7 @@ export function setupExercises() {
         const doc=JSON.parse(event.data.encoding === 'text' ? event.data.source : decode(event.data.source));
         if(doc.version!==1) { alert('Versión de ejercicio incompatible.'); return; }
         const outer=document.getElementById('canvas-container-outer')!;
+        window.destroyNestedDropzones?.(outer);
         outer.innerHTML=doc.html; outer.setAttribute('style',doc.style || ''); outer.setAttribute('data-bg',doc.bg || 'blanco');
         outer.querySelectorAll('.exercise-instructions,.exercise-finish .exercise-button-text').forEach(el => {
           // Migrate old wording without flattening rich-text formatting.

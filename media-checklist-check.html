@@ -52,6 +52,8 @@ document.querySelector('#run').onclick=async()=>{
   await toggle(false);const original=block('embed_youtube'),originalId=original.id;w.saveHistoryState(true);original.querySelector(':scope > .block-toolbar button[onclick*="deleteBlock"]').click();w.saveHistoryState(true);await wait();check('Eliminar retira solo el pendiente del medio eliminado',mediaCount()===8);
   w.undo();await wait();check('Deshacer eliminación restaura la tarea existente aun con creación apagada',mediaCount()===9&&!!d.getElementById(originalId)&&description().includes('Revisar bibliografía'));
   const moved=Array.from(d.querySelectorAll('#canvas [data-type=embed_youtube]')).find(item=>!isMediaFilled(item)),movedId=moved.id;
+  // Synthetic pointermove does not dispatch the pointerleave that closes this menu in a real drag.
+  const projectMenu=d.querySelector('.project-menu-toggle');if(projectMenu.getAttribute('aria-expanded')==='true')projectMenu.click();
   d.querySelector('.project-tab-add').click();await wait();d.querySelector('dialog input').value='Destino';d.querySelector('dialog button[value=ok]').click();await wait();tab(0).click();await wait();
   const point=el=>{const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+Math.min(r.height/2,55)};};
   const pointer=(type,p,target)=>{(target||d.elementFromPoint(p.x,p.y)||d).dispatchEvent(new w.PointerEvent(type,{bubbles:true,cancelable:true,clientX:p.x,clientY:p.y,pointerId:1,pointerType:'mouse',isPrimary:true,button:0,buttons:type==='pointerup'?0:1}));};
