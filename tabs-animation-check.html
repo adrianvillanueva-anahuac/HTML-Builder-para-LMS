@@ -47,6 +47,30 @@ document.querySelector('#run').onclick=async()=>{
   check('Movimiento reducido cambia sin animación',wrapper.getAnimations().length===0&&panes[1].style.display==='flex');w.matchMedia=ownMatch;
   buttons[0].click();w.dispatchEvent(new w.Event('resize'));check('Redimensionar libera inmediatamente la altura automática',wrapper.getAnimations().length===0&&!wrapper.style.height&&w.getComputedStyle(wrapper).overflow==='visible');
   const ownAnimate=wrapper.animate;wrapper.animate=undefined;buttons[1].click();check('Respaldo sin API de animación mantiene las pestañas operativas',panes[1].style.display==='flex');wrapper.animate=ownAnimate;
+  const styleButton=block.querySelector('[data-tabs-style-tool]');
+  const choose=id=>{styleButton.click();d.querySelector(`[data-tabs-style-choice="${id}"]`).click();};
+  styleButton.dispatchEvent(new w.PointerEvent('pointerover',{bubbles:true}));
+  check('Rollover muestra cuatro miniaturas',!d.querySelector('#tabs-style-popover').hidden&&d.querySelectorAll('[data-tabs-style-choice] svg').length===4);
+  choose('orange');
+  check('Estilo blanco con pestaña activa naranja',block.dataset.tabsStyle==='orange'&&buttons[1].style.backgroundColor==='rgb(255, 89, 0)'&&buttons[0].style.backgroundColor==='rgb(255, 255, 255)');
+  choose('purple');buttons[0].click();await wait(520);
+  check('Estilo morado sigue la pestaña activa en vertical',block.dataset.tabsStyle==='purple'&&buttons[0].style.backgroundColor==='rgb(93, 66, 140)'&&buttons[1].style.backgroundColor==='rgb(255, 255, 255)');
+  check('Sólido morado tiene marco, radio y sombra',wrapper.style.borderColor==='rgb(93, 66, 140)'&&wrapper.style.borderTopRightRadius==='6px'&&buttons[0].style.boxShadow!==''&&buttons[1].style.color==='rgb(129, 117, 143)');
+  check('Marco unido a las pestañas verticales',Math.abs(list.getBoundingClientRect().right-wrapper.getBoundingClientRect().left)<2);
+  choose('line-purple');
+  check('Línea morada elimina marco y sombra',buttons[0].style.color==='rgb(93, 66, 140)'&&buttons[0].style.backgroundColor==='rgb(255, 255, 255)'&&!wrapper.style.border&&!buttons[0].style.boxShadow&&buttons[1].style.color==='rgb(100, 100, 100)');
+  choose('line-orange');
+  check('Línea naranja restaura el estilo original',buttons[0].style.color==='rgb(255, 89, 0)'&&!wrapper.style.padding&&!buttons[0].style.borderRadius);
+  choose('orange');
+  check('Sólido naranja usa marco naranja y texto inactivo matizado',wrapper.style.borderColor==='rgb(255, 89, 0)'&&buttons[1].style.color==='rgb(151, 119, 97)');
+  choose('purple');
+  d.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+  check('Escape cierra el selector',d.querySelector('#tabs-style-popover').hidden);
+  check('El estilo exterior no modifica pestañas anidadas',!nested.hasAttribute('data-tabs-style')&&!nestedButtons[1].style.backgroundColor);
+  const restored=d.createElement('div');restored.innerHTML=block.outerHTML;
+  check('Serialización del proyecto conserva el estilo',restored.firstElementChild.dataset.tabsStyle==='purple'&&restored.querySelector('.tab-buttons-container>button').style.backgroundColor==='rgb(93, 66, 140)');
+  w.addTab(styleButton);const added=list.lastElementChild;added.click();await wait(520);
+  check('Las pestañas nuevas adoptan el estilo elegido',added.style.backgroundColor==='rgb(93, 66, 140)');w.removeTab(styleButton);
   buttons[0].click();await wait(520);buttons[1].click();await wait(80);
   const html=w.generateExportHTML(false),doc=new DOMParser().parseFromString(html,'text/html');
   check('Exportar durante el movimiento no guarda alturas ni recortes temporales',Array.from(doc.querySelectorAll('.tabs-panes-wrapper')).every(node=>!node.style.height&&!node.style.overflow));
@@ -57,9 +81,13 @@ document.querySelector('#run').onclick=async()=>{
   check('HTML exportado conserva la expansión suave',pMiddle>pShort+5&&pMiddle<pWrapper.getBoundingClientRect().height-2);
   const pTall=pWrapper.getBoundingClientRect().height;pButtons[0].click();await wait(100);const pContract=pWrapper.getBoundingClientRect().height;await wait(450);
   check('HTML exportado conserva la contracción suave',pContract<pTall-5&&pContract>pShort+2&&Math.abs(pWrapper.getBoundingClientRect().height-pShort)<2);
+  check('HTML exportado conserva el estilo al cambiar de pestaña',pb.dataset.tabsStyle==='purple'&&pButtons[0].style.backgroundColor==='rgb(93, 66, 140)'&&pButtons[1].style.backgroundColor==='rgb(255, 255, 255)');
   check('Los menús no quedan recortados al terminar',w.getComputedStyle(wrapper).overflow==='visible'&&pw.getComputedStyle(pWrapper).overflow==='visible');
   published.style.width='420px';await wait();pButtons[1].click();await wait(520);check('Exportación móvil sin desbordamiento ni altura fija',pd.documentElement.scrollWidth<=published.clientWidth+1&&!pWrapper.style.height);
   buttons[0].click();await wait(520);block.querySelector('[onclick*="toggleTabsOrientation"]').click();buttons[1].click();await wait(520);block.scrollIntoView({block:'center'});
+  check('Marco unido a las pestañas horizontales',Math.abs(list.getBoundingClientRect().bottom-wrapper.getBoundingClientRect().top)<2);
+  const main=block.querySelector('.tabs-main-container'),mr=main.getBoundingClientRect(),wr=wrapper.getBoundingClientRect();
+  check('Contenido ocupa el ancho y borde inferior del bloque',Math.abs(mr.left-wr.left)<2&&Math.abs(mr.right-wr.right)<2&&Math.abs(mr.bottom-wr.bottom)<2);
  }catch(error){results.push('FAIL '+error.message);out.textContent=results.join('\n');}
 };
 </script>

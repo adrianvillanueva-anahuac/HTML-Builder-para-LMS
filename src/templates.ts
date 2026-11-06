@@ -1,4 +1,5 @@
 import {tableStyleButtonsHTML} from './table-style-controls';
+import {tabsStyleButtonHTML} from './tabs-style-controls';
 import {flowBlockControlsHTML} from './flow-block-controls';
 // URL absoluta de los recursos que deben seguir funcionando en el HTML exportado.
 import {REPO_REQ_IMAGES_BASE} from './published-resources';
@@ -183,6 +184,7 @@ export function getBlockToolbar(type: string) {
             <button type="button" class="text-gray-400 hover:text-green-500 p-1 rounded flex items-center justify-center" onclick="addGridRow(this)" title="Añadir fila"><span class="material-symbols-outlined text-[18px]">add_box</span></button><button type="button" class="text-gray-400 hover:text-red-500 p-1 rounded flex items-center justify-center" onclick="removeGridRow(this)" title="Quitar fila"><span class="material-symbols-outlined text-[18px]">indeterminate_check_box</span></button><div class="w-px h-4 bg-gray-200 mx-1"></div>`;
     } else if (type === 'pestanas') {
         extraButtons = `
+            ${tabsStyleButtonHTML()}
             <button type="button" class="text-gray-400 hover:text-anahuac-orange p-1 rounded flex items-center justify-center" onclick="toggleTabsOrientation(this)" title="Cambiar orientación (H/V)"><span class="material-symbols-outlined text-[18px]">view_quilt</span></button>
             <div class="w-px h-4 bg-gray-200 mx-1"></div>
             <button type="button" class="text-gray-400 hover:text-green-500 p-1 rounded flex items-center justify-center" onclick="addTab(this)" title="Añadir pestaña"><span class="material-symbols-outlined text-[18px]">add_box</span></button>

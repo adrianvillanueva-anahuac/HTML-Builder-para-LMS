@@ -1,7 +1,8 @@
 import Sortable from 'sortablejs';
 import {applyTableAppearance,setupTableStyleControls,prepareTableStylesExport} from './table-style-controls';
 import {parsePastedTable, applyParsedTable} from './table-paste-parser';
-import {toggleLmsTab, toggleTabsOrientation} from './tabs-runtime.js';
+import {toggleLmsTab, toggleTabsOrientation, toggleTabsStyle, applyTabsStyle} from './tabs-runtime.js';
+import {setupTabsStyleControls} from './tabs-style-controls';
 import {readBackground} from './workspace-appearance';
 import tabsRuntime from './tabs-runtime.js?raw';
 import {setupImageControls,prepareImageControlsExport,changeImageCropAspect,changeImageCropPosition,rotateImageCrop} from './image-controls';
@@ -1716,6 +1717,7 @@ export function setupVanillaGlobals() {
     }
 
     window.toggleTabsOrientation = toggleTabsOrientation;
+    window.toggleTabsStyle = toggleTabsStyle;
 
     window.addTab = function(btn: HTMLElement) { 
         const container = btn.closest('.lms-element'); 
@@ -1736,6 +1738,7 @@ export function setupVanillaGlobals() {
         tabList.insertAdjacentHTML('beforeend', btnHTML); 
         const paneHTML = `<div id="tab-${uid}" class="lms-tab-pane hidden flex-col gap-4 animate-fade-in lms-dropzone min-h-[80px]" data-sortable-active="false" style="display: none;"><div class="text-gray-700 leading-relaxed editable-text font-sans text-left text-[15px]"><p>Contenido pestaña ${tabCount}.</p></div></div>`; 
         panesContainer.insertAdjacentHTML('beforeend', paneHTML); 
+        applyTabsStyle(container);
         if(window.initNestedDropzones) window.initNestedDropzones(); 
     }
 
@@ -2155,8 +2158,8 @@ export function setupVanillaGlobals() {
             if(l1) { l1.style.backgroundImage = svgGrid; l1.style.backgroundSize = "180px 180px"; l1.style.backgroundPosition = "0px 0px"; }
             if(l2) { l2.style.backgroundImage = svgGrid; l2.style.backgroundSize = "180px 180px"; l2.style.backgroundPosition = "90px 90px"; }
             if(l3) l3.style.backgroundImage = "none";
-        } else if (theme === 'blanco' || theme === 'naranja_solido') { 
-            base.style.backgroundColor = '#FFFFFF'; 
+        } else if (theme === 'blanco' || theme === 'naranja_solido' || theme === 'sin_fondo') {
+            base.style.backgroundColor = theme === 'sin_fondo' ? 'transparent' : '#FFFFFF';
             base.style.backgroundImage = "none";
             if(l1) l1.style.backgroundImage = "none"; 
             if(l2) l2.style.backgroundImage = "none"; 
@@ -4291,6 +4294,7 @@ export function setupVanillaGlobals() {
         setupInteractiveButtons();
         setupBoxControls();
         setupTableStyleControls();
+        setupTabsStyleControls();
         ensureDuplicateButtons();
         normalizeCanvaEmbeds(document.getElementById('canvas')!);
         setupMediaEmbeds(document.getElementById('canvas') || document, true);

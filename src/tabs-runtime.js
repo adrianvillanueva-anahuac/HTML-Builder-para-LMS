@@ -1,5 +1,58 @@
 // Shared by the editor and published HTML. Animation effects are never written
 // into the authored DOM, so saving/exporting mid-transition keeps natural size.
+// Inline presentation survives project persistence and standalone HTML export.
+export function tabsStylePresets(){
+  return [
+    {id:'line-orange',name:'Línea naranja',color:'#ff5900',muted:'#646464',solid:false},
+    {id:'line-purple',name:'Línea morada',color:'#5d428c',muted:'#646464',solid:false},
+    {id:'purple',name:'Sólido morado',color:'#5d428c',muted:'#81758f',solid:true},
+    {id:'orange',name:'Sólido naranja',color:'#ff5900',muted:'#977761',solid:true}
+  ];
+}
+export function applyTabsStyle(container){
+  const theme=container?.getAttribute('data-tabs-style');
+  if(!theme)return;
+  const preset=tabsStylePresets().find(style=>style.id===theme)||tabsStylePresets()[0];
+  const {color,muted,solid}=preset;
+  const list=container.querySelector('.tab-buttons-container');
+  const main=container.querySelector('.tabs-main-container');
+  if(!list||!main)return;
+  main.style.backgroundColor='#ffffff';
+  main.style.padding=solid?'0px':'';
+  main.style.gap=solid?'0px':'';
+  main.style.borderWidth=solid?'0px':'';
+  main.style.boxShadow=solid?'none':'';
+  container.setAttribute('data-tabs-layout','joined');
+  list.style.backgroundColor='#ffffff';
+  list.style.gap=solid?'4px':'';
+  list.style.padding=solid?'0px':'';
+  list.style.margin=solid?'0px':'';
+  list.style.borderWidth=solid?'0px':'';
+  list.style.borderColor=solid?'transparent':'';
+  const wrapper=container.querySelector('.tabs-panes-wrapper');
+  if(wrapper){
+    wrapper.style.border=solid?`1px solid ${color}`:'';
+    wrapper.style.borderRadius=solid?'0px 6px 6px':'';
+    wrapper.style.padding=solid?'16px':'';
+  }
+  for(const button of list.children){
+    if(button.tagName!=='BUTTON')continue;
+    const active=button.classList.contains('border-anahuac-orange');
+    button.style.backgroundColor=active&&solid?color:'#ffffff';
+    button.style.color=active?(solid?'#ffffff':color):muted;
+    button.style.borderColor=active?color:'transparent';
+    button.style.borderRadius=solid?(container.getAttribute('data-orientation')==='vertical'?'6px 0 0 6px':'6px 6px 0 0'):'';
+    button.style.boxShadow=active&&solid?`0 2px 5px ${color}40`:'';
+  }
+}
+
+export function toggleTabsStyle(btn){
+  const container=btn.closest('[data-type="pestanas"]');
+  if(!container)return;
+  container.setAttribute('data-tabs-style',container.getAttribute('data-tabs-style')==='orange'?'purple':'orange');
+  applyTabsStyle(container);
+}
+
 /** @param {HTMLElement} btn @param {string} targetId */
 export function toggleLmsTab(btn,targetId){
   if(btn.querySelector('.editable-text[contenteditable="true"]'))return;
@@ -30,6 +83,7 @@ export function toggleLmsTab(btn,targetId){
     pane.classList.remove('block');pane.classList.toggle('hidden',!active);pane.classList.toggle('flex',active);
     pane.style.display=active?'flex':'none';
   });
+  applyTabsStyle(container);
   const to=height();
   if(!wrapper.isConnected||reduced?.matches||typeof wrapper.animate!=='function')return;
   const easing='cubic-bezier(.22,1,.36,1)';
@@ -80,4 +134,5 @@ export function toggleTabsOrientation(btn){
       else b.classList.add('border-transparent');
     });
   }
+  applyTabsStyle(container);
 }

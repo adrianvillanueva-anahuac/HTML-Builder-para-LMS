@@ -55,6 +55,7 @@ export function applyFooter(root:HTMLElement,value:FooterConfig) {
 }
 
 export function backgroundLabel(value:BackgroundAppearance):string {
+  if(value.bg==='sin_fondo')return 'Sin fondo';
   if(value.bg==='color_solido'){
     const color=(value.bgColor||'').replaceAll(' ','').toLowerCase();
     const names:Record<string,string>={'#ff5900':'Naranja Anáhuac','rgb(255,89,0)':'Naranja Anáhuac','#5d428c':'Morado Anáhuac','rgb(93,66,140)':'Morado Anáhuac','#cdd5dc':'Gris claro','rgb(205,213,220)':'Gris claro','#646464':'Gris oscuro','rgb(100,100,100)':'Gris oscuro','#f7f7f7':'Fondo claro','rgb(247,247,247)':'Fondo claro'};
