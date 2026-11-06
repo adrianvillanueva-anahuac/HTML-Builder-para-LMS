@@ -1,4 +1,4 @@
-import {normalizeFlowModel,addFlowNode,addFlowEdge,addFlowLane,flowNodeTypes,flowFonts,flowClamp,flowEdgeLabels,type FlowModel,type FlowNode,type FlowEdge,type FlowLane} from './flow-model';
+import {normalizeFlowModel,duplicateFlowNode,addFlowNode,addFlowEdge,addFlowLane,flowNodeTypes,flowFonts,flowClamp,flowEdgeLabels,type FlowModel,type FlowNode,type FlowEdge,type FlowLane} from './flow-model';
 import {renderFlowSVG,flowConnectorColor} from './flow-svg';
 import {flowSnap,flowSnapPosition,resizeFlowBox,resizeFlowBoxProportionally,flowEdgeGeometry,flowLabelPosition,moveFlowEdgeRun,type FlowResizeHandle} from './flow-geometry';
 import {flowOutputBox} from './flow-crop';
@@ -355,6 +355,7 @@ export function openFlowEditor(initial:FlowModel,onSave:(model:FlowModel)=>void)
   viewport.addEventListener('drop',event=>{event.preventDefault();event.stopPropagation();const type=event.dataTransfer?.getData('application/x-lms-flow-type');if(!flowNodeTypes.some(n=>n.type===type))return;const p=point(event);insertNode(type as FlowNode['type'],p.x-80,p.y-40);});
   viewport.addEventListener('pointerdown',event=>{
     if(event.button!==0||connectionDrag)return;const target=event.target as Element;colorControls.close();
+    if(target.closest('[data-flow-duplicate]')){event.preventDefault();return;}
     rich.finish();
     const disconnect=target.closest<SVGElement>('[data-flow-disconnect]');
     if(disconnect){event.preventDefault();disconnectAtPort(disconnect);return;}
@@ -456,8 +457,9 @@ export function openFlowEditor(initial:FlowModel,onSave:(model:FlowModel)=>void)
   viewport.addEventListener('focusin',event=>previewDisconnect(event.target));
   viewport.addEventListener('focusout',event=>previewDisconnect(event.relatedTarget));
   viewport.addEventListener('click',event=>{if((event.target as Element).closest('[data-flow-image-text] a,[data-flow-node-text] a'))event.preventDefault();});
-    viewport.addEventListener('dblclick',event=>{const target=event.target as Element,id=target.closest<SVGElement>('[data-flow-node]')?.dataset.flowNode;if(connecting&&!target.closest('[data-flow-node],[data-flow-port],[data-flow-edge],[data-flow-lane],[data-flow-lane-resize],[data-flow-bend]')){event.preventDefault();connecting=false;origin=null;lastBlankTap=null;render();return;}if(id&&!connecting&&!target.closest('[data-flow-port],[data-flow-resize]')){const boxId=target.closest<SVGElement>('[data-text-box-id]')?.dataset.textBoxId;if(boxId)enterImageText(id,boxId);else if(model.nodes.find(n=>n.id===id)?.type==='image')enterImage(id);else enterImageText(id);}});
+    viewport.addEventListener('dblclick',event=>{const target=event.target as Element,id=target.closest<SVGElement>('[data-flow-node]')?.dataset.flowNode;if(connecting&&!target.closest('[data-flow-node],[data-flow-port],[data-flow-edge],[data-flow-lane],[data-flow-lane-resize],[data-flow-bend]')){event.preventDefault();connecting=false;origin=null;lastBlankTap=null;render();return;}if(id&&!connecting&&!target.closest('[data-flow-port],[data-flow-resize],[data-flow-duplicate]')){const boxId=target.closest<SVGElement>('[data-text-box-id]')?.dataset.textBoxId;if(boxId)enterImageText(id,boxId);else if(model.nodes.find(n=>n.id===id)?.type==='image')enterImage(id);else enterImageText(id);}});
   function removeSelection(){if(!selection)return;const current=selection;mutate(()=>{removeFlowSelection(model,current);selection=null;if(current.kind==='node'&&origin&&current.ids.includes(origin.id))origin=null;});}
+  function duplicateFigure(control:SVGElement){commitFields();mutate(()=>{const copy=duplicateFlowNode(model,control.dataset.flowDuplicate!,control.dataset.withConnections==='true');if(copy)selection={kind:'node',ids:[copy.id]};});}
   function duplicateSelection(){if(selection)mutate(()=>{selection=duplicateFlowSelection(model,selection);});}
   function undo(redo=false){commitFields();const source=redo?future:past,destination=redo?past:future;if(!source.length)return;destination.push(snapshot());model=normalizeFlowModel(JSON.parse(source.pop()!));selection=null;origin=null;render();}
   function setZoom(value:number){zoom=Math.round(flowClamp(value,.01,2)*100)/100;zoomInput.min='1';zoomInput.value=String(Math.round(zoom*100));zoomOutput.textContent=`${Math.round(zoom*100)} %`;renderSurface();}
@@ -481,6 +483,8 @@ export function openFlowEditor(initial:FlowModel,onSave:(model:FlowModel)=>void)
   }
   dialog.addEventListener('cancel',event=>{event.preventDefault();cancel();});
   dialog.addEventListener('click',event=>{
+    const duplicate=(event.target as Element).closest<SVGElement>('[data-flow-duplicate]');
+    if(duplicate){event.preventDefault();duplicateFigure(duplicate);return;}
     const target=event.target as Element,shape=target.closest<HTMLElement>('[data-shape]');
     if(shape){if(performance.now()<suppressPaletteClickUntil){event.preventDefault();return;}insertNode(shape.dataset.shape as FlowNode['type']);return;}
     const outlineItem=target.closest<HTMLElement>('[data-select-kind]');
@@ -506,6 +510,7 @@ export function openFlowEditor(initial:FlowModel,onSave:(model:FlowModel)=>void)
     else if(action==='canvas')setSelection(null);else if(action==='fit')fit();
   });
   dialog.addEventListener('keydown',event=>{
+    const duplicate=(event.target as Element).closest<SVGElement>('[data-flow-duplicate]');if(duplicate&&['Enter',' '].includes(event.key)){event.preventDefault();duplicateFigure(duplicate);return;}
     event.stopPropagation();const target=event.target as HTMLElement,editing=!!target.closest('input,textarea,select,[contenteditable="true"]');
     const disconnect=target.closest<SVGElement>('[data-flow-disconnect]');
     if(disconnect&&['Enter',' '].includes(event.key)){event.preventDefault();disconnectAtPort(disconnect);return;}

@@ -1,7 +1,7 @@
 import {clamp,normalizeCrop,resizeCrop,cropForAspect,imageAdjustments,imageTextLayout,transformImageText,imageFilter,imageRotationLayout,rotatedImageFrame,type CropRect,type ImageTextLayout} from './image-model';
 import './image-controls.css';
 
-const selector='[data-type="imagen_suelta"],[data-type="profesor_img"]';
+const selector='[data-type="imagen_suelta"],[data-type="profesor_img"],[data-editorial-frame]';
 const parse=(value:string|undefined)=>{try{const data=JSON.parse(value||'{}');return data&&typeof data==='object'&&!Array.isArray(data)?data:{};}catch{return {};}};
 const comparison=document.createElement('div').style;
 const apply=(node:HTMLElement,styles:Partial<CSSStyleDeclaration>)=>{for(const [key,value] of Object.entries(styles)){(comparison as any)[key]=value;const normalized=(comparison as any)[key];if((node.style as any)[key]!==normalized)(node.style as any)[key]=normalized;}};
@@ -15,6 +15,23 @@ const setData=(block:HTMLElement,key:string,value:unknown)=>{const next=JSON.str
 const changed=(block:HTMLElement)=>{block.dispatchEvent(new Event('input',{bubbles:true}));};
 const change=(block:HTMLElement,update:()=>void)=>{window.saveHistoryState?.(true);update();changed(block);window.saveHistoryState?.(true);};
 let cropSession:{block:HTMLElement;close:()=>void}|null=null;
+
+export function editorialImageFrame(img:HTMLElement){return img.closest<HTMLElement>('[data-editorial-frame]');}
+export function editEditorialImage(tool:'crop'|'text'){
+ const img=window.selectedEditorialImage as HTMLImageElement|null;if(!img)return;
+ let block=editorialImageFrame(img);
+ if(!block){
+  window.saveHistoryState?.(true);
+  block=document.createElement('span');block.dataset.editorialFrame='true';block.contentEditable='false';
+  block.style.cssText='display:block;max-width:100%;';
+  block.style.width=img.style.width|| (img.classList.contains('w-1/4')?'25%':img.classList.contains('w-3/4')?'75%':img.classList.contains('w-full')?'100%':'50%');
+  block.style.margin=img.style.margin||'10px 0';
+  const frame=document.createElement('span');frame.className='image-wrapper';frame.style.cssText='display:block;width:100%;';frame.style.borderRadius=img.style.borderRadius;frame.style.boxShadow=img.style.boxShadow;
+  img.before(block);block.append(frame);frame.append(img);img.classList.add('uploaded-image');img.classList.remove('w-1/4','w-1/2','w-3/4','w-full');img.style.width='100%';img.style.margin='0';
+  setupImageControls(block.parentElement!);
+ }
+ if(tool==='crop')beginCrop(block);else addText(block);
+}
 
 function currentCrop(block:HTMLElement):CropRect{
   if(block.dataset.imageCrop)return normalizeCrop(parse(block.dataset.imageCrop));
@@ -36,7 +53,7 @@ function paint(block:HTMLElement){
     apply(frame,{aspectRatio:String(placement.aspect)});
     let stage=frame.querySelector<HTMLElement>(':scope > .image-rotation-stage');
     if(rotation||stage){
-      if(!stage){stage=document.createElement('div');stage.className='image-rotation-stage';img.before(stage);stage.append(img);}
+      if(!stage){stage=document.createElement(block.hasAttribute('data-editorial-frame')?'span':'div');stage.className='image-rotation-stage';img.before(stage);stage.append(img);}
       apply(stage,{position:'absolute',left:'50%',top:'50%',width:placement.width+'%',height:placement.height+'%',transform:`translate(-50%,-50%) rotate(${rotation}deg)`,transformOrigin:'center',overflow:'hidden',pointerEvents:'none'});
       apply(img,{transform:'none',aspectRatio:'auto'});
     }
@@ -102,8 +119,8 @@ export function changeImageCropPosition(block:HTMLElement,axis:'x'|'y',value:num
 function addText(block:HTMLElement){
   const frame=frameOf(block);if(!frame)return;
   if(!frame.querySelector(':scope > .image-text-layer'))change(block,()=>{
-    const layer=document.createElement('div');layer.className='image-text-layer';
-    const text=document.createElement('div');text.className='image-overlay-text editable-text';text.textContent='Escribe tu texto aquí';
+    const layer=document.createElement(block.hasAttribute('data-editorial-frame')?'span':'div');layer.className='image-text-layer';
+    const text=document.createElement(block.hasAttribute('data-editorial-frame')?'span':'div');text.className='image-overlay-text editable-text';text.textContent='Escribe tu texto aquí';
     text.title='Doble clic para editar; arrastra para mover; usa los bordes para redimensionar';text.style.cssText='font-family:Roboto,Arial,sans-serif;font-weight:700;color:#ffffff;text-align:center;text-shadow:0 1px 4px #000b;';
     layer.append(text);frame.append(layer);setData(block,'imageTextLayout',textState(block));paint(block);
   });

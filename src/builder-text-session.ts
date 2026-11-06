@@ -80,6 +80,14 @@ export function setupBuilderTextSessions(){
  const observer=new MutationObserver(sync);observer.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class','contenteditable'],childList:true});
  window.addEventListener('pointerdown',event=>{const text=window.currentEditableText;if(text?.isContentEditable&&!builderTextSessionTarget(event.target,text))finishBuilderTextSession();},true);
  window.addEventListener('pointerover',event=>{const text=window.currentEditableText;if(text?.isContentEditable&&!builderTextSessionTarget(event.target,text))event.stopImmediatePropagation();},true);
+ let down={x:0,y:0};
+ window.addEventListener('pointerdown',event=>{down={x:event.clientX,y:event.clientY};},true);
+ window.addEventListener('click',event=>{
+  if(event.button!==0||event.shiftKey||event.ctrlKey||event.metaKey||event.altKey||window.isLmsDragging||(event.isTrusted&&Math.hypot(event.clientX-down.x,event.clientY-down.y)>5))return;
+  const target=event.target as Element,text=target.closest<HTMLElement>('.editable-text');
+  if(!text||text.isContentEditable||target.closest('.editable-icon,.mod-text-geometry'))return;
+  text.dispatchEvent(new MouseEvent('dblclick',{bubbles:true,clientX:event.clientX,clientY:event.clientY}));
+ },true);
  window.addEventListener('dblclick',()=>requestAnimationFrame(sync),true);
  sync();
 }

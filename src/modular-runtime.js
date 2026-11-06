@@ -108,6 +108,7 @@ export function mountModularRuntime(block) {
     block.querySelectorAll('.mod-card[data-text-overflow]').forEach(card=>{
       const config=JSON.parse(card.dataset.textOverflow),row=Number(card.closest('.mod-cell').dataset.cell.split(':')[0]),baseHeight=rows[row]||120;
       card.dataset.textBaseHeight=String(baseHeight);card.dataset.clipped='false';
+      if(card.querySelector('.mod-text-box-active')){heights[row]=Math.max(heights[row],card.offsetHeight);return;}
       const padding=parseFloat(getComputedStyle(card).paddingTop)||0,width=card.clientWidth;
       const items=[];
       const primary=card.querySelector('.mod-text');
@@ -289,7 +290,8 @@ export function mountModularRuntime(block) {
   block.querySelectorAll('.mod-text,.mod-extra-text,.mod-text-box-frame,.mod-grid').forEach(el=>resize.observe(el));
   const observer=new MutationObserver(schedule);
   observer.observe(block,{childList:true,subtree:true,characterData:true});
-  block.addEventListener('input',schedule);
+  const answerInput=event=>{const answer=event.target.closest?.('.student-rich-answer');if(answer&&answer.innerHTML.toLowerCase()==='<br>')answer.replaceChildren();schedule();};
+  block.addEventListener('input',answerInput);
   block.addEventListener('pointerover',scheduleFloating);
   block.addEventListener('pointerout',scheduleFloating);
   block.addEventListener('focusin',scheduleFloating);
@@ -301,5 +303,5 @@ export function mountModularRuntime(block) {
   document.addEventListener('click',closeOutside);
   document.fonts?.ready.then(schedule);
   update();
-  return {update:schedule,destroy:()=>{hoverTimers.forEach(clearTimeout);resize.disconnect();observer.disconnect();cancelAnimationFrame(frame);cancelAnimationFrame(floatingFrame);block.removeEventListener('input',schedule);block.removeEventListener('pointerover',scheduleFloating);block.removeEventListener('pointerout',scheduleFloating);block.removeEventListener('focusin',scheduleFloating);block.removeEventListener('toggle',scheduleFloating,true);block.removeEventListener('pointerover',overflowHover);block.removeEventListener('pointerout',overflowLeave);block.removeEventListener('click',overflowClick);window.removeEventListener('scroll',scheduleFloating,true);document.removeEventListener('click',closeOutside);}};
+  return {update:schedule,destroy:()=>{hoverTimers.forEach(clearTimeout);resize.disconnect();observer.disconnect();cancelAnimationFrame(frame);cancelAnimationFrame(floatingFrame);block.removeEventListener('input',answerInput);block.removeEventListener('pointerover',scheduleFloating);block.removeEventListener('pointerout',scheduleFloating);block.removeEventListener('focusin',scheduleFloating);block.removeEventListener('toggle',scheduleFloating,true);block.removeEventListener('pointerover',overflowHover);block.removeEventListener('pointerout',overflowLeave);block.removeEventListener('click',overflowClick);window.removeEventListener('scroll',scheduleFloating,true);document.removeEventListener('click',closeOutside);}};
 }

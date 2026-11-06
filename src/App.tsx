@@ -1,3 +1,4 @@
+import {editEditorialImage,editorialImageFrame} from './image-controls';
 import { useEffect, useState, useRef, memo } from 'react';
 import {createPortal,flushSync} from 'react-dom';
 import {builderTextHostEvent} from './builder-text-tools';
@@ -420,7 +421,7 @@ export default function App() {
         textTarget.contentEditable = "true"; 
         textTarget.focus(); 
         window.currentEditableText = textTarget;
-        const rect = textTarget.getBoundingClientRect(); 
+        const rect = textTarget.getBoundingClientRect();
         rtfToolbar.style.top = (rect.top - 15) + 'px'; 
         rtfToolbar.style.left = (rect.left + rect.width / 2) + 'px'; 
         rtfToolbar.classList.remove('hidden');
@@ -455,7 +456,7 @@ export default function App() {
       const imgToolbar = document.getElementById('image-toolbar');
       if(target.classList.contains('editorial-image')) {
         window.selectedEditorialImage = target; 
-        const rect = target.getBoundingClientRect(); 
+        const rect = (editorialImageFrame(target)?.querySelector('.image-wrapper')||target).getBoundingClientRect();
         if(imgToolbar) {
           imgToolbar.style.top = (rect.top - 10) + 'px'; 
           imgToolbar.style.left = (rect.left + rect.width / 2) + 'px'; 
@@ -502,8 +503,9 @@ export default function App() {
           const pos = (document as any).caretPositionFromPoint(e.clientX, e.clientY); 
           if(pos) { range = document.createRange(); range.setStart(pos.offsetNode, pos.offset); } 
         }
-        if (range && editableText.contains(range.startContainer)) { 
-          range.insertNode(window.draggedEditorialImage); 
+        const imageUnit=editorialImageFrame(window.draggedEditorialImage)||window.draggedEditorialImage;
+        if (range && editableText.contains(range.startContainer) && !imageUnit.contains(range.startContainer)) {
+          range.insertNode(imageUnit);
           const sel = window.getSelection(); 
           if(sel) sel.removeAllRanges(); 
           document.getElementById('image-toolbar')?.classList.add('hidden'); 
@@ -568,9 +570,10 @@ export default function App() {
       {/* BARRA FLOTANTE RICH TEXT */}
       <div id="rtf-toolbar" onMouseDown={(e) => e.preventDefault()} className="fixed hidden bg-white shadow-xl border border-gray-200 rounded-lg p-2 flex gap-1 z-50 transform -translate-x-1/2 -translate-y-full items-center flex-wrap">
           <div className="flex bg-gray-50 rounded border border-gray-100 p-1 gap-1">
-              <button onClick={() => window.applyTextFormat('titulo')} className="px-2 h-7 hover:bg-white rounded text-sm text-gray-800 font-bold" style={{fontFamily: "'Zilla Slab', serif"}} title="Título">T1</button>
-              <button onClick={() => window.applyTextFormat('subtitulo')} className="px-2 h-7 hover:bg-white rounded text-sm text-gray-800 font-bold" style={{fontFamily: "'Zilla Slab', serif"}} title="Subtítulo">T2</button>
-              <button onClick={() => window.applyTextFormat('cuerpo')} className="px-2 h-7 hover:bg-white rounded text-sm text-gray-800" style={{fontFamily: "'Roboto', sans-serif"}} title="Cuerpo Texto">P</button>
+              <button onClick={() => window.applyTextFormat('titulo')} className="px-2 h-7 hover:bg-white rounded text-sm text-gray-800 font-bold" style={{fontFamily: "'Zilla Slab', serif"}} title="Título 1">T1</button>
+              <button onClick={() => window.applyTextFormat('subtitulo')} className="px-2 h-7 hover:bg-white rounded text-sm text-gray-800 font-bold" style={{fontFamily: "'Zilla Slab', serif"}} title="Título 2">T2</button>
+              <button onClick={() => window.applyTextFormat('cuerpo')} className="px-2 h-7 hover:bg-white rounded text-sm text-gray-800" style={{fontFamily: "'Roboto', sans-serif"}} title="Párrafo 1">P1</button>
+              <button onClick={() => window.applyTextFormat('cuerpo2')} className="px-2 h-7 hover:bg-white rounded text-sm text-gray-800" title="Párrafo 2">P2</button>
           </div>
           <div className="w-px h-6 bg-gray-300 my-auto mx-1"></div>
           <div className="flex items-center gap-1 px-1 bg-gray-50 rounded border border-gray-100 p-1">
@@ -639,8 +642,9 @@ export default function App() {
           </div>
           <div className="w-px h-6 bg-gray-300 my-auto mx-1"></div>
           
+          <button type="button" onClick={() => editEditorialImage('text')} className="w-7 h-7 flex items-center justify-center" title="Texto sobre la imagen" aria-label="Texto sobre la imagen"><span className="material-symbols-outlined text-[18px]">text_fields</span></button>
           <div className="flex items-center gap-1 px-1 relative group/crop">
-              <button type="button" className="text-gray-400 hover:text-anahuac-orange w-7 h-7 rounded flex items-center justify-center cursor-default bg-gray-50" title="Recorte y Proporción"><span className="material-symbols-outlined text-[18px]">crop</span></button>
+              <button type="button" className="text-gray-400 hover:text-anahuac-orange w-7 h-7 rounded flex items-center justify-center cursor-default bg-gray-50" title="Recorte libre" onClick={() => editEditorialImage('crop')}><span className="material-symbols-outlined text-[18px]">crop</span></button>
               <div className="absolute bottom-full left-1/2 -translate-x-1/2 pb-1 opacity-0 invisible group-hover/crop:visible group-hover/crop:opacity-100 transition-all duration-200 delay-500 group-hover/crop:delay-0 z-50">
                   <div className="flex bg-white shadow-xl border border-gray-200 rounded-lg p-2 gap-2 flex-col w-max">
                       <div className="flex gap-1 border-b border-gray-100 pb-2">

@@ -2,7 +2,7 @@ import type {PerimeterBadge} from './modular-badges-model';
 import type {FlowTextLayout} from './flow-model';
 import type {ModularTextBox,ModularTextStyle} from './modular-text-model';
 import type {ModularOverflow} from './modular-overflow-model';
-export type ModularCell = { html: string; color: string; strokeColor?:string; radius: number; padding: number; verticalAlign?: 'start'|'center'|'end'; student?:boolean; studentPromptEnabled?:boolean; studentPromptHtml?:string; studentPromptPosition?:'top'|'bottom'|'left'|'right'; studentPromptWidth?:number; badge?:PerimeterBadge; textLayout?:FlowTextLayout;textStyle?:ModularTextStyle;textBoxes?:ModularTextBox[];textOverflow?:ModularOverflow };
+export type ModularCell = { html: string; color: string; strokeColor?:string; radius: number; padding: number; verticalAlign?: 'start'|'center'|'end'; student?:boolean; studentPromptEnabled?:boolean; studentPromptHtml?:string; studentPlaceholder?:string; studentPlaceholderHtml?:string; studentPlaceholderStyle?:string; studentPromptAlign?:string; studentPromptPosition?:'top'|'bottom'|'left'|'right'|'top-left'|'top-center'|'top-right'|'bottom-left'|'bottom-center'|'bottom-right'|'none'; studentPromptWidth?:number; badge?:PerimeterBadge; textLayout?:FlowTextLayout;textStyle?:ModularTextStyle;textBoxes?:ModularTextBox[];textOverflow?:ModularOverflow };
 export type ModularConnection = { id?:string;from: string; to: string; direction: 'forward'|'backward'|'both'|'none'; fill: string; stroke: string; dotted: boolean; strokeWidth?:number;scale?:number;offset?:number;radius?:number };
 export function createModularConnection(from:string,to:string):ModularConnection {
   return {from,to,direction:'forward',fill:'#5d428c',stroke:'none',dotted:false};

@@ -1,6 +1,6 @@
 // Shared by the editor and the standalone HTML fallback.
 export function promptLayout(position = 'top', width = 35) {
-  const edge = ['top','bottom','left','right'].includes(position) ? position : 'top';
+  const edge = position.startsWith('bottom') ? 'bottom' : ['left','right'].includes(position) ? position : 'top';
   const percent = Number.isFinite(width) ? Math.max(20, Math.min(80, width)) : 35;
   return {edge, percent, side: edge === 'left' || edge === 'right'};
 }
@@ -9,6 +9,9 @@ export function applyPromptLayout(card:HTMLElement) {
   const prompt = card.querySelector<HTMLElement>('.mod-student-prompt');
   const answer = card.querySelector<HTMLElement>('.mod-text');
   if(!prompt || !answer) return;
+  const position=card.dataset.promptPosition||'top';
+  prompt.style.display=position==='none'?'none':'';
+  if(position.includes('-')&&!prompt.style.textAlign)prompt.style.textAlign=position.split('-')[1];
   const {edge,percent,side} = promptLayout(card.dataset.promptPosition, Number(card.dataset.promptWidth ?? 35));
   const reverse = edge === 'bottom' || edge === 'right';
   Object.assign(card.style,{display:'flex',flexDirection:side ? (reverse?'row-reverse':'row') : (reverse?'column-reverse':'column'),gap:'8px',justifyContent:'flex-start'});

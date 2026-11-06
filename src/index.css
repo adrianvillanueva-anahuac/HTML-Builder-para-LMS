@@ -758,3 +758,7 @@ details[open] summary ~ * { animation: fadeIn 0.3s ease-in-out; }
 
 /* Interactive editor blocks deliberately avoid content-visibility/paint containment:
    their selection bounds and floating controls must remain stable. */
+
+/* Keep list boundaries aligned with the visible first and last lines. */
+.editable-text:has(>.list-custom){display:flow-root}
+.editable-text>.list-custom>li:last-child{margin-bottom:0}

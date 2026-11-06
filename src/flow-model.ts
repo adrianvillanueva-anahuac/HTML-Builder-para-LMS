@@ -173,11 +173,14 @@ export function addFlowNode(model: FlowModel, type: FlowNodeType, x?: number, y?
   model.nodes.push(node);
   return node;
 }
-export function duplicateFlowNode(model: FlowModel, id: string): FlowNode | null {
+export function duplicateFlowNode(model: FlowModel, id: string, withConnections = false): FlowNode | null {
   const source = model.nodes.find(node => node.id === id);
   if (!source) return null;
   const copy = normalizeNode({ ...source, x: source.x + 28, y: source.y + 28 }, model, freshId(model, 'node'));
   model.nodes.push(copy);
+  if(withConnections)for(const edge of [...model.edges]){
+    if(edge.from===id||edge.to===id)addFlowEdge(model,edge.from===id?copy.id:edge.from,edge.to===id?copy.id:edge.to,JSON.parse(JSON.stringify(edge)));
+  }
   return copy;
 }
 export function removeFlowNode(model: FlowModel, id: string): void {

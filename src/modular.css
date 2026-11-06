@@ -131,7 +131,7 @@ body.has-mod-overflow-editor :is(#rtf-toolbar,#image-toolbar,#inline-icon-toolba
 .modular-table:has(.mod-text-box-info:is(:hover,[open])){z-index:1001!important}
 .mod-text-box-preview .mod-editor{display:block;padding:5px 9px;border:1px solid #cdd5dc;border-radius:5px;margin-top:10px;font-size:12px}
 .mod-published .mod-extra-text:empty::before{content:none}
-.mod-student-placeholder:empty::before{content:'Texto para alumno';color:inherit;opacity:.65}
+.mod-student-placeholder:empty::before{content:attr(data-placeholder);color:inherit;opacity:.65}
 .mod-student-prompt{width:100%;flex:0 0 auto;min-height:24px;text-align:center;overflow-wrap:anywhere;outline:none}
 /* Rich-text headings and pasted utility classes must inherit the card's
    automatic contrast, unless an author explicitly chose an inline color. */
@@ -144,7 +144,7 @@ body.has-mod-overflow-editor :is(#rtf-toolbar,#image-toolbar,#inline-icon-toolba
 .mod-published .mod-student-prompt:empty{display:none}
 .mod-student-placeholder,.student-rich-answer{height:100%;min-height:30px;border:1px dotted currentColor;padding:8px;box-sizing:border-box;border-radius:4px;outline:none}
 .student-rich-answer:focus{outline:2px solid #5d428c;outline-offset:2px}
-.mod-published .student-rich-answer:empty::before{content:'Escribe tu respuesta aquí';color:inherit;opacity:.6}
+.mod-published .student-rich-answer:empty::before{content:attr(data-placeholder);color:inherit;opacity:.6}
 .mod-card[data-clipped=true]>.mod-text{visibility:hidden;pointer-events:none}
 .modular-table[data-overflow=true] .mod-text{overflow:visible}
 .modular-table[data-overflow=true] .mod-card:focus-within,.modular-table[data-overflow=true] .mod-cell:hover{z-index:5}
@@ -301,7 +301,7 @@ body.has-mod-modal #rtf-toolbar,body:has(.mod-modal) #rtf-toolbar{z-index:10001!
 .mod-published .mod-editor{display:none!important}
 .mod-published .mod-scroll{padding:0}
 .mod-published .mod-cell{border:0}
-.mod-published .mod-text:empty::before{content:none}
+.mod-published .mod-text:not(.student-rich-answer):empty::before{content:none}
 .mod-published .mod-preview-content{cursor:default}
 .mod-grid{isolation:isolate}
 .mod-cell{z-index:2}
@@ -320,3 +320,22 @@ body.has-mod-modal #rtf-toolbar,body:has(.mod-modal) #rtf-toolbar{z-index:10001!
 .mod-center:hover .mod-center-tools,.mod-center:focus-within .mod-center-tools,.mod-center[data-pinned=true] .mod-center-tools{display:flex}
 .mod-center-tools textarea{display:block;width:180px;max-width:100%;border:1px solid #cdd5dc;border-radius:4px;padding:6px;color:#333;background:white}
 .mod-center-tools [data-center-shape]{width:auto;padding:4px 8px}
+
+.mod-student-prompt .material-symbols-outlined{display:inline-block!important;vertical-align:middle;line-height:1;float:none!important;margin-top:0!important;margin-bottom:0!important}
+.mod-prompt-tools button{display:flex;align-items:center;gap:6px;white-space:nowrap}
+
+.mod-prompt-tools{flex-direction:column;min-width:190px}
+.mod-tools .mod-prompt-tools button{width:100%;height:auto;min-height:28px;justify-content:flex-start;padding:4px 8px}
+
+/* Editing owns its stacking context, without changing the authored text bounds. */
+.mod-cell:has(.mod-text-box-active){z-index:100!important}
+.mod-card:has(.mod-text-box-active){z-index:100!important}
+.mod-text-box-active{z-index:100!important}
+.mod-text-box-active>:is(.mod-text,.mod-extra-text){overflow:hidden}
+.mod-badge-text.editable-text{height:auto!important;max-height:none!important;overflow:visible!important;align-self:center;justify-self:center;scrollbar-width:none}
+
+/* Placeholder ink is subdued; the field border and learner answer stay opaque. */
+.mod-student-placeholder,.mod-student-placeholder *{-webkit-text-fill-color:color-mix(in srgb,currentColor 60%,transparent)}
+.mod-text,.mod-extra-text,.mod-student-prompt{font-size:14px;line-height:1.5}
+
+.modular-table:has(.mod-text-box-active) .mod-primary-hit-area{pointer-events:none}

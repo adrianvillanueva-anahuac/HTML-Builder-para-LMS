@@ -1,3 +1,4 @@
+import {normalizeBuilderTypography} from './builder-typography';
 import Sortable from 'sortablejs';
 import {applyTableAppearance,setupTableStyleControls,prepareTableStylesExport} from './table-style-controls';
 import {parsePastedTable, applyParsedTable} from './table-paste-parser';
@@ -5,7 +6,7 @@ import {toggleLmsTab, toggleTabsOrientation, toggleTabsStyle, applyTabsStyle} fr
 import {setupTabsStyleControls} from './tabs-style-controls';
 import {readBackground} from './workspace-appearance';
 import tabsRuntime from './tabs-runtime.js?raw';
-import {setupImageControls,prepareImageControlsExport,changeImageCropAspect,changeImageCropPosition,rotateImageCrop} from './image-controls';
+import {editorialImageFrame,setupImageControls,prepareImageControlsExport,changeImageCropAspect,changeImageCropPosition,rotateImageCrop} from './image-controls';
 import {getInteractiveButtonHTML,setupInteractiveButtons,prepareInteractiveButtonExport} from './interactive-button';
 import interactiveButtonRuntime from './interactive-button-runtime.js?raw';
 import interactiveButtonStyles from './interactive-button.css?raw';
@@ -337,133 +338,21 @@ export function setupVanillaGlobals() {
 
     // Paste event interceptor for formatting
     document.addEventListener('paste', (e: ClipboardEvent) => {
-        const target = e.target as HTMLElement;
-        if (!target || !target.isContentEditable || !target.closest('.editable-text')) {
-            return;
+        const target=e.target instanceof Element?e.target.closest<HTMLElement>('.editable-text[contenteditable="true"]'):null;
+        if(!target)return;
+        e.preventDefault();
+        let text=e.clipboardData?.getData('text/plain')||'';
+        if(!text){
+            const doc=new DOMParser().parseFromString(e.clipboardData?.getData('text/html')||'','text/html');
+            doc.querySelectorAll('script,style').forEach(node=>node.remove());
+            doc.querySelectorAll('br').forEach(node=>node.replaceWith('\n'));
+            doc.querySelectorAll('p,div,li,h1,h2,h3').forEach(node=>node.append('\n'));
+            text=doc.body.textContent||'';
         }
-
-        const lmsElement = target.closest('.lms-element');
-        if (!lmsElement) return;
-
-        const type = lmsElement.getAttribute('data-type');
-        const excludedTypes = ['referencia_item', 'referencias', 'referencias_importer'];
-        
-        if (!type || !excludedTypes.includes(type)) {
-            e.preventDefault();
-            const textHtml = e.clipboardData?.getData('text/html');
-            const textPlain = e.clipboardData?.getData('text/plain') || '';
-
-            const editableText = target.closest('.editable-text') as HTMLElement;
-            if (editableText && editableText.tagName.match(/^H[1-6]$/i)) {
-                // Para títulos (h1-h6), sólo pegamos texto plano, sin saltos de línea,
-                // respetando su formato (centrado, etc).
-                let text = textPlain.replace(/[\r\n]+/g, ' ');
-                document.execCommand('insertText', false, text);
-                return;
-            }
-
-            let cleanedHtml = '';
-            
-            if (textHtml) {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(textHtml, 'text/html');
-                
-                const cleanNode = (node: Node): string => {
-                    if (node.nodeType === Node.TEXT_NODE) {
-                        return (node.textContent || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                    }
-                    if (node.nodeType === Node.ELEMENT_NODE) {
-                        const el = node as HTMLElement;
-                        const tag = el.tagName.toLowerCase();
-                        let content = '';
-                        for (const child of Array.from(el.childNodes)) {
-                            content += cleanNode(child);
-                        }
-
-                        let isBold = ['b', 'strong'].includes(tag);
-                        let isItalic = ['i', 'em'].includes(tag);
-                        
-                        if (el.style) {
-                            if (el.style.fontWeight === 'bold' || parseInt(el.style.fontWeight) >= 700) {
-                                isBold = true;
-                            }
-                            if (el.style.fontStyle === 'italic') {
-                                isItalic = true;
-                            }
-                        }
-
-                        if (isBold && content.trim()) {
-                            content = `<b>${content}</b>`;
-                        }
-                        if (isItalic && content.trim()) {
-                            content = `<i>${content}</i>`;
-                        }
-
-                        if (tag === 'a') {
-                            const href = escapeHtml(sanitizeHref(el.getAttribute('href') || '#', '#'));
-                            return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-anahuac-orange underline hover:text-orange-700 break-words">${content}</a>`;
-                        }
-                        if (tag === 'ul') {
-                            return `<ul class="list-custom list-bullets pl-4 mb-3">\n${content}</ul>\n`;
-                        }
-                        if (tag === 'ol') {
-                            return `<ol class="list-custom list-numbers pl-4 mb-3">\n${content}</ol>\n`;
-                        }
-                        if (tag === 'li') {
-                            return `<li class="mb-1">${content}</li>\n`;
-                        }
-                        if (tag === 'p' || tag === 'div') {
-                            return `<p class="mb-2">${content}</p>\n`;
-                        }
-                        if (tag === 'br') {
-                            return `<br>`;
-                        }
-                        if (['b', 'strong', 'i', 'em', 'span'].includes(tag)) {
-                            return content;
-                        }
-
-                        if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tag)) {
-                            return `<p class="mb-2"><b>${content}</b></p>\n`;
-                        }
-
-                        return content;
-                    }
-                    return '';
-                };
-
-                if (doc.body) {
-                    for (const child of Array.from(doc.body.childNodes)) {
-                        cleanedHtml += cleanNode(child);
-                    }
-                }
-            } 
-            
-            if (!cleanedHtml.trim() && textPlain) {
-                const paragraphs = textPlain.split(/\r?\n\r?\n/).filter(p => p.trim());
-                if (paragraphs.length === 1 && !paragraphs[0].includes('\n')) {
-                     // Single line, no inner breaks - keep inline
-                     cleanedHtml = paragraphs[0].trim().replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                } else {
-                    cleanedHtml = paragraphs.map(p => {
-                        return `<p class="mb-2">${p.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\r?\n/g, '<br>')}</p>`;
-                    }).join('\n');
-                }
-            }
-
-            // Enforce left align
-            if (editableText) {
-                if (editableText.classList.contains('text-justify')) {
-                    editableText.classList.remove('text-justify');
-                    editableText.classList.add('text-left');
-                }
-                if (editableText.classList.contains('text-center')) {
-                    editableText.classList.remove('text-center');
-                    editableText.classList.add('text-left');
-                }
-            }
-
-            document.execCommand('insertHTML', false, cleanedHtml);
-        }
+        text=text.replace(/\r\n?/g,'\n').replace(/^\s*\n+|\n+\s*$/g,'');
+        if(/^H[1-6]$/.test(target.tagName))text=text.replace(/\n+/g,' ');
+        document.execCommand('insertText',false,text);
+        target.dispatchEvent(new Event('input',{bubbles:true}));
     });
 
     // Keyboard shortcuts for history
@@ -2344,10 +2233,7 @@ export function setupVanillaGlobals() {
     inlineIconToolbar.style.opacity = '0';
     inlineIconToolbar.style.pointerEvents = 'none';
     inlineIconToolbar.innerHTML = `
-        <div class="absolute inset-x-0 h-12 -top-12 bg-transparent"></div>
-        <div class="absolute inset-x-0 h-12 -top-12 bg-transparent"></div>
-        <div class="absolute inset-y-0 w-12 -left-12 bg-transparent"></div>
-        <div class="absolute inset-y-0 w-12 -right-12 bg-transparent"></div>
+        <div class="absolute inset-x-0 h-2 -top-2 bg-transparent"></div>
         <button type="button" class="text-gray-400 hover:text-anahuac-orange p-1 rounded hover:bg-orange-50 transition-colors flex items-center justify-center relative z-10" onclick="window.currentInlineIcon && window.changeInlineIconSize(window.currentInlineIcon, -8)" title="Hacer más pequeño"><span class="material-symbols-outlined text-[16px] pointer-events-none">remove</span></button>
         <button type="button" class="text-gray-400 hover:text-anahuac-orange p-1 rounded hover:bg-orange-50 transition-colors flex items-center justify-center relative z-10" onclick="window.currentInlineIcon && window.changeInlineIconSize(window.currentInlineIcon, 8)" title="Hacer más grande"><span class="material-symbols-outlined text-[16px] pointer-events-none">add</span></button>
         <div class="w-px h-4 bg-gray-200 mx-1 my-auto relative z-10"></div>
@@ -2429,7 +2315,7 @@ export function setupVanillaGlobals() {
             iconHoverTimeout = setTimeout(() => {
                 inlineIconToolbar.style.opacity = '0';
                 inlineIconToolbar.style.pointerEvents = 'none';
-            }, 300);
+            }, 140);
         }
     });
 
@@ -2467,6 +2353,13 @@ export function setupVanillaGlobals() {
     };
 
     window.alignInlineIcon = function(icon: HTMLElement, alignment: string) {
+        const prompt=icon.closest<HTMLElement>('.mod-student-prompt');
+        if(prompt){
+            icon.classList.remove('float-left','float-right','block','mx-auto','w-max');
+            icon.style.display='inline-block';icon.style.margin='0 6px 0 0';icon.style.clear='none';
+            icon.style.verticalAlign='middle';prompt.style.textAlign=alignment;
+            prompt.dispatchEvent(new Event('input',{bubbles:true}));return;
+        }
         // Find if this is a grid icon (which is inside a flex container)
         const parentFlex = icon.parentElement?.classList.contains('flex') ? icon.parentElement : null;
         
@@ -3333,16 +3226,18 @@ export function setupVanillaGlobals() {
         if(styleBtn) window.changeTableStyle(styleBtn, wrapper.dataset.tableStyle || 'standard');
     };
 
-    window.applyTextFormat = function(format: 'titulo' | 'subtitulo' | 'cuerpo') {
+    window.applyTextFormat = function(format: 'titulo' | 'subtitulo' | 'cuerpo' | 'cuerpo2') {
         let styles = "";
-        let classNames = "";
-        if (format === 'titulo') styles = "font-size: 30px; font-weight: bold; font-family: 'Zilla Slab', serif;";
-        else if (format === 'subtitulo') styles = "font-size: 20px; font-weight: bold; font-family: 'Zilla Slab', serif;";
-        else if (format === 'cuerpo') styles = "font-size: 14px; font-weight: normal; font-family: 'Roboto', sans-serif;";
+        if (format === 'titulo') styles = "font-size: 30px; font-weight: bold;";
+        else if (format === 'subtitulo') styles = "font-size: 20px; font-weight: bold;";
+        else if (format === 'cuerpo') styles = "font-size: 14px; font-weight: normal;";
+        else if (format === 'cuerpo2') styles = "font-size: 12px; font-weight: normal;";
 
         const sel = window.getSelection();
         if (sel && sel.rangeCount > 0 && sel.toString().length > 0) {
-            document.execCommand('insertHTML', false, `<span style="${styles}">${sel.toString()}</span>`);
+            const anchor = sel.anchorNode instanceof Element ? sel.anchorNode : sel.anchorNode?.parentElement;
+            const font = anchor ? getComputedStyle(anchor).fontFamily : '';
+            document.execCommand('insertHTML', false, `<span style="${styles}font-family:${escapeHtml(font)}">${escapeHtml(sel.toString())}</span>`);
         } else {
             let block = window.getSelection()?.anchorNode;
             if(block?.nodeType === 3) block = block.parentNode;
@@ -3382,19 +3277,20 @@ export function setupVanillaGlobals() {
     
     window.setImageStyle = function(align: string) {
         if(window.selectedEditorialImage) {
-            window.selectedEditorialImage.style.display = 'block';
+            (editorialImageFrame(window.selectedEditorialImage)||window.selectedEditorialImage).style.display = 'block';
             if(align === 'center') {
-                window.selectedEditorialImage.style.margin = '10px auto';
+                (editorialImageFrame(window.selectedEditorialImage)||window.selectedEditorialImage).style.margin = '10px auto';
             } else if (align === 'left') {
-                window.selectedEditorialImage.style.margin = '10px auto 10px 0';
+                (editorialImageFrame(window.selectedEditorialImage)||window.selectedEditorialImage).style.margin = '10px auto 10px 0';
             } else if (align === 'right') {
-                window.selectedEditorialImage.style.margin = '10px 0 10px auto';
+                (editorialImageFrame(window.selectedEditorialImage)||window.selectedEditorialImage).style.margin = '10px 0 10px auto';
             }
         }
     }
     
     window.setImageSize = function(sizeClass: string) {
         if(window.selectedEditorialImage) {
+            const frame=editorialImageFrame(window.selectedEditorialImage);if(frame){frame.style.width=({'w-1/4':'25%','w-1/2':'50%','w-3/4':'75%','w-full':'100%'} as Record<string,string>)[sizeClass]||'100%';return;}
             window.selectedEditorialImage.classList.remove('w-1/4', 'w-1/2', 'w-3/4', 'w-full');
             window.selectedEditorialImage.classList.add(sizeClass);
         }
@@ -3402,6 +3298,7 @@ export function setupVanillaGlobals() {
 
     window.setEditorialImageAspect = function(aspect: string) {
         if(window.selectedEditorialImage) {
+            const frame=editorialImageFrame(window.selectedEditorialImage);if(frame&&changeImageCropAspect(frame,aspect))return;
             window.selectedEditorialImage.style.aspectRatio = aspect;
             window.selectedEditorialImage.style.objectFit = aspect === 'auto' ? '' : 'cover';
         }
@@ -3409,6 +3306,7 @@ export function setupVanillaGlobals() {
 
     window.setEditorialImagePosition = function(slider: HTMLInputElement, axis: 'x' | 'y') {
         if(window.selectedEditorialImage) {
+            const frame=editorialImageFrame(window.selectedEditorialImage);if(frame&&changeImageCropPosition(frame,axis,Number(slider.value)))return;
             const currentPos = window.selectedEditorialImage.style.objectPosition || '50% 50%';
             const parts = currentPos.split(' ');
             let x = parts[0] || '50%';
@@ -3424,18 +3322,19 @@ export function setupVanillaGlobals() {
 
     window.setEditorialImageRadius = function(radius: string) {
         if(window.selectedEditorialImage) {
-            window.selectedEditorialImage.style.borderRadius = radius;
+            (editorialImageFrame(window.selectedEditorialImage)?.querySelector<HTMLElement>('.image-wrapper')||window.selectedEditorialImage).style.borderRadius = radius;
         }
     }
 
     window.setEditorialImageShadow = function(shadow: string) {
         if(window.selectedEditorialImage) {
-            window.selectedEditorialImage.style.boxShadow = shadow;
+            (editorialImageFrame(window.selectedEditorialImage)?.querySelector<HTMLElement>('.image-wrapper')||window.selectedEditorialImage).style.boxShadow = shadow;
         }
     }
 
     window.rotateEditorialImage = function(deg: number) {
         if(window.selectedEditorialImage) {
+            const frame=editorialImageFrame(window.selectedEditorialImage);if(frame&&rotateImageCrop(frame,deg))return;
             let currentRot = parseInt(window.selectedEditorialImage.dataset.rotation || '0');
             currentRot += deg;
             window.selectedEditorialImage.dataset.rotation = currentRot.toString();
@@ -3445,7 +3344,7 @@ export function setupVanillaGlobals() {
     
     window.deleteSelectedImage = function() {
         if(window.selectedEditorialImage) {
-            window.selectedEditorialImage.remove();
+            (editorialImageFrame(window.selectedEditorialImage)||window.selectedEditorialImage).remove();
             document.getElementById('image-toolbar')?.classList.add('hidden');
             window.selectedEditorialImage = null;
         }
@@ -4302,6 +4201,7 @@ export function setupVanillaGlobals() {
     window.initNestedDropzones = function() {
         initModularTables();
         initFlowBlocks();
+        normalizeBuilderTypography(document.getElementById('canvas') || document);
         setupImageControls();
         setupInteractiveButtons();
         setupBoxControls();

@@ -1,3 +1,4 @@
+import {normalizeBuilderTypography} from './builder-typography';
 import type {ModularModel,ModularCell} from './modular-model';
 import {normalizeFlowTextLayout,type FlowTextLayout} from './flow-model';
 import {flowRichHTML,readFlowRichDocument} from './flow-rich-document';
@@ -8,7 +9,7 @@ const symbol=(name:string)=>`<span class="material-symbols-outlined" aria-hidden
 const setStyle=(text:HTMLElement,style:Record<string,string>)=>{for(const[key,value]of Object.entries(style))text.style.setProperty(key,value);};
 function applyLayout(frame:HTMLElement,layout:FlowTextLayout){frame.dataset.textLayout=JSON.stringify(layout);Object.assign(frame.style,{left:layout.x*100+'%',top:layout.y*100+'%',width:layout.width*100+'%',height:layout.height*100+'%'});}
 function frameText(card:HTMLElement,text:HTMLElement,id:string,layout:FlowTextLayout){
- const frame=document.createElement('div');frame.className='mod-text-box-frame'+(id==='primary'?' mod-primary-text-frame':'');frame.dataset.modTextId=id;applyLayout(frame,layout);text.before(frame);frame.append(text);
+ const frame=document.createElement('div');frame.className='mod-text-box-frame'+(id==='primary'?' mod-primary-text-frame':'');frame.dataset.modTextId=id;applyLayout(frame,layout);text.before(frame);frame.append(text);text.style.removeProperty('position');text.style.removeProperty('top');text.style.removeProperty('left');text.style.width='100%';
  if(id==='primary'){const info=card.querySelector('.mod-info');if(info)frame.append(info);}return frame;
 }
 export function syncModularTextBoxes(block:HTMLElement,model:ModularModel){
@@ -23,15 +24,16 @@ export function syncModularTextBoxes(block:HTMLElement,model:ModularModel){
 export function renderModularTextBoxes(block:HTMLElement,model:ModularModel){
  for(const cell of block.querySelectorAll<HTMLElement>('.mod-cell')){
   const value=model.cells[cell.dataset.cell!],card=cell.querySelector<HTMLElement>('.mod-card');if(!value||!card||value.student)continue;
-  const primary=card.querySelector<HTMLElement>('.mod-text')!;setStyle(primary,modularTextStyle(value.textStyle));primary.dataset.textSuggestion=String(!modularTextEntries(value).some(box=>box.id==='primary'));if(primary.dataset.textSuggestion==='true')primary.replaceChildren();primary.title='Doble clic para escribir y editar';primary.setAttribute('aria-label','Texto del rectángulo');
+  const primary=card.querySelector<HTMLElement>('.mod-text')!;setStyle(primary,modularTextStyle(value.textStyle));primary.dataset.textSuggestion=String(!modularTextEntries(value).some(box=>box.id==='primary'));if(primary.dataset.textSuggestion==='true')primary.replaceChildren();primary.title='Clic para escribir y editar';primary.setAttribute('aria-label','Texto del rectángulo');
   if(value.textLayout){value.textLayout=normalizeFlowTextLayout(value.textLayout);frameText(card,primary,'primary',value.textLayout);}
   if(value.textBoxes)value.textBoxes=normalizeModularTextBoxes(value.textBoxes);
   for(const box of value.textBoxes||[]){
-   const text=document.createElement('div');text.className='mod-extra-text editable-text';text.title='Doble clic para editar esta caja de texto';text.setAttribute('aria-label','Caja de texto del rectángulo');setStyle(text,modularTextStyle(box.document.style));text.innerHTML=(box.document.children||[]).map(flowRichHTML).join('');card.append(text);
+   const text=document.createElement('div');text.className='mod-extra-text editable-text';text.title='Clic para editar esta caja de texto';text.setAttribute('aria-label','Caja de texto del rectángulo');setStyle(text,modularTextStyle(box.document.style));text.innerHTML=(box.document.children||[]).map(flowRichHTML).join('');card.append(text);
    frameText(card,text,box.id,box.layout);
   }
   renderTextMenu(cell,value);
  }
+ normalizeBuilderTypography(block);
 }
 function renderTextMenu(cell:HTMLElement,value:ModularCell){
   cell.querySelector('.mod-text-box-menu')?.remove();
@@ -78,7 +80,7 @@ export function setupModularTextBoxes(host:Host){
   if(session?.text===text){position();return;}finish();host.save();
   const cell=host.model(block)!.cells[cellNode.dataset.cell!],id=text.closest<HTMLElement>('.mod-text-box-frame')?.dataset.modTextId||'primary';
   let frame=text.closest<HTMLElement>('.mod-text-box-frame');
-  if(!frame){const a=card.getBoundingClientRect(),b=text.getBoundingClientRect(),h=(Number(card.dataset.textBaseHeight)||card.offsetHeight)*a.height/card.offsetHeight;cell.textLayout=normalizeFlowTextLayout({x:(b.left-a.left)/a.width,y:(b.top-a.top)/h,width:b.width/a.width,height:Math.max(24,b.height)/h});frame=frameText(card,text,'primary',cell.textLayout);text.dataset.textSuggestion='false';renderTextMenu(cellNode,cell);document.dispatchEvent(new CustomEvent('modular-text-boxes-changed',{detail:block}));}
+  if(!frame){const a=card.getBoundingClientRect(),b=text.getBoundingClientRect(),h=(Number(card.dataset.textBaseHeight)||card.offsetHeight)*a.height/card.offsetHeight;cell.textLayout=normalizeFlowTextLayout({x:(b.left-a.left)/a.width,y:(b.top-a.top)/h,width:b.width/a.width,height:Math.max(24,b.height)/h});frame=frameText(card,text,'primary',cell.textLayout);frame.style.top=(b.top-a.top)*card.offsetHeight/a.height+'px';frame.style.height=b.height*card.offsetHeight/a.height+'px';text.dataset.textSuggestion='false';renderTextMenu(cellNode,cell);document.dispatchEvent(new CustomEvent('modular-text-boxes-changed',{detail:block}));}
   const controls=document.createElement('div');controls.className='mod-text-geometry mod-editor';
   for(const handle of ['move','nw','n','ne','e','se','s','sw','w']){const button=document.createElement('button');button.type='button';button.dataset.modTextHandle=handle;button.setAttribute('aria-label',handle==='move'?'Mover caja de texto':`Redimensionar caja de texto ${handle}`);button.title=handle==='move'?'Arrastra para mover la caja de texto':'Arrastra para redimensionar la caja de texto';if(handle==='move')button.innerHTML=symbol('drag_indicator');controls.append(button);}frame.append(controls);frame.classList.add('mod-text-box-active');
   const actions=document.createElement('div');actions.className='mod-text-session-actions mod-editor';

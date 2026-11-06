@@ -6,7 +6,7 @@ import {initModularTables,setupModularTables,prepareModularExport} from '/src/mo
 import {createModular,activateAllCells} from '/src/modular-model.ts';
 import {promptLayout} from '/src/modular-prompt.ts';
 import {mountModularRuntime} from '/src/modular-runtime.js';
-const frames=async(n=12)=>{for(let i=0;i<n;i++)await new Promise(requestAnimationFrame);};
+const frames=async(n=12)=>{await new Promise(resolve=>setTimeout(resolve,n*20));};
 const results=document.querySelector('#results');let count=0;
 function check(ok,label){if(!ok)throw Error(label);results.textContent+=`✓ ${label}\n`;count++;}
 try{
@@ -17,13 +17,13 @@ block.querySelector('[data-mod-action=student]').click();
 check(block.dataset.pinnedCell==='0:0'&&getComputedStyle(block.querySelector('.mod-cell-tools')).display==='flex','El interruptor mantiene visible el menú');
 block.querySelector('[data-mod-action=student-prompt]').click();
 check(!!block.querySelector('.mod-student-prompt'),'El botón Texto superior permite activar las instrucciones');
-check(!block.querySelector('.mod-card .mod-prompt-tools')&&block.querySelectorAll('.mod-cell-tools [data-prompt-position]').length===4,'Las cuatro posiciones están solo en el menú del rectángulo');
-for(const edge of ['top','bottom','left','right']){
+check(!block.querySelector('.mod-card .mod-prompt-tools')&&block.querySelectorAll('.mod-cell-tools [data-prompt-position]').length===9,'Las nueve posiciones están solo en el menú del rectángulo');
+for(const edge of ['top-center','bottom-center','left','right']){
 block.querySelector(`[data-prompt-position=${edge}]`).click();
 await frames();
 check(block.querySelector('.mod-cell').getBoundingClientRect().height===240,`Altura estable en ${edge} después de 12 cuadros`);
 const card=block.querySelector('.mod-card'),p=card.querySelector('.mod-student-prompt').getBoundingClientRect(),a=card.querySelector('.mod-text').getBoundingClientRect();
-check(edge==='top'?p.bottom<=a.top:edge==='bottom'?a.bottom<=p.top:edge==='left'?p.right<=a.left:a.right<=p.left,`Posición ${edge}`);
+check(edge.startsWith('top')?p.bottom<=a.top:edge.startsWith('bottom')?a.bottom<=p.top:edge==='left'?p.right<=a.left:a.right<=p.left,`Posición ${edge}`);
 const clone=document.createElement('div');clone.append(block.cloneNode(true));prepareModularExport(clone);
 check(!clone.querySelector('.mod-editor')&&clone.querySelector('.mod-card').style.flexDirection===card.style.flexDirection,`Exportación ${edge} sin controles de edición`);
 clone.style.width='700px';document.body.append(clone);
@@ -35,6 +35,26 @@ runtime.destroy();clone.remove();
 const divider=block.querySelector('.mod-prompt-resize');divider.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}));
 check(JSON.parse(block.dataset.modular).cells['0:0'].studentPromptWidth===40,'División lateral ajustable y guardada');
 check(promptLayout('left',99).percent===80&&promptLayout('right',0).percent===20,'Límites del divisor 20–80%');
+const input=block.querySelector('.mod-student-placeholder');input.textContent='Ejemplo: trabajo en equipo';input.dispatchEvent(new Event('input',{bubbles:true}));check(!block.querySelector('[data-mod-placeholder]'),'Sin botón separado para editar ejemplo');
+check(JSON.parse(block.dataset.modular).cells['0:0'].studentPlaceholder===input.textContent,'Texto de ejemplo personalizado guardado');
+const exported=document.createElement('div');exported.append(block.cloneNode(true));prepareModularExport(exported);document.body.append(exported);
+const answer=exported.querySelector('.student-rich-answer');
+check(answer.dataset.placeholder===input.textContent&&answer.textContent==='','Ejemplo exportado separado de la respuesta');
+check(getComputedStyle(answer,'::before').content.includes('trabajo en equipo'),'Ejemplo visible antes de responder');answer.textContent='Mi respuesta';
+check(getComputedStyle(answer,'::before').content==='none','Ejemplo desaparece al responder');
+const answerRuntime=mountModularRuntime(exported.querySelector('.modular-table'));answer.innerHTML='<br>';answer.dispatchEvent(new Event('input',{bubbles:true}));check(getComputedStyle(answer,'::before').content.includes('trabajo en equipo'),'Ejemplo reaparece al borrar la respuesta');answerRuntime.destroy();exported.remove();
+for(const position of ['top-left','top-center','top-right','bottom-left','bottom-center','bottom-right','none']){
+block.querySelector(`[data-prompt-position="${position}"]`).click();
+const prompt=block.querySelector('.mod-student-prompt');check(position==='none'?prompt.style.display==='none':prompt.style.textAlign===position.split('-')[1],`Texto externo: ${position}`);
+}
+block.querySelector('[data-prompt-position=top-center]').click();
+const prompt=block.querySelector('.mod-student-prompt');prompt.innerHTML='<span class="material-symbols-outlined editable-icon" style="font-size:24px">star</span> Fortalezas';prompt.dispatchEvent(new Event('input',{bubbles:true}));
+const label=block.querySelector('[data-mod-prompt-label]');label.value='Mis fortalezas';label.dispatchEvent(new Event('input',{bubbles:true}));
+check(prompt.querySelector('.editable-icon')&&prompt.textContent.includes('Mis fortalezas'),'Editar texto externo conserva el icono');
+check(getComputedStyle(prompt.querySelector('.editable-icon')).verticalAlign==='middle','Icono alineado a la altura del texto');
+prompt.style.textAlign='justify';prompt.dispatchEvent(new Event('input',{bubbles:true}));
+const aligned=document.createElement('div');aligned.append(block.cloneNode(true));prepareModularExport(aligned);
+check(aligned.querySelector('.mod-student-prompt').style.textAlign==='justify','Alineación manual conservada al exportar y reconstruir');
 results.textContent+=`${count} comprobaciones correctas`;
 }catch(error){results.textContent+='ERROR: '+error.message;throw error;}
 </script></body></html>

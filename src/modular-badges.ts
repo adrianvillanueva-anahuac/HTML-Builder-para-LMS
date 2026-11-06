@@ -82,8 +82,8 @@ export function renderBadges(block:HTMLElement,model:ModularModel) {
       if(badge.shape==='rounded'){const scale=menu.querySelector('[data-badge-scale]')!.closest('label')!;scale.outerHTML=(['width','height']as const).map(axis=>`<label>${axis==='width'?'Ancho':'Alto'} <output></output><input data-badge-${axis} aria-label="${axis==='width'?'Ancho':'Alto'} de la figura" type="range" min="16" max="${axis==='width'?Math.floor(cell.clientWidth):600}" value="${badge[axis]??(axis==='width'?96:54)*badge.scale}"></label>`).join('');}
       const iconButton=document.createElement('button');iconButton.type='button';iconButton.dataset.badgeIcon='true';iconButton.title='Insertar icono del catálogo';iconButton.setAttribute('aria-label','Insertar icono del catálogo');iconButton.innerHTML=icon('add_reaction');menu.querySelector('.mod-badge-shapes')!.insertBefore(iconButton,menu.querySelector('[data-badge-delete]'));
       const node=document.createElement('div');node.className='mod-badge';node.tabIndex=0;
-      node.setAttribute('role','group');node.setAttribute('aria-label','Figura del perímetro; arrastra para mover, doble clic para editar texto');
-      node.innerHTML='<svg viewBox="-4 -4 108 108" preserveAspectRatio="none" aria-hidden="true"></svg><div class="mod-badge-text editable-text" title="Doble clic para editar texto"></div>';
+      node.setAttribute('role','group');node.setAttribute('aria-label','Figura del perímetro; arrastra para mover, clic para editar texto');
+      node.innerHTML='<svg viewBox="-4 -4 108 108" preserveAspectRatio="none" aria-hidden="true"></svg><div class="mod-badge-text editable-text" title="Clic para editar texto"></div>';
       cell.append(node);updateBadge(cell,badge);
     }
   }

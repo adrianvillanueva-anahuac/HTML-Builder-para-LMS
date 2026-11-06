@@ -1,0 +1,36 @@
+<!doctype html><meta charset="utf-8"><title>Edición directa de textos</title>
+<button id="run">Probar edición directa</button><pre id="results"></pre><iframe id="app" src="/?editor=exercise" style="width:100%;height:800px;border:0"></iframe>
+<script type="module">
+import {createModular,activateAllCells} from '/src/modular-model.ts';
+const frame=document.querySelector('#app'),out=document.querySelector('#results');
+document.querySelector('#run').onclick=async()=>{
+ const w=frame.contentWindow,d=w.document,wait=()=>new Promise(r=>setTimeout(r,180));let count=0;
+ const check=(ok,label)=>{out.textContent+=(ok?'PASS ':'FAIL ')+label+'\n';if(!ok)throw Error(label);count++;};
+ try{
+ const canvas=d.querySelector('#canvas');canvas.innerHTML='<div class="lms-element" data-type="parrafo_basico"><div class="editable-text" id="paste-target" style="font-family:Lato;font-size:14px;text-align:center">Texto inicial</div></div>';
+ const list=d.createElement('div');list.className='editable-text';list.innerHTML='<ul class="list-custom list-numbers"><li>Primera línea</li><li>Segunda línea</li></ul>';canvas.append(list);
+ const model=createModular(1,2);activateAllCells(model);model.rows=[180];
+ model.cells['0:0'].textBoxes=[{id:'extra-test',layout:{x:.1,y:.7,width:.8,height:.2},document:{tag:'div',children:[{tag:'span',style:{'font-size':'16px'},text:'Texto adicional'}]}}];
+ model.cells['0:0'].html='<b>¿Con qué frecuencia los supervisores usan realmente el canal?</b>';
+ model.cells['0:0'].badge={shape:'circle',text:'Figura',html:'Figura',color:'#5d428c',scale:1,position:{edge:'top',offset:.5}};
+ model.cells['0:1'].student=true;model.cells['0:1'].studentPromptEnabled=true;model.cells['0:1'].studentPromptHtml='Instrucciones';
+ const block=d.createElement('section');block.className='lms-element modular-table';block.dataset.type='tabla_modular';block.dataset.modular=JSON.stringify(model);canvas.append(block);w.initNestedDropzones();await wait();
+ check(w.getComputedStyle(block.querySelector('.mod-extra-text')).fontSize==='14px','Caja adicional usa Párrafo 1');check(w.getComputedStyle(list).fontSize==='14px','Lista usa Párrafo 1');check(w.getComputedStyle(list.querySelector('li:last-child')).marginBottom==='0px','Lista sin margen inferior sobrante');check(w.getComputedStyle(block.querySelector('.mod-student-placeholder')).webkitTextFillColor.includes('0.6'),'Texto de ejemplo con tinta atenuada');
+ const text=d.querySelector('#paste-target');text.click();await wait();check(text.isContentEditable&&!d.querySelector('#rtf-toolbar').classList.contains('hidden'),'Un clic abre texto dinámico');
+ const range=d.createRange();range.selectNodeContents(text);w.getSelection().removeAllRanges();w.getSelection().addRange(range);
+ const data=new w.DataTransfer();data.setData('text/plain','\nEjemplo pegado\n');data.setData('text/html','<div><p style="font:40px Arial">Ejemplo pegado</p></div>');text.dispatchEvent(new w.ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true}));await wait();
+ check(text.textContent==='Ejemplo pegado'&&!text.querySelector('p,br'),'Pegado sin renglones adicionales');check(w.getComputedStyle(text).fontFamily.includes('Lato')&&text.style.textAlign==='center','Pegado conserva tipografía y alineación');
+ for(const [preset,size] of [['titulo',30],['subtitulo',20],['cuerpo',14],['cuerpo2',12]]){w.applyTextFormat(preset);check(text.innerHTML.includes(size+'px')||text.style.fontSize===size+'px','Tamaño '+preset);}
+ for(const font of ['Lato','Roboto','Zilla Slab']){text.innerHTML='<span style="font-family:'+font+'">Prueba</span>';const r=d.createRange();r.selectNodeContents(text.firstElementChild);w.getSelection().removeAllRanges();w.getSelection().addRange(r);w.applyTextFormat('cuerpo2');check(w.getComputedStyle(text.firstElementChild||text).fontFamily.includes(font),'Párrafo 2 conserva '+font);}
+ check(d.querySelectorAll('#rtf-toolbar button[title="Párrafo 2"]').length===1,'Cuatro tamaños con Párrafo 2');
+ const sample=block.querySelector('.mod-student-placeholder');sample.click();await wait();check(sample.isContentEditable&&!block.querySelector('[data-mod-placeholder]'),'Ejemplo editable con un clic sin botón');sample.textContent='Escribe una fortaleza';sample.dispatchEvent(new w.Event('input',{bubbles:true}));await wait();
+ check(JSON.parse(block.dataset.modular).cells['0:1'].studentPlaceholder==='Escribe una fortaleza','Ejemplo se guarda en el modelo');
+ const primary=block.querySelector('.mod-cell[data-cell="0:0"] .mod-text'),before=primary.getBoundingClientRect();primary.click();await wait();const after=primary.getBoundingClientRect();
+ check(Math.abs(before.width-after.width)<2&&Math.abs(before.height-after.height)<2&&Math.abs(before.top-after.top)<2,'Editar conserva posición y tamaño del texto '+JSON.stringify({before:{w:before.width,h:before.height,y:before.y},after:{w:after.width,h:after.height,y:after.y}}));
+ const handle=block.querySelector('[data-mod-text-handle="move"]'),rect=handle.getBoundingClientRect();check(handle.contains(d.elementFromPoint(rect.x+rect.width/2,rect.y+rect.height/2)),'Mediador de arrastre por delante de la figura '+d.elementFromPoint(rect.x+rect.width/2,rect.y+rect.height/2)?.outerHTML.slice(0,220));
+ const badge=block.querySelector('.mod-badge-text');badge.click();await wait();badge.textContent='Texto más largo dentro de la figura que crece centrado';badge.dispatchEvent(new w.Event('input',{bubbles:true}));await wait();
+ const br=badge.getBoundingClientRect(),shape=badge.parentElement.getBoundingClientRect();check(Math.abs((br.top+br.height/2)-(shape.top+shape.height/2))<2&&w.getComputedStyle(badge).overflow==='visible','Texto de figura crece centrado y sin scroll');
+ out.textContent+='TOTAL '+count+' comprobaciones correctas';
+ }catch(error){out.textContent+='ERROR '+error.message;}
+};
+</script>

@@ -178,3 +178,16 @@ test('la multiselección admite listas readonly y conserva las opciones de selec
   const published = renderFlowSVG(model, { selectedNodeIds, selectedEdgeIds, selectedLaneIds });
   assert.ok(!published.includes('data-flow-resize')); assert.ok(!published.includes('stroke="#ffb88f"')); assert.ok(!published.includes('stroke-dasharray="7 4"'));
 });
+
+test('duplicar figura conserva contenido y permite copiar conexiones incidentes independientes',()=>{
+ const m=createFlowModel(),a=addFlowNode(m,'process'),b=addFlowNode(m,'decision'),c=addFlowNode(m,'process');
+ a.text='Contenido';a.textBoxes=[{id:'box',text:'Segundo texto',fontSize:14,textColor:'#333333',textAlign:'center',textRuns:[],layout:{x:.1,y:.1,width:.8,height:.8}}];
+ addFlowEdge(m,a.id,b.id,{label:'Salida'});addFlowEdge(m,c.id,a.id,{label:'Entrada'});
+ const plain=duplicateFlowNode(m,a.id)!;assert.equal(m.edges.length,2);assert.equal(plain.text,a.text);assert.notEqual(plain.textBoxes,a.textBoxes);
+ const linked=duplicateFlowNode(m,a.id,true)!;assert.equal(m.edges.length,4);
+ assert.ok(m.edges.some(e=>e.from===linked.id&&e.to===b.id&&e.label==='Salida'));
+ assert.ok(m.edges.some(e=>e.from===c.id&&e.to===linked.id&&e.label==='Entrada'));
+ const svg=renderFlowSVG(m,{interactive:true,selectedNodeIds:[a.id]});assert.match(svg,/aria-label="Duplicar con conexiones"/);assert.match(svg,/aria-label="Duplicar sin conexiones"/);
+ assert.doesNotMatch(renderFlowSVG(m),/data-flow-duplicate/);
+ assert.doesNotMatch(renderFlowSVG(m,{interactive:true,selectedNodeIds:[plain.id]}),/aria-label="Duplicar con conexiones"/);
+});

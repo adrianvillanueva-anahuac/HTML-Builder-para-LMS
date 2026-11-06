@@ -1,3 +1,4 @@
+import {studentLabelPositions} from './student-controls';
 import { createModular, neighbors, removeCell, removeLastTrack, resizeColumns, clamp, modularPalette, modularTextColor, type ModularModel, type ModularConnection } from './modular-model';
 import { mountModularRuntime } from './modular-runtime.js';
 import runtimeSource from './modular-runtime.js?raw';
@@ -27,6 +28,7 @@ let installed=false;
 let activeModal:HTMLElement|null=null;
 export function getModularHTML() {return '<section class="lms-element is-rendered modular-table mod-pending" data-type="tabla_modular" data-mod-pending="true"></section>';}
 const save=()=>window.saveHistoryState?.(true);
+function promptLabel(card:HTMLElement){const copy=card.querySelector('.mod-student-prompt')?.cloneNode(true) as HTMLElement|undefined;copy?.querySelectorAll('.editable-icon').forEach(icon=>icon.remove());return copy?.textContent?.trim()||'';}
 function updateCellAppearance(cell:HTMLElement,value:ModularModel['cells'][string]) {
   const card=cell.querySelector<HTMLElement>('.mod-card')!;
   card.style.setProperty('--card-color',value.color);card.style.setProperty('--card-text',modularTextColor(value.color));
@@ -41,7 +43,9 @@ function sync(block:HTMLElement) {
   syncBadgeText(block,model);
   block.querySelectorAll<HTMLElement>('.mod-cell').forEach(cell=>{
     const prompt=cell.querySelector<HTMLElement>('.mod-student-prompt');
-    if(prompt&&model.cells[cell.dataset.cell!])model.cells[cell.dataset.cell!].studentPromptHtml=prompt.innerHTML;
+    if(prompt&&model.cells[cell.dataset.cell!]){model.cells[cell.dataset.cell!].studentPromptHtml=prompt.innerHTML;model.cells[cell.dataset.cell!].studentPromptAlign=(prompt as HTMLElement).style.textAlign;}
+    const sample=cell.querySelector<HTMLElement>('.mod-student-placeholder'),value=model.cells[cell.dataset.cell!];
+    if(sample&&value?.student){value.studentPlaceholderHtml=sample.innerHTML;value.studentPlaceholder=sample.textContent||'';value.studentPlaceholderStyle=sample.style.cssText;}
     // During a mode switch, focusout can run before the old placeholder is replaced.
     if(model.cells[cell.dataset.cell!]?.student||cell.querySelector('.mod-card[data-student=true]'))return;
     const text=cell.querySelector<HTMLElement>('.mod-text');
@@ -117,12 +121,12 @@ function render(block:HTMLElement,deferRuntime=false) {
       if(value.student&&value.studentPromptEnabled){
         card.dataset.studentPrompt='true';
         const prompt=document.createElement('div');prompt.className='mod-student-prompt editable-text';
-        prompt.innerHTML=value.studentPromptHtml||'';prompt.title='Doble clic para editar las instrucciones';card.append(prompt);
+        prompt.innerHTML=value.studentPromptHtml||'';prompt.style.textAlign=value.studentPromptAlign||'';prompt.title='Clic para editar las instrucciones';card.append(prompt);
         card.dataset.promptPosition=value.studentPromptPosition||'top';
         card.dataset.promptWidth=String(value.studentPromptWidth??35);
         card.insertAdjacentHTML('beforeend',`<div class="mod-prompt-resize mod-editor" role="separator" tabindex="0" aria-label="Ancho de las instrucciones" aria-orientation="vertical" aria-valuemin="20" aria-valuemax="80" title="Arrastra la división o usa las flechas izquierda y derecha"></div>`);
       }
-      const text=document.createElement('div');text.className=value.student?'mod-text mod-student-placeholder':'mod-text editable-text';text.innerHTML=value.student?'':value.html;card.append(text);
+      const text=document.createElement('div');text.className=value.student?'mod-text mod-student-placeholder editable-text':'mod-text editable-text';text.innerHTML=value.student?(value.studentPlaceholderHtml??escape(value.studentPlaceholder??'Texto para alumno')):value.html;if(value.student){text.dataset.placeholder=value.studentPlaceholder??'Texto para alumno';text.style.cssText=value.studentPlaceholderStyle||'';text.title='Clic para editar el texto de ejemplo';}card.append(text);
       applyPromptLayout(card);
       const info=document.createElement('details');info.className='mod-info';info.innerHTML='<summary aria-label="Mostrar texto completo">+ info</summary><div class="mod-preview"><div class="mod-preview-content" tabindex="0" role="button" aria-label="Editar rectángulo"></div></div>';card.append(info);cell.append(card);
       const menu=(symbol:string,label:string,content:string)=>`<details><summary title="${label}" aria-label="${label}">${icon(symbol)}</summary><div>${content}</div></details>`;
@@ -130,8 +134,8 @@ function render(block:HTMLElement,deferRuntime=false) {
       cell.insertAdjacentHTML('beforeend',`<div class="mod-cell-tools mod-tools mod-editor">${menu('format_color_fill','Color del rectángulo',`<div class="mod-palette">${modularPalette.map(c=>`<button type="button" data-cell-field="color" data-value="${c.value}" title="${c.name}" aria-label="${c.name}" style="background:${c.value};border:1px solid #aaa"></button>`).join('')}</div>`)}${menu('rounded_corner','Redondeado',[0,6,12,20].map(n=>choice('radius',String(n),`Redondeado ${n} px`,'rounded_corner').replace('</button>',`<small>${n}</small></button>`)).join(''))}${menu('padding','Margen del texto',`<label>Margen <output>${value.padding} px</output><input aria-label="Margen del texto" data-cell-padding type="range" min="0" max="50" value="${value.padding}"></label>`)}${button('remove','delete','Eliminar rectángulo')}</div>`);
       if(document.body.classList.contains('exercise-editor'))cell.querySelector('.mod-cell-tools')!.insertAdjacentHTML('afterbegin',`<button type="button" role="switch" aria-checked="${!!value.student}" data-mod-action="student" title="Texto para alumno" aria-label="Texto para alumno">${icon(value.student?'toggle_on':'toggle_off')}</button>`);
       if(value.student&&document.body.classList.contains('exercise-editor'))cell.querySelector('.mod-cell-tools')!.insertAdjacentHTML('afterbegin',`<button type="button" class="editor-icon-button" role="switch" aria-checked="${!!value.studentPromptEnabled}" data-mod-action="student-prompt" title="Texto superior para el alumno" aria-label="Texto superior para el alumno"><span class="mod-prompt-icon" aria-hidden="true"><span>A</span></span></button>`);
-      if(value.student&&value.studentPromptEnabled&&document.body.classList.contains('exercise-editor')){
-        cell.querySelector('[data-mod-action=student-prompt]')!.insertAdjacentHTML('afterend',menu('flip_to_front','Posición de las instrucciones',`<div class="mod-prompt-tools" role="group" aria-label="Posición de las instrucciones">${[['top','Superior','vertical_align_top'],['bottom','Inferior','vertical_align_bottom'],['left','Izquierda','align_horizontal_left'],['right','Derecha','align_horizontal_right']].map(([edge,label,symbol])=>`<button type="button" data-prompt-position="${edge}" aria-label="Instrucciones: ${label}" title="${label}" aria-pressed="${edge===(value.studentPromptPosition||'top')}">${icon(symbol)}</button>`).join('')}</div>`));
+      if(value.student&&document.body.classList.contains('exercise-editor')){
+        cell.querySelector('[data-mod-action=student-prompt]')!.insertAdjacentHTML('afterend',menu('place_item','Texto externo y posición',`<label>Texto fuera del campo<input data-mod-prompt-label aria-label="Texto fuera del campo" maxlength="140" value="${escape(promptLabel(card))}"></label><div class="mod-prompt-tools" role="group" aria-label="Texto externo y posición">${studentLabelPositions.map(([edge,label,symbol])=>`<button type="button" data-prompt-position="${edge}" aria-label="${label}" title="${label}" aria-pressed="${edge===(value.studentPromptPosition||'top-center')}">${icon(symbol)}<span>${label}</span></button>`).join('')}</div>`));
       }
     } else cell.innerHTML=button('add','add',`Crear rectángulo ${r+1}, ${c+1}`).replace('<button ','<button class="mod-add mod-editor" ');
     if(c<m.columns.length-1)cell.insertAdjacentHTML('beforeend',`<button class="mod-editor mod-resize mod-resize-col" data-resize-col="${c}" aria-label="Ajustar columna ${c+1}" title="Arrastra para ajustar columna; flechas para ajustar con teclado"></button>`);
@@ -538,7 +542,13 @@ export function setupModularTables() {
     if(placement){
       event.preventDefault();event.stopPropagation();
       const cell=placement.closest<HTMLElement>('.mod-cell')!,value=sync(block).cells[cell.dataset.cell!],card=cell.querySelector<HTMLElement>('.mod-card')!;
-      value.studentPromptPosition=promptLayout(placement.dataset.promptPosition).edge as typeof value.studentPromptPosition;
+      value.studentPromptPosition=placement.dataset.promptPosition as typeof value.studentPromptPosition;
+      if(value.studentPromptPosition.includes('-')){
+        value.studentPromptAlign=value.studentPromptPosition.split('-')[1];
+        const prompt=card.querySelector<HTMLElement>('.mod-student-prompt');
+        if(prompt)prompt.style.textAlign=value.studentPromptAlign;
+      }
+      if(!value.studentPromptEnabled){value.studentPromptEnabled=true;persist(block);render(block);save();return;}
       card.dataset.promptPosition=value.studentPromptPosition;
       cell.querySelectorAll<HTMLElement>('[data-prompt-position]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.promptPosition===value.studentPromptPosition)));
       applyPromptLayout(card);persist(block);runtimes.get(block)?.update();save();return;
@@ -606,6 +616,13 @@ export function setupModularTables() {
     const target=event.target as HTMLInputElement,block=target.closest<HTMLElement>('.modular-table');if(!block||!models.has(block))return;
     if(handleBadgeInput(target,block,badgeHost)){positionCellMenus();return;}
     const m=sync(block);
+    if(target.hasAttribute('data-mod-prompt-label')){
+      const cell=target.closest<HTMLElement>('.mod-cell')!,value=m.cells[cell.dataset.cell!];
+      const prompt=cell.querySelector<HTMLElement>('.mod-student-prompt');
+      if(prompt){const icons=Array.from(prompt.querySelectorAll('.editable-icon'));prompt.replaceChildren(...icons,document.createTextNode(' '+target.value));value.studentPromptHtml=prompt.innerHTML;}else{value.studentPromptHtml=escape(target.value);}
+      persist(block);return;
+    }
+
     const center=target.closest<HTMLElement>('.mod-center');
     if(center&&target.hasAttribute('data-center-size')){
       const value=m.centers?.[center.dataset.center!];if(!value)return;
@@ -687,7 +704,7 @@ export function prepareModularExport(root:HTMLElement) {
     block.querySelectorAll<HTMLElement>('.mod-text-box-frame').forEach(frame=>frame.classList.remove('mod-text-box-active'));
     block.querySelectorAll<HTMLElement>('.mod-extra-text').forEach(text=>{text.classList.remove('editable-text');text.removeAttribute('contenteditable');text.removeAttribute('title');});
     block.querySelectorAll<HTMLElement>('.mod-card[data-student=true] .mod-text').forEach(text=>{
-      text.innerHTML='';text.classList.remove('mod-student-placeholder');text.classList.add('student-rich-answer');text.setAttribute('role','textbox');text.setAttribute('aria-multiline','true');text.setAttribute('aria-label','Respuesta del alumno');
+      text.innerHTML='';text.classList.remove('mod-student-placeholder','editable-text');text.removeAttribute('contenteditable');text.removeAttribute('title');text.classList.add('student-rich-answer');text.setAttribute('role','textbox');text.setAttribute('aria-multiline','true');text.setAttribute('aria-label','Respuesta del alumno');
     });
     block.querySelectorAll('.mod-editor').forEach(el=>el.remove());
     block.querySelectorAll<HTMLElement>('.mod-info').forEach(el=>delete el.dataset.editing);
@@ -712,7 +729,9 @@ export function compactModularState(root:HTMLElement) {
       syncModularTextBoxes(block,model);
       block.querySelectorAll<HTMLElement>('.mod-cell').forEach(cell=>{
         const prompt=cell.querySelector('.mod-student-prompt');
-        if(prompt&&model.cells[cell.dataset.cell!])model.cells[cell.dataset.cell!].studentPromptHtml=prompt.innerHTML;
+        if(prompt&&model.cells[cell.dataset.cell!]){model.cells[cell.dataset.cell!].studentPromptHtml=prompt.innerHTML;model.cells[cell.dataset.cell!].studentPromptAlign=(prompt as HTMLElement).style.textAlign;}
+        const sample=cell.querySelector<HTMLElement>('.mod-student-placeholder'),value=model.cells[cell.dataset.cell!];
+        if(sample&&value?.student){value.studentPlaceholderHtml=sample.innerHTML;value.studentPlaceholder=sample.textContent||'';value.studentPlaceholderStyle=sample.style.cssText;}
         const text=cell.querySelector('.mod-text');
         if(text&&model.cells[cell.dataset.cell!]&&!model.cells[cell.dataset.cell!].student)model.cells[cell.dataset.cell!].html=text.innerHTML;
       });
