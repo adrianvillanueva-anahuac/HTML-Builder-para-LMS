@@ -99,6 +99,14 @@ document.querySelector('#run').onclick=async()=>{
   tabs()[2].click();await wait();check('Fondo de otra pestaña permanece independiente',root.dataset.bgColor==='#5d428c');
   let exported='';Object.defineProperty(w.navigator,'clipboard',{configurable:true,value:{writeText:async html=>exported=html}});
   await save();d.querySelector('.project-copy').click();await wait();check('Exporta footer y fondo de espacio activo',exported.includes('footer')&&exported.includes('#5d428c'));
+  const contentBefore=root.querySelector('#canvas').innerHTML;
+  w.openBgModal();const none=Array.from(d.querySelectorAll('.bg-option-btn')).find(b=>b.textContent.includes('Sin fondo'));none.click();w.applyBgSettings();await wait();
+  check('Sin fondo restaura superficie inicial sin margen extra',root.style.padding==='0px'&&root.dataset.bgMargin==='0'&&root.querySelector('.bg-layer').style.backgroundColor==='rgb(243, 244, 246)');
+  check('Sin fondo elimina imágenes sin modificar contenido',Array.from(root.querySelectorAll('.parallax-layer')).every(layer=>!layer.style.backgroundImage||layer.style.backgroundImage==='none')&&root.querySelector('#canvas').innerHTML===contentBefore);
+  w.openBgModal();check('Sin fondo reabre margen cero deshabilitado',d.querySelector('#bg-margin-slider').disabled&&d.querySelector('#bg-margin-slider').value==='0');d.querySelector('#bg-modal').classList.add('hidden');
+  const cleared=await save(),restored=workspaceAppearanceRoot(cleared.spaces[2]);
+  check('Proyecto conserva fondo inicial y margen cero',restored.dataset.bg==='sin_fondo'&&restored.style.padding==='0px'&&restored.querySelector('.bg-layer').style.backgroundColor==='rgb(243, 244, 246)');
+  check('Exportación conserva superficie y margen restaurados',w.generateExportHTML(false).includes('rgb(243, 244, 246)'));
   out.textContent=results.join('\n')+'\nTOTAL: '+results.length+' / FAIL: '+results.filter(x=>x.startsWith('FAIL')).length;
  }catch(error){out.textContent+='\nERROR '+error.stack;}
 };

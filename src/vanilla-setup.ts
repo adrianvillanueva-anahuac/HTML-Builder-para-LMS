@@ -2024,6 +2024,8 @@ export function setupVanillaGlobals() {
 
             const marginSlider = document.getElementById('bg-margin-slider') as HTMLInputElement;
             if (marginSlider) {
+                marginSlider.disabled = background.bg === 'sin_fondo';
+                marginSlider.min = background.bg === 'sin_fondo' ? '0' : '5';
                 marginSlider.value = window.tempBgMargin;
                 const valLabel = document.getElementById('bg-margin-val');
                 if (valLabel) valLabel.innerText = `${window.tempBgMargin}px`;
@@ -2080,8 +2082,9 @@ export function setupVanillaGlobals() {
         }
 
         // Apply Margin
-        window.currentBgTarget.dataset.bgMargin = window.tempBgMargin;
-        window.currentBgTarget.style.padding = `${window.tempBgMargin}px`;
+        const margin = window.tempBgTheme === 'sin_fondo' ? '0' : window.tempBgMargin;
+        window.currentBgTarget.dataset.bgMargin = margin;
+        window.currentBgTarget.style.padding = `${margin}px`;
         window.dispatchEvent(new CustomEvent('lms-background-applied',{detail:{target:window.currentBgTarget}}));
         
         document.getElementById('bg-modal')?.classList.add('hidden');
@@ -2090,6 +2093,14 @@ export function setupVanillaGlobals() {
     window.selectBackground = function(btn: HTMLElement, theme: string, colorHex?: string) {
         window.tempBgTheme = theme;
         window.tempBgColorHex = colorHex;
+        const slider = document.getElementById('bg-margin-slider') as HTMLInputElement;
+        if(slider){
+            slider.disabled = theme === 'sin_fondo';
+            slider.min = theme === 'sin_fondo' ? '0' : '5';
+            window.tempBgMargin = theme === 'sin_fondo' ? '0' : String(Math.max(5,Number(window.tempBgMargin)||15));
+            slider.value = window.tempBgMargin;
+            window.updateBgMargin(window.tempBgMargin);
+        }
         
         // Remove selection outline from all background options
         document.querySelectorAll('.bg-option-btn').forEach(b => {
@@ -2159,7 +2170,8 @@ export function setupVanillaGlobals() {
             if(l2) { l2.style.backgroundImage = svgGrid; l2.style.backgroundSize = "180px 180px"; l2.style.backgroundPosition = "90px 90px"; }
             if(l3) l3.style.backgroundImage = "none";
         } else if (theme === 'blanco' || theme === 'naranja_solido' || theme === 'sin_fondo') {
-            base.style.backgroundColor = theme === 'sin_fondo' ? 'transparent' : '#FFFFFF';
+            // Match the initial canvas surface rather than exposing the dotted workspace.
+            base.style.backgroundColor = theme === 'sin_fondo' ? '#f3f4f6' : '#FFFFFF';
             base.style.backgroundImage = "none";
             if(l1) l1.style.backgroundImage = "none"; 
             if(l2) l2.style.backgroundImage = "none"; 
