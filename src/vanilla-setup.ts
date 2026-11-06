@@ -1,3 +1,4 @@
+import {setupFlipcardImages} from './flipcard-image';
 import {normalizeBuilderTypography} from './builder-typography';
 import Sortable from 'sortablejs';
 import {applyTableAppearance,setupTableStyleControls,prepareTableStylesExport} from './table-style-controls';
@@ -4199,6 +4200,7 @@ export function setupVanillaGlobals() {
     };
 
     window.initNestedDropzones = function() {
+        setupFlipcardImages();
         initModularTables();
         initFlowBlocks();
         normalizeBuilderTypography(document.getElementById('canvas') || document);
