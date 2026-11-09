@@ -1,3 +1,4 @@
+import {insertReferences,setupReferenceGroups} from './reference-groups';
 import {setupFlipcardImages} from './flipcard-image';
 import {normalizeBuilderTypography} from './builder-typography';
 import Sortable from 'sortablejs';
@@ -31,7 +32,6 @@ import './footer-layout.css';
 import footerLayoutStyles from './footer-layout.css?raw';
 import { externalizeImages, REPO_TITULOS_BASE, REPO_LOGOS_BASE } from './published-resources';
 import { escapeHtml, sanitizeHref } from './html-sanitize';
-import { parseReferencesText } from './references';
 import { createTemplateHtml, isPageTemplateType } from './template-registry';
 import { getExerciseBlock, prepareExerciseLinks } from './exercise';
 import {
@@ -3397,7 +3397,8 @@ export function setupVanillaGlobals() {
         clone.querySelectorAll('.image-placeholder').forEach(el => el.remove());
         clone.querySelectorAll('.table-cell-controls').forEach(el => el.remove());
         clone.querySelectorAll('.flipcard-overlay').forEach(el => el.remove());
-        clone.querySelectorAll('.references-importer-container').forEach(el => el.remove());
+        clone.querySelectorAll('.references-paste-panel').forEach(el => el.remove());
+        clone.querySelectorAll('.references-importer-container').forEach(el => {if(!el.querySelector('[data-type=referencia_item]'))el.remove();});
         
         // Remove interactive edit-only buttons from grid cards, accordions, etc.
         clone.querySelectorAll('button').forEach(btn => {
@@ -4083,63 +4084,12 @@ export function setupVanillaGlobals() {
     };
 
     window.pasteReferencesClick = async function(btn: HTMLElement) {
-        try {
-            const text = await navigator.clipboard.readText();
-            if (!text.trim()) {
-                alert('El portapapeles está vacío o no contiene texto.');
-                return;
-            }
-
-            const importerElement = btn.closest('.lms-element');
-            const dropzone = importerElement?.parentElement;
-            
-            if (!dropzone) return;
-
-            const entries = parseReferencesText(text);
-
-            if (entries.length === 0) {
-                alert('No se pudieron procesar referencias del texto.');
-                return;
-            }
-
-            let htmlToAppend = '';
-            entries.forEach(entry => {
-                htmlToAppend += getReferenciaItemHTML(entry.text, entry.url);
-            });
-
-            // Insert new items right before the importer block
-            importerElement.insertAdjacentHTML('beforebegin', htmlToAppend);
-            if (window.initNestedDropzones) window.initNestedDropzones();
-
-        } catch (err) {
-            console.error('Failed to read clipboard contents: ', err);
-            alert('No se pudo acceder al portapapeles automáticamente.\n\nPor favor, haz clic en el área gris y presiona Ctrl+V o Comando+V para pegar tus referencias.');
-        }
+      const group=btn.closest<HTMLElement>('.references-importer-container');if(!group)return;
+      try{let html='',plain='';if(navigator.clipboard.read){try{for(const item of await navigator.clipboard.read()){if(item.types.includes('text/html'))html=await (await item.getType('text/html')).text();if(item.types.includes('text/plain'))plain=await (await item.getType('text/plain')).text();}}catch{plain=await navigator.clipboard.readText();}}else plain=await navigator.clipboard.readText();insertReferences(group,html,plain);
+      }catch{alert('Pega tus referencias en el área gris usando Ctrl+V o Cmd+V.');}
     };
-
     window.handleReferencesPasteArea = function(event: ClipboardEvent, el: HTMLTextAreaElement) {
-        event.preventDefault();
-        const text = event.clipboardData?.getData('text/plain') || '';
-        if (!text.trim()) return;
-
-        const importerElement = el.closest('.lms-element');
-        const dropzone = importerElement?.parentElement;
-        if (!dropzone) return;
-
-        const entries = parseReferencesText(text);
-
-        if (entries.length === 0) {
-            alert('No se pudieron procesar referencias del texto.');
-            return;
-        }
-
-        let htmlToAppend = '';
-        entries.forEach(entry => {
-            htmlToAppend += getReferenciaItemHTML(entry.text, entry.url);
-        });
-
-        importerElement.insertAdjacentHTML('beforebegin', htmlToAppend);
-        if (window.initNestedDropzones) window.initNestedDropzones();
+      event.preventDefault();event.stopPropagation();const group=el.closest<HTMLElement>('.references-importer-container');if(group)insertReferences(group,event.clipboardData?.getData('text/html')||'',event.clipboardData?.getData('text/plain')||'');
     };
 
     window.editReferenceLink = function(btn: HTMLElement) {
@@ -4200,6 +4150,7 @@ export function setupVanillaGlobals() {
     };
 
     window.initNestedDropzones = function() {
+        setupReferenceGroups();
         setupFlipcardImages();
         initModularTables();
         initFlowBlocks();
@@ -4214,8 +4165,8 @@ export function setupVanillaGlobals() {
         setupMediaEmbeds(document.getElementById('canvas') || document, true);
         document.querySelectorAll('.lms-dropzone').forEach(zone => { 
             const htmlZone = zone as HTMLElement;
-            if(htmlZone.dataset.sortableActive !== "true") { 
-                new Sortable(htmlZone, dropzoneOptions); 
+            if(htmlZone.dataset.sortableActive !== "true" || (htmlZone.classList.contains('references-list') && !Sortable.get(htmlZone))) {
+                new Sortable(htmlZone, htmlZone.classList.contains('references-list') ? {...dropzoneOptions, group: {name: 'references', pull: false, put: false}, draggable: '[data-type="referencia_item"]', onMove: () => true, onStart: () => {window.saveHistoryState?.(true);document.body.classList.add('is-dragging');}, onEnd: () => {document.body.classList.remove('is-dragging');htmlZone.dispatchEvent(new Event('input', {bubbles:true}));window.saveHistoryState?.(true);}} : dropzoneOptions);
                 htmlZone.dataset.sortableActive = "true"; 
             } 
         });

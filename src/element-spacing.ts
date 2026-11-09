@@ -38,6 +38,8 @@ export function setElementSpacing(el:HTMLElement,top:number,bottom:number){
 }
 export function normalizeElementSpacing(root:ParentNode){
   root.querySelectorAll<HTMLElement>('.lms-dropzone').forEach(zone=>{
+    // Reference groups own their row gap; generic block margins must not override it.
+    if(zone.classList.contains('references-list'))return;
     const blocks=Array.from(zone.children).filter((el):el is HTMLElement=>el instanceof HTMLElement&&el.classList.contains('lms-element'));
     const footers=Array.from(zone.children).filter((el):el is HTMLElement=>el instanceof HTMLElement&&isFooter(el));
     if(!blocks.length&&!footers.length)return;
@@ -101,7 +103,7 @@ export function setupSpacingHandles(){
         event.clientX>=Math.min(a.right,x)-8&&event.clientX<=Math.max(a.right,x+52)+8)return;
     }
     const zone=target.closest<HTMLElement>('#canvas .lms-dropzone,#canvas');
-    if(!zone){overlay.hidden=true;return;}
+    if(!zone||zone.classList.contains('references-list')){pair=null;overlay.hidden=true;return;}
     const hoveredBlock=target.closest<HTMLElement>('.lms-element,.lms-footer-wrapper');
     if(hoveredBlock&&hoveredBlock.parentElement===zone){
       const r=boundary(hoveredBlock);

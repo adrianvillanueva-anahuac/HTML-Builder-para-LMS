@@ -668,7 +668,7 @@ export function getReferenciaItemHTML(text = "Referencia", url = "") {
     return `<div class="relative lms-element is-rendered hover:border-anahuac-orange" style="margin-bottom: 2px;" data-type="referencia_item">
         ${getBlockToolbar('referencia_item')}
         <div class="flex items-start gap-4 p-4 border border-gray-200 rounded-lg bg-white group/ref hover:border-anahuac-orange transition-colors">
-            <span class="material-symbols-outlined text-anahuac-orange editable-icon select-none flex-shrink-0 cursor-pointer hover:bg-orange-50 rounded transition-colors" style="font-size: 70px; line-height: 1;" title="Doble clic para cambiar icono">description</span>
+            <span class="material-symbols-outlined text-anahuac-orange editable-icon select-none flex-shrink-0 cursor-pointer hover:bg-orange-50 rounded transition-colors" style="font-size: 49px; line-height: 1;" title="Doble clic para cambiar icono">description</span>
             <div class="flex-1 font-sans text-anahuac-dark leading-relaxed text-[16px]">
                 <div class="editable-text min-h-[1.5em] break-words">${escapeHtml(text)}</div>
                 ${linkHTML}
