@@ -28,6 +28,7 @@ import {
 import {getModularHTML} from './modular-table';
 import {getFlowHTML} from './flow-block';
 import {getInteractiveButtonHTML} from './interactive-button';
+import {getEjemploContenidoHTML} from './ejemplo-contenido';
 import {getExerciseBlock} from './exercise';
 export {isPageTemplateType} from './references';
 
@@ -39,6 +40,7 @@ const TEMPLATE_BUILDERS: Record<string, () => string> = {
   conclusiones: getConclusionesHTML,
   profesor: getProfesorHTML,
   pagina_basica: getPaginaBasicaHTML,
+  ejemplo_contenido: getEjemploContenidoHTML,
   pestanas: getTabsHTML,
   caja_texto: getCajaTextoHTML,
   titulo_basico: getTituloBasicoHTML,

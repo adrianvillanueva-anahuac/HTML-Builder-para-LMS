@@ -13,6 +13,7 @@ const PAGE_TEMPLATE_TYPES = new Set([
   'conclusiones',
   'profesor',
   'pagina_basica',
+  'ejemplo_contenido',
   'pagina_ejercicio',
   'pagina_foda',
 ]);

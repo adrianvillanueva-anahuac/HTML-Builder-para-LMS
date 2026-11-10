@@ -751,6 +751,9 @@ export default function App() {
                       <div className="p-3 bg-anahuac-light dark:bg-[#2f2f2f] dark:text-gray-200 text-gray-800 border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center justify-between hover:border-anahuac-orange transition-colors cursor-grab shadow-sm group" data-type="pagina_basica">
                           <div className="flex items-center gap-3"><span className="material-symbols-outlined text-anahuac-orange">web</span> <span className="text-sm font-medium">Página Básica</span></div>
                       </div>
+                      <div className="p-3 bg-anahuac-light dark:bg-[#2f2f2f] dark:text-gray-200 text-gray-800 border border-anahuac-gray dark:border-transparent rounded-lg catalog-item flex items-center justify-between hover:border-anahuac-orange transition-colors cursor-grab shadow-sm group" data-type="ejemplo_contenido">
+                          <div className="flex items-center gap-3"><span className="material-symbols-outlined text-anahuac-orange">article</span> <span className="text-sm font-medium">Ejemplo contenido</span></div>
+                      </div>
                       </>}
                   </div>
               </div>
