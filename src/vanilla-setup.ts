@@ -3396,7 +3396,7 @@ export function setupVanillaGlobals() {
         });
         clone.querySelectorAll('.image-placeholder').forEach(el => el.remove());
         clone.querySelectorAll('.table-cell-controls').forEach(el => el.remove());
-        clone.querySelectorAll('.flipcard-overlay').forEach(el => el.remove());
+        // The overlay is authored image appearance and must survive export.
         clone.querySelectorAll('.references-paste-panel').forEach(el => el.remove());
         clone.querySelectorAll('.references-importer-container').forEach(el => {if(!el.querySelector('[data-type=referencia_item]'))el.remove();});
         
