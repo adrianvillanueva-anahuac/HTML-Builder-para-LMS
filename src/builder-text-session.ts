@@ -86,6 +86,10 @@ export function setupBuilderTextSessions(){
   if(event.button!==0||event.shiftKey||event.ctrlKey||event.metaKey||event.altKey||window.isLmsDragging||(event.isTrusted&&Math.hypot(event.clientX-down.x,event.clientY-down.y)>5))return;
   const target=event.target as Element,text=target.closest<HTMLElement>('.editable-text');
   if(!text||text.isContentEditable||target.closest('.editable-icon,.mod-text-geometry'))return;
+  // Observe selection before the tab's inline click handler changes it.
+  // An inactive label navigates first; a later click edits the active label.
+  const tab=text.closest('.tab-buttons-container > button');
+  if(tab&&!tab.classList.contains('border-anahuac-orange'))return;
   text.dispatchEvent(new MouseEvent('dblclick',{bubbles:true,clientX:event.clientX,clientY:event.clientY}));
  },true);
  window.addEventListener('dblclick',()=>requestAnimationFrame(sync),true);

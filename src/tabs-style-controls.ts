@@ -7,7 +7,18 @@ export function tabsStyleButtonHTML(){
 let installed=false;
 export function setupTabsStyleControls(){
   document.querySelectorAll<HTMLElement>('[data-type="pestanas"][data-tabs-style]').forEach(block=>{if(block.dataset.tabsLayout!=='joined')applyTabsStyle(block);});
-  document.querySelectorAll('[onclick="toggleTabsStyle(this)"]').forEach(button=>{button.insertAdjacentHTML('beforebegin',tabsStyleButtonHTML());button.remove();});
+  // Saved pages can predate both the palette control and the old two-color toggle.
+  document.querySelectorAll<HTMLElement>('[data-type="pestanas"]').forEach(block=>{
+    const tools=block.querySelector<HTMLElement>(':scope > .block-toolbar > div');
+    if(!tools)return;
+    const legacy=tools.querySelector('[onclick="toggleTabsStyle(this)"]');
+    if(!tools.querySelector('[data-tabs-style-tool]')){
+      const anchor=tools.querySelector('[data-duplicate-element]')||tools.querySelector('.drag-handle');
+      if(anchor)anchor.insertAdjacentHTML('afterend',tabsStyleButtonHTML());
+      else tools.insertAdjacentHTML('afterbegin',tabsStyleButtonHTML());
+    }
+    legacy?.remove();
+  });
   if(installed)return;installed=true;
   const popup=document.createElement('div');popup.id='tabs-style-popover';popup.hidden=true;popup.setAttribute('role','group');popup.setAttribute('aria-label','Estilos de pestañas');document.body.append(popup);
   let anchor:HTMLElement|null=null,block:HTMLElement|null=null,timer:ReturnType<typeof setTimeout>|undefined;
