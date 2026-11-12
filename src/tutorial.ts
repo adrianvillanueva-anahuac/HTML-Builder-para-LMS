@@ -1,4 +1,5 @@
 import Shepherd from 'shepherd.js';
+import {escapeHtml} from './html-sanitize';
 import type {StepOptions,StepOptionsButton,Tour} from 'shepherd.js';
 import {TUTORIALS,TUTORIAL_TOPICS,type TutorialTopicId,type TutorialStep} from './tutorial-content';
 export {TUTORIAL_TOPICS,type TutorialTopicId,type TutorialTopic} from './tutorial-content';
@@ -75,7 +76,7 @@ export const startTutorial=(topicId:TutorialTopicId)=>{
   const topic=TUTORIAL_TOPICS.find(item=>item.id===topicId);
   definition.steps.forEach((step,index)=>tour.addStep({
     id:step.id,title:step.title,
-    text:`<span class="lms-tour-topic">${topic?.title||'Tutorial'}</span><p>${step.text}</p><span class="lms-tour-progress">Paso ${index+1} de ${definition.steps.length}</span>`,
+    text:`<span class="lms-tour-topic">${topic?.title||'Tutorial'}</span><p>${step.text}</p>${step.example?`<aside class="lms-tour-example"><strong>Ejemplo</strong><p>${escapeHtml(step.example)}</p></aside>`:''}<span class="lms-tour-progress">Paso ${index+1} de ${definition.steps.length}</span>`,
     buttons:buttons(index,definition.steps.length),attachTo:{element:()=>anchor(step),on:step.on},
     when:{'before-show':()=>prepare(step),show:()=>normalizeShell()}
   } as StepOptions));

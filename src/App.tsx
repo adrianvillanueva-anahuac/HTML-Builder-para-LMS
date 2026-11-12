@@ -948,7 +948,7 @@ export default function App() {
                               Centro de aprendizaje
                           </div>
                           <h2 id="tutorial-menu-title" className="text-2xl sm:text-3xl font-serif font-bold text-anahuac-purple dark:text-white">¿Qué quieres aprender?</h2>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 max-w-2xl">Elige un recorrido breve. Puedes cerrarlo en cualquier momento y volver a este menú desde el botón de ayuda.</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 max-w-2xl">Empieza por el recorrido general: aprende a organizar tus páginas, guardar el proyecto completo en tu PC y copiar cada página a Brightspace. También puedes elegir un tema y consultar sus ejemplos.</p>
                       </div>
                       <button
                           type="button"

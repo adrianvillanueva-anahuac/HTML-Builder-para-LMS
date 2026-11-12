@@ -762,3 +762,7 @@ details[open] summary ~ * { animation: fadeIn 0.3s ease-in-out; }
 /* Keep list boundaries aligned with the visible first and last lines. */
 .editable-text:has(>.list-custom){display:flow-root}
 .editable-text>.list-custom>li:last-child{margin-bottom:0}
+
+.lms-tour-example{border-left:3px solid #ff5900;background:#fff7ed;border-radius:0 8px 8px 0;padding:9px 12px;margin:10px 0 14px;color:#374151;font-size:13px;line-height:1.5}
+.lms-tour-example>strong{display:block;color:#9a3412;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.lms-shepherd-theme .lms-tour-example p{margin:4px 0 0}

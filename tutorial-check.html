@@ -8,7 +8,7 @@ const app=document.querySelector('#app'),out=document.querySelector('#result');
 const wait=(ms=80)=>new Promise(resolve=>setTimeout(resolve,ms));
 document.querySelector('#preview').onclick=()=>{
  out.hidden=true;app.style.height='720px';app.style.width='100%';
- app.contentWindow.tutorialCheckAPI?.startTutorial('imagenes');
+ app.contentWindow.tutorialCheckAPI?.startTutorial('interfaz');
 };
 document.querySelector('#run').onclick=async()=>{
  const results=[],check=(name,pass)=>{results.push((pass?'PASS ':'FAIL ')+name);out.textContent=results.join('\n');};
@@ -42,9 +42,13 @@ document.querySelector('#run').onclick=async()=>{
   api.startTutorial('imagenes');api.cancelActiveTutorial();await wait(400);check('Cancelar antes de iniciar no deja un recorrido tardío',!d.querySelector('.shepherd-enabled')&&shellOK());
   api.startTutorial('tablas');tour=api.startTutorial('medios');await wait(450);check('Inicios rápidos dejan un único recorrido',tour.isActive()&&d.querySelectorAll('.shepherd-element.shepherd-enabled').length===1);api.cancelActiveTutorial();await wait();
   const image=d.querySelector('#tab-elements [data-type=imagen_suelta]'),style=image.getAttribute('style');image.style.display='none';tour=api.startTutorial('imagenes');await wait(200);check('Sin control visible usa una tarjeta legible',cardOK(tour)&&shellOK());api.cancelActiveTutorial();if(style==null)image.removeAttribute('style');else image.setAttribute('style',style);
-  app.style.height='320px';app.style.width='520px';await wait(200);const compact=snapshot();tour=api.startTutorial('disena');await wait(200);let compactOK=true;
-  for(let i=0;i<TUTORIALS.disena.steps.length;i++){compactOK=compactOK&&cardOK(tour)&&shellOK();tour.next();await wait(60);}
-  await wait();check('Ventana de 520 × 320: texto desplazable y botones siempre visibles',compactOK&&JSON.stringify(snapshot())===JSON.stringify(compact));
+  app.style.height='320px';app.style.width='520px';await wait(200);const compact=snapshot();let compactOK=true;
+  for(const topic of ['disena','interfaz','exporta']){
+   tour=api.startTutorial(topic);await wait(200);
+   for(let i=0;i<TUTORIALS[topic].steps.length;i++){compactOK=compactOK&&cardOK(tour)&&shellOK();tour.next();await wait(60);}
+   await wait();
+  }
+  check('Ventana de 520 × 320: recorrido general, guardado y ejemplos con botones siempre visibles',compactOK&&JSON.stringify(snapshot())===JSON.stringify(compact));
   app.style.height='650px';app.style.width='100%';await wait();
   check('La app queda utilizable después de todos los recorridos',shellOK()&&!d.querySelector('.shepherd-modal-is-visible'));
  }catch(error){results.push('FAIL '+error.message);out.textContent=results.join('\n');}
