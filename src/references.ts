@@ -6,6 +6,7 @@ export interface ReferenceEntry {
 }
 
 const PAGE_TEMPLATE_TYPES = new Set([
+  'document_page',
   'bienvenida',
   'referencias',
   'requerimientos',

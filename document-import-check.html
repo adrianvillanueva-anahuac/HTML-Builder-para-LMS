@@ -1,0 +1,57 @@
+<!doctype html><meta charset="utf-8"><title>QA importación de documentos</title>
+<button id="run">Probar importación</button><pre id="result"></pre>
+<iframe id="app" src="/?editor=exercise" style="width:100%;height:760px"></iframe>
+<script type="module">
+import {zipSync,strToU8} from 'fflate';
+const delay=ms=>new Promise(r=>setTimeout(r,ms));
+run.onclick=async()=>{
+ const w=app.contentWindow,d=w.document;let n=0;result.textContent='';
+ const check=(value,label)=>{result.textContent+=(value?'PASS ':'FAIL ')+label+'\n';if(!value)throw Error(label);n++;};
+ try{
+  const script=d.createElement('script');script.type='module';script.textContent=`import {extractDocument,cleanDocumentHTML} from '/src/document-extract.ts';import {localPlans,checkExtraction} from '/src/document-plan.ts';import {renderDocumentPlan} from '/src/document-render.ts';window.docQA={extractDocument,cleanDocumentHTML,localPlans,checkExtraction,renderDocumentPlan};`;d.body.append(script);
+  for(let i=0;i<100&&!w.docQA;i++)await delay(100);const api=w.docQA;
+  check(!!api,'Módulos cargados');
+  const md=await api.extractDocument(new w.File(['# Tema\n\nUn **dato** y una *idea*.\n\n## Segunda sección\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n<script>window.attack=true<\/script>\n\n![externa](https://example.invalid/private.png)'],'Ejemplo.md'),0);
+  check(md.blocks.some(b=>b.kind==='table'),'Markdown extrae tabla');
+  check(md.blocks.some(b=>b.html.includes('<strong>dato</strong>')&&b.html.includes('<em>idea</em>')),'Conserva negritas y cursivas');
+  check(!md.blocks.some(b=>/script|src="https:/.test(b.html))&&!w.attack,'No ejecuta HTML ni carga imágenes remotas');
+  const csv=await api.extractDocument(new w.File(['Nombre,Valor\n"Texto, con coma",20'],'Datos.csv'),1);check(csv.blocks[0].kind==='table'&&csv.blocks[0].text.includes('Texto, con coma'),'CSV conserva celdas citadas');
+  const xml='<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Documento Word de prueba</w:t></w:r></w:p><w:tbl><w:tr><w:tc><w:p><w:r><w:t>Celda Word</w:t></w:r></w:p></w:tc></w:tr></w:tbl></w:body></w:document>';
+  const docx=zipSync({'[Content_Types].xml':strToU8('<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>'),'word/document.xml':strToU8(xml)});
+  const word=await api.extractDocument(new w.File([docx],'Ejemplo.docx'),2);check(word.blocks.some(b=>b.text.includes('Documento Word'))&&word.blocks.some(b=>b.kind==='table'),'DOCX real extrae texto y tabla');
+  let rejected=false;try{await api.extractDocument(new w.File(['x'],'Falso.docx'),3);}catch{rejected=true;}check(rejected,'DOCX falso rechazado');
+  rejected=false;try{await api.extractDocument(new w.File(['x'],'No.pdf'),3);}catch{rejected=true;}check(rejected,'Formato incompatible rechazado');
+  const all=api.checkExtraction([md,csv,word]);
+  for(const plan of api.localPlans(all)){
+   const rendered=api.renderDocumentPlan(plan,all);check(rendered.querySelectorAll('[data-document-block]').length===all.length,plan.layout+': conserva todos los bloques');check(rendered.querySelectorAll('.editable-text').length>0,plan.layout+': contenido editable');
+  }
+  const many=Array.from({length:180},(_,i)=>({id:`d0b${i}`,source:'Grande',kind:i%3===0?'heading':'text',text:`Contenido ${i}`,html:`<p>Contenido ${i}</p>`}));
+  for(const plan of api.localPlans(many)){const rendered=api.renderDocumentPlan(plan,many);check(rendered.querySelectorAll('.lms-element').length<=35,plan.layout+': máximo 35 elementos');check(rendered.querySelectorAll('[data-document-block]').length===180,plan.layout+': 180 bloques conservados al agrupar');}
+  let canvas=d.querySelector('#canvas');canvas.replaceChildren();w.insertTemplate('document_importer');
+  d.querySelector('[data-open-document-import]').click();await delay(100);
+  check(!!d.querySelector('dialog.document-import-dialog[open]'),'Bloque abre diálogo integrado');
+  d.querySelector('[data-example]').click();await delay(300);d.querySelector('[data-local]').click();
+  check(d.querySelectorAll('.doc-choice').length===1&&d.querySelector('.doc-choice h3').textContent==='Lectura continua','Local ofrece únicamente lectura continua');
+  d.querySelector('[data-ai]').click();check(d.querySelector('.doc-status').textContent.includes('Autoriza'),'Gemini requiere consentimiento antes de enviar');
+  d.querySelectorAll('.doc-choice')[0].querySelector('[data-doc-select]').click();d.querySelector('[data-insert]').click();await delay(250);
+  check(!d.querySelector('dialog.document-import-dialog'),'Diálogo y datos temporales liberados');
+  check(!!canvas.querySelector('[data-type=parrafo_basico]')&&!canvas.querySelector('[data-type=document_importer]'),'Inserta lectura continua y reemplaza bloque de carga');
+  check(canvas.querySelectorAll('.lms-element').length<=35,'Inserción respeta máximo 35');
+  const exported=w.generateExportHTML(false,canvas,true);check(typeof exported==='string'&&exported.includes('Uso responsable del agua')&&!exported.includes('Cargar documentos'),'Exportación conserva contenido y excluye el importador');
+  w.undo();await delay(100);check(!!d.querySelector('[data-type=document_importer]'),'Deshacer recupera el bloque de importación');
+  w.redo();await delay(100);canvas=d.querySelector('#canvas');check(!!d.querySelector('[data-type=parrafo_basico]'),'Rehacer recupera propuesta editable');
+
+  check(!canvas.querySelector('[data-type=pestanas],[data-type=acordeon],[data-type=document_cards]'),'Conversión local no inserta otras composiciones');
+  const editable=canvas.querySelector('.editable-text');editable.dispatchEvent(new w.PointerEvent('pointerdown',{bubbles:true}));editable.click();check(editable.isContentEditable,'Texto insertado usa editor existente');
+  w.currentEditableText?.blur();
+  check(!canvas.innerHTML.includes('GEMINI_API_KEY')&&!canvas.querySelector('input[type=file]'),'HTML guardado no contiene claves ni archivos originales');
+  w.insertTemplate('document_importer');d.querySelector('[data-open-document-import]').click();d.querySelector('[data-example]').click();await delay(250);d.querySelector('[data-local]').click();
+  const previewButtons=d.querySelectorAll('.doc-choice');previewButtons[0].querySelector('[data-doc-expand]').click();
+  check(!d.querySelector('[data-full-preview]').hidden,'Vista completa disponible');
+  check(d.querySelector('[data-full-preview-body]').textContent.includes('Uso responsable del agua'),'Vista completa muestra lectura continua');
+  d.querySelector('[data-close-preview]').click();d.querySelector('[data-close]').click();await delay(100);
+  check(!d.querySelector('dialog.document-import-dialog'),'Cancelar limpia diálogo');
+  result.textContent+='TOTAL '+n+'\n';
+ }catch(e){result.textContent+='ERROR '+e.stack;}
+};
+</script>

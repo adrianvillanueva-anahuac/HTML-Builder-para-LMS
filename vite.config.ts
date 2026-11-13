@@ -2,7 +2,8 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import fs from 'node:fs';
 import path from 'path';
-import {defineConfig, type Plugin} from 'vite';
+import {defineConfig, loadEnv, type Plugin} from 'vite';
+import {documentAIPlugin} from './document-ai-server';
 
 const ANNOTATIONS_FILE = path.resolve(__dirname, '.dev-annotations.json');
 
@@ -51,14 +52,15 @@ function devAnnotationsPlugin(): Plugin {
   };
 }
 
-export default defineConfig(() => {
+export default defineConfig(({mode}) => {
+  const documentAIEnv = {...loadEnv(mode, process.cwd(), 'GEMINI_'), ...Object.fromEntries(Object.entries(process.env).filter(([key])=>key.startsWith('GEMINI_')))} as Record<string,string>;
   const isGithubActions = process.env.GITHUB_ACTIONS === 'true';
   const repoName = process.env.GITHUB_REPOSITORY ? process.env.GITHUB_REPOSITORY.split('/')[1] : '';
   const basePath = isGithubActions ? `/${repoName}/` : './';
 
   return {
     base: basePath,
-    plugins: [react(), tailwindcss(), devAnnotationsPlugin()],
+    plugins: [react(), tailwindcss(), devAnnotationsPlugin(), documentAIPlugin(documentAIEnv)],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
@@ -66,6 +68,7 @@ export default defineConfig(() => {
     },
     build: {
       rollupOptions: {
+        input: {app:path.resolve(__dirname,'index.html'),oauth:path.resolve(__dirname,'oauth-callback.html')},
         output: {
           manualChunks(id) {
             if (id.includes('node_modules')) {

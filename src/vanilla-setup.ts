@@ -1,3 +1,4 @@
+import {setupDocumentImport} from './document-import';
 import {insertReferences,setupReferenceGroups} from './reference-groups';
 import {setupFlipcardImages} from './flipcard-image';
 import {normalizeBuilderTypography} from './builder-typography';
@@ -3369,6 +3370,7 @@ export function setupVanillaGlobals() {
         if(!clone) return null;
         // Exclude live selection/drag state so active and stored pages produce
         // the same export, and the size indicator matches the clipboard HTML.
+        clone.querySelectorAll('[data-type="document_importer"]').forEach(el=>el.remove());
         clone.querySelectorAll('.sortable-ghost,.layout-intent-indicator,#empty-state').forEach(el=>el.remove());
         clone.querySelectorAll('*').forEach(el=>{
             el.removeAttribute('contenteditable');el.removeAttribute('data-sortable-active');
@@ -4150,6 +4152,7 @@ export function setupVanillaGlobals() {
     };
 
     window.initNestedDropzones = function() {
+        setupDocumentImport();
         setupReferenceGroups();
         setupFlipcardImages();
         initModularTables();

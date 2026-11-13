@@ -1,0 +1,44 @@
+.document-import-dialog{width:min(1100px,95vw);max-height:92vh;padding:24px;border:1px solid #cdd5dc;border-radius:16px;background:white;color:#344154;box-shadow:0 20px 60px #0004;font:14px/1.5 Roboto,Arial,sans-serif;overflow:auto}
+.document-import-dialog::backdrop{background:#0008}
+.document-import-dialog h2{font:700 24px Georgia,serif;color:#5d428c;margin:0}
+.document-import-dialog header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:16px}
+.document-import-dialog button{border:1px solid #cdd5dc;background:#f7f3fc;border-radius:8px;padding:8px 12px;cursor:pointer;color:#5d428c}
+.document-import-dialog button:disabled{opacity:.45;cursor:not-allowed}
+.document-import-dialog button:focus-visible{outline:3px solid #ff5900;outline-offset:2px}
+.document-import-dialog .doc-primary{background:#5d428c;color:white}
+.document-import-dialog .doc-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:16px 0}
+.document-import-dialog .doc-status{padding:12px;background:#f7f3fc;border-radius:8px;white-space:pre-line;margin:12px 0}
+.document-import-dialog .doc-review{max-height:220px;overflow:auto;border:1px solid #cdd5dc;padding:12px;border-radius:8px}
+.document-import-dialog .doc-review p{white-space:pre-wrap;margin:6px 0}
+.document-import-dialog .doc-proposals{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:16px}
+.document-import-dialog .doc-choice{border:2px solid #cdd5dc;border-radius:12px;padding:12px}
+.document-import-dialog .doc-choice[aria-pressed=true]{border-color:#ff5900;background:#fff8ef}
+.document-import-dialog .doc-choice h3{font-weight:700;color:#5d428c;font-size:18px}
+.document-import-dialog .doc-preview{height:240px;overflow:auto;border:1px solid #ddd;padding:10px;margin:12px 0;background:white;pointer-events:none;font-size:14px}
+.document-import-dialog .doc-preview .block-toolbar{display:none!important}
+.document-import-dialog .doc-preview img{max-width:100%}
+.document-import-dialog .doc-preview [data-type=pestanas] .tabs-main-container{padding:0}
+.document-import-dialog .doc-preview .tab-buttons-container{overflow:hidden}
+.document-import-dialog .doc-preview .lms-element{margin-bottom:16px}
+.document-import-dialog .doc-consent{display:flex;gap:10px;align-items:start;padding:12px;background:#fff8ef}
+.document-import-dialog input[type=checkbox]{margin-top:4px;flex-shrink:0}
+.document-import-dialog [hidden]{display:none!important}
+.document-import-dialog [data-full-preview-body]{padding:24px;background:white;border:1px solid #cdd5dc;border-radius:12px;margin:16px 0;overflow-wrap:anywhere}
+.document-drop-surface{padding:24px;border:2px dashed #5d428c;border-radius:12px;text-align:center;background:#f7f3fc;color:#344154;transition:background .15s,border-color .15s}
+.document-drop-surface.doc-drag-active{border-color:#ff5900;background:#fff2e7}
+.document-drop-surface>h3{font-size:20px;color:#5d428c;margin:8px 0;font-weight:700}
+.document-drop-surface>.material-symbols-outlined{font-size:30px;color:#5d428c}
+.document-drop-surface button{border:1px solid #cdd5dc;border-radius:8px;background:white;color:#5d428c;padding:9px 14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-size:14px}
+.document-drop-surface button:disabled{opacity:.45;cursor:not-allowed}
+.document-drop-surface .doc-primary{background:#5d428c;color:white}
+.doc-block-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin:12px 0}
+.doc-format-help,.doc-cloud-sources small{font-size:12px;line-height:1.5}
+.doc-cloud-sources{border-block:1px solid #dfd6ed;padding:16px 0;margin:16px 0}
+.document-drop-surface [data-doc-pending]{list-style:none;padding:0;text-align:left;overflow-wrap:anywhere}
+.document-drop-surface [data-doc-pending] li{background:white;border:1px solid #dfd6ed;border-radius:8px;padding:10px;margin:8px 0;font-size:14px}
+.document-drop-surface [data-doc-block-status]{font-size:14px;overflow-wrap:anywhere}
+.doc-advanced{font-size:12px;margin-top:12px}
+.doc-advanced summary{cursor:pointer;color:#5d428c}
+.doc-cloud-item{padding:10px;border-bottom:1px solid #eee;overflow-wrap:anywhere}
+.document-cloud-dialog [data-items]{max-height:45vh;overflow:auto}
+.document-cloud-dialog input[type=search]{border:1px solid #cdd5dc;border-radius:6px;padding:8px;max-width:100%}

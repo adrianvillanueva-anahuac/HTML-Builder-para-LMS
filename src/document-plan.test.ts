@@ -1,0 +1,10 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {localPlans,validatePlans,parseCSV,checkExtraction,duplicateCount,type SourceBlock} from './document-plan';
+const blocks:SourceBlock[]=[{id:'d0b0',source:'A',kind:'heading',text:'Tema',html:'<h1>Tema</h1>'},{id:'d0b1',source:'A',kind:'text',text:'Dato',html:'<p>Dato</p>'},{id:'d1b0',source:'B',kind:'text',text:'Dato',html:'<p>Dato</p>'}];
+test('four distinct compositions retain all source blocks and duplicates',()=>{const plans=localPlans(blocks);assert.equal(new Set(plans.map(p=>p.layout)).size,4);for(const p of plans)assert.deepEqual(p.groups.flat(),blocks.map(b=>b.id));assert.equal(duplicateCount(blocks),1);});
+test('reject hallucinated, missing and repeated source IDs',()=>{for(const ids of [['d0b0','invented'],['d0b0'],['d0b0','d0b1','d1b0','d1b0']]){const plans=localPlans(blocks);plans[0].groups=[ids];assert.throws(()=>validatePlans({proposals:plans},blocks.map(b=>b.id)));}});
+test('reject duplicate layouts and empty groups',()=>{let plans=localPlans(blocks);plans[1].layout='reading';assert.throws(()=>validatePlans({proposals:plans},blocks.map(b=>b.id)));plans=localPlans(blocks);plans[0].groups=[[]];assert.throws(()=>validatePlans({proposals:plans},blocks.map(b=>b.id)));});
+test('large source retains every item with bounded groups',()=>{const many=Array.from({length:180},(_,i)=>({...blocks[0],id:`d0b${i}`}));assert.equal(localPlans(many)[0].groups.length,16);assert.equal(localPlans(many)[0].groups.flat().length,180);});
+test('extraction limit rejects instead of truncating',()=>{assert.throws(()=>checkExtraction([{name:'A',warnings:[],blocks:[{...blocks[0],text:'a'.repeat(60001)}]}]));assert.throws(()=>checkExtraction([]));});
+test('CSV preserves quoted commas, multiline cells, escaped quotes, empty fields',()=>{assert.deepEqual(parseCSV('a,"b,c",\r\n"line1\nline2","say ""hi""",end'),[['a','b,c',''],['line1\nline2','say "hi"','end']]);assert.throws(()=>parseCSV('"open'));});

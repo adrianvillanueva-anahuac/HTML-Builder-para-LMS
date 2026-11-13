@@ -1,0 +1,4 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Conexión con OneDrive</title></head><body><p id="status">Finalizando la conexión…</p><script type="module">
+import {broadcastResponseToMainFrame} from '@azure/msal-browser/redirect-bridge';
+broadcastResponseToMainFrame().catch(()=>{document.getElementById('status').textContent='No se pudo completar la conexión. Cierra esta ventana y vuelve a conectar desde el Builder.';});
+</script></body></html>

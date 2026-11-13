@@ -1,3 +1,4 @@
+import {getDocumentImporterHTML} from './document-render';
 import {
   getAcordeonHTML,
   getBienvenidaHTML,
@@ -33,6 +34,8 @@ import {getExerciseBlock} from './exercise';
 export {isPageTemplateType} from './references';
 
 const TEMPLATE_BUILDERS: Record<string, () => string> = {
+  document_page: () => getPaginaBasicaHTML(false, getDocumentImporterHTML()),
+  document_importer: getDocumentImporterHTML,
   bienvenida: getBienvenidaHTML,
   referencias: getReferenciasHTML,
   requerimientos: getRequerimientosHTML,

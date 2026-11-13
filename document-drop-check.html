@@ -1,0 +1,46 @@
+<!doctype html><meta charset="utf-8"><title>QA importar, procesar y aceptar</title><button id="run">Probar flujo del bloque</button><button id="demo">Ver ejemplo pendiente</button><pre id="result"></pre><iframe id="app" src="/?editor=exercise" style="width:100%;height:800px"></iframe>
+<script type="module">
+const delay=ms=>new Promise(r=>setTimeout(r,ms));
+const wait=async(fn)=>{for(let i=0;i<100;i++){if(fn())return;await delay(50);}throw Error('Tiempo de espera agotado');};
+const sample=w=>new w.File(['# Mi documento\n\nTexto con **negritas** y *cursivas*.\n\n## Datos\n\n| Actividad | Cantidad |\n|---|---|\n| Lectura | 3 |'],'Ejemplo.md',{type:'text/markdown'});
+const drop=(w,target,files)=>{const data=new w.DataTransfer();files.forEach(file=>data.items.add(file));target.dispatchEvent(new w.DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:data}));target.dispatchEvent(new w.DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:data}));};
+demo.onclick=()=>{const w=app.contentWindow,d=w.document;d.querySelector('#canvas').replaceChildren();w.insertTemplate('document_importer');drop(w,d.querySelector('[data-doc-drop]'),[sample(w)]);result.hidden=true;};
+run.onclick=async()=>{
+ const w=app.contentWindow,d=w.document;let n=0;result.hidden=false;result.textContent='';const check=(ok,label)=>{result.textContent+=(ok?'PASS ':'FAIL ')+label+'\n';if(!ok)throw Error(label);n++;};
+ try{
+  let canvas=d.querySelector('#canvas');
+  check(d.querySelector('#catalog-pages .catalog-item').dataset.type==='document_page','Documentos a página es la primera plantilla');
+  const media=d.querySelector('.catalog-item[data-type=calculadora_html]');check(media.nextElementSibling.dataset.type==='document_importer','Importador en Medios debajo de Funciones externas');
+  canvas.replaceChildren();w.insertTemplate('document_page');
+  check(!!canvas.querySelector('[data-type=document_importer]')&&canvas.textContent.includes('Documentos a página')&&!canvas.textContent.includes('Título de la Página'),'Plantilla vacía incluye área de importación');
+  check(!!canvas.querySelector('[data-footer-type]'),'Plantilla incluye pie institucional');
+  canvas.replaceChildren();w.insertTemplate('document_importer');let target=canvas.querySelector('[data-type=document_importer]');
+  check(!!target.querySelector('[data-doc-drop]'),'Bloque contiene área para arrastrar archivos');
+  check(target.querySelector('[data-doc-process]').disabled,'Procesar deshabilitado sin archivo');
+  check(target.querySelectorAll('[data-doc-cloud]').length===2,'Google Drive y OneDrive visibles');
+  drop(w,target.querySelector('[data-doc-drop]'),[sample(w)]);
+  check(target.querySelector('[data-doc-pending]').textContent.includes('Ejemplo.md')&&!target.querySelector('[data-doc-process]').disabled,'Arrastrar detecta formato y prepara archivo');
+  check(!d.querySelector('dialog.document-import-dialog')&&canvas.querySelectorAll('.lms-element').length===1,'Arrastrar no procesa ni inserta automáticamente');
+  target.querySelector('[data-doc-process]').click();await wait(()=>!!d.querySelector('[data-insert]')&&!d.querySelector('[data-insert]').disabled);
+  check(d.querySelector('dialog h2').textContent==='Vista previa del documento','Procesar abre previo completo');
+  check(d.querySelector('[data-full-preview-body]').textContent.includes('Mi documento'),'Previo conserva contenido');
+  check(canvas.querySelectorAll('.lms-element').length===1,'Previo no modifica la página');
+  d.querySelector('[data-close]').click();await wait(()=>!d.querySelector('dialog.document-import-dialog'));
+  check(target.isConnected&&!target.querySelector('[data-doc-process]').disabled,'Volver mantiene archivo pendiente');
+  target.querySelector('[data-doc-process]').click();await wait(()=>!!d.querySelector('[data-insert]')&&!d.querySelector('[data-insert]').disabled);d.querySelector('[data-insert]').click();
+  await wait(()=>!d.querySelector('dialog.document-import-dialog'));
+  check(!canvas.querySelector('[data-type=document_importer]'),'Aceptar reemplaza bloque importador');
+  check(!!canvas.querySelector('[data-type=titulo_basico]')&&!!canvas.querySelector('[data-type=parrafo_basico]')&&!!canvas.querySelector('[data-type=tabla_dinamica]'),'Genera título, párrafo y tabla nativos');
+  check(!!canvas.querySelector('strong')&&!!canvas.querySelector('em'),'Conserva negritas y cursivas');
+  check(canvas.querySelectorAll('.lms-element').length<=35,'Máximo 35 elementos');
+  const field=canvas.querySelector('[data-type=parrafo_basico] .editable-text');field.dispatchEvent(new w.PointerEvent('pointerdown',{bubbles:true}));field.click();check(field.isContentEditable,'Texto usa herramienta de edición del Builder');field.blur();
+  const exported=w.generateExportHTML(false,canvas,true);check(exported.includes('Mi documento')&&!exported.includes('data-doc-process'),'Exportación no incluye controles de importación');
+  w.insertTemplate('document_importer');target=canvas.querySelector('[data-type=document_importer]');
+  drop(w,target.querySelector('[data-doc-drop]'),[new w.File(['bad'],'archivo.exe')]);check(target.querySelector('[data-doc-process]').disabled&&target.querySelector('[data-doc-block-status]').textContent.includes('incompatible'),'Archivo incompatible rechazado antes de procesar');
+  const input=target.querySelector('[data-doc-file-input]');const transfer=new w.DataTransfer();transfer.items.add(sample(w));input.files=transfer.files;input.dispatchEvent(new w.Event('change',{bubbles:true}));check(!target.querySelector('[data-doc-process]').disabled,'Selección desde PC también prepara archivo');
+  target.querySelector('[data-doc-clear]').click();check(target.querySelector('[data-doc-process]').disabled&&!target.querySelector('[data-doc-pending]').textContent,'Quitar archivos libera selección');
+  for(const provider of ['google','microsoft']){target.querySelector(`[data-doc-cloud=${provider}]`).click();await wait(()=>!target.querySelector('[data-doc-block-status]').textContent.includes('Preparando'));check(target.querySelector('[data-doc-block-status]').textContent.includes('Falta configurar'),provider+': explica configuración OAuth pendiente sin pedir contraseñas');}
+  result.textContent+='TOTAL '+n;
+ }catch(error){result.textContent+='ERROR '+error.stack;}
+};
+</script>
